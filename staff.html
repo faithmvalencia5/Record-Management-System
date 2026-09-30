@@ -2265,7 +2265,7 @@
             `;
           }
 
-          const response = await fetch('http://localhost:5000/api/applications');
+          const response = await fetch('https://management-backend-3cij.onrender.com/api/applications');
 
           if (!response.ok) {
             throw new Error('HTTP ' + response.status);

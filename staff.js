@@ -1257,7 +1257,7 @@ async function loadApplicationsFromDatabase() {
     console.log("Loading applications from backend...");
 
     const response = await fetch(
-      "http://localhost:5000/api/applications",
+      "https://management-backend-3cij.onrender.com/api/applications",
       {
         method: "GET",
         headers: {
@@ -1348,7 +1348,7 @@ async function loadApplicationDetails(
 
     const response =
       await fetch(
-        `http://localhost:5000/api/applications/${encodeURIComponent(
+        `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(
           applicationId
         )}`
       );
