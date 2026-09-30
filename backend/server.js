@@ -17,6 +17,13 @@ app.use(express.json());
 app.use("/api/applications", applicationRoutes);
 app.use("/api/auth", authRoutes);
 
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "Management System backend is working."
+  });
+});
+
 app.get("/api/test", (req, res) => {
   res.json({
     success: true,
