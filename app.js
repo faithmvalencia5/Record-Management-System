@@ -1460,7 +1460,7 @@ async function openApplicationDetail(appId) {
   // Get the complete application information from the database
   try {
     const response = await fetch(
-      `http://localhost:5000/api/applications/${encodeURIComponent(appId)}`
+      `http://https://management-backend-3cji.onrender.com/api/applications/${encodeURIComponent(appId)}`
     );
 
     if (response.ok) {
