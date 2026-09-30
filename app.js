@@ -1114,7 +1114,7 @@ async function handleLogin(event) {
   }
 
   try {
-    const response = await fetch('http://localhost:5000/api/auth/login', {
+    const response = await fetch('http://https://management-backend-3cji.onrender.com/api/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -2009,7 +2009,7 @@ async function updateTableStatus(
 
     const response =
       await fetch(
-        `http://localhost:5000/api/applications/${encodeURIComponent(
+        `http://https://management-backend-3cji.onrender.com/api/applications/${encodeURIComponent(
           appId
         )}/status`,
         {
@@ -3149,7 +3149,7 @@ async function saveCurrent() {
 
     const response =
       await fetch(
-        `http://localhost:5000/api/applications/${encodeURIComponent(
+        `http://https://management-backend-3cji.onrender.com/api/applications/${encodeURIComponent(
           CURRENT_APP_ID
         )}/validation`,
         {
