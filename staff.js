@@ -1225,6 +1225,284 @@ function renderLiveApplicants(
 
 }
 
+// RENDER RECENT SUBMISSIONS FROM LIVE DATABASE
+
+function renderRecentSubmissions(applications) {
+
+  const tbody =
+    document.getElementById(
+      'recent-submissions-tbody'
+    );
+
+  if (!tbody) {
+    return;
+  }
+
+  if (
+    !Array.isArray(applications) ||
+    applications.length === 0
+  ) {
+    tbody.innerHTML = `
+      <tr>
+        <td
+          colspan="5"
+          style="
+            text-align:center;
+            padding:32px;
+            color:var(--text-muted);
+          "
+        >
+          No recent submissions yet.
+        </td>
+      </tr>
+    `;
+
+    return;
+  }
+
+  const recentApplications =
+    applications
+      .filter(application => {
+
+        const status =
+          String(
+            application.status || ''
+          )
+            .trim()
+            .toLowerCase();
+
+        return (
+          status === 'pending' ||
+          status === 'under review' ||
+          status === 'in review'
+        );
+
+      })
+      .sort((a, b) => {
+
+        const dateA =
+          new Date(
+            a.created_at || 0
+          ).getTime();
+
+        const dateB =
+          new Date(
+            b.created_at || 0
+          ).getTime();
+
+        return dateB - dateA;
+
+      })
+      .slice(0, 5);
+
+  if (!recentApplications.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td
+          colspan="5"
+          style="
+            text-align:center;
+            padding:32px;
+            color:var(--text-muted);
+          "
+        >
+          No recent submissions yet.
+        </td>
+      </tr>
+    `;
+
+    return;
+  }
+
+  tbody.innerHTML =
+    recentApplications.map(
+      application => {
+
+        const appId =
+          application.application_id ||
+          application.id ||
+          '';
+
+        const fullName = [
+          application.first_name,
+          application.middle_name,
+          application.surname
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .trim() ||
+          'Unnamed Applicant';
+
+        const barangay =
+          application.barangay_district ||
+          '—';
+
+        const status =
+          application.status ||
+          'Pending';
+
+        const date =
+          application.created_at
+            ? new Date(
+                application.created_at
+              ).toLocaleDateString(
+                'en-US',
+                {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                }
+              )
+            : '—';
+
+        const statusLower =
+          status
+            .toLowerCase();
+
+        let badgeClass =
+          'badge-pending';
+
+        if (
+          statusLower.includes('review')
+        ) {
+          badgeClass =
+            'badge-review';
+        }
+
+        if (
+          statusLower.includes('reject')
+        ) {
+          badgeClass =
+            'badge-rejected';
+        }
+
+        if (
+          statusLower.includes('approv') ||
+          statusLower.includes('verif')
+        ) {
+          badgeClass =
+            'badge-approved';
+        }
+
+        if (
+          statusLower.includes('issue') ||
+          statusLower.includes('complete')
+        ) {
+          badgeClass =
+            'badge-issued';
+        }
+
+        return `
+          <tr
+            data-app-id="${escapeApplicationHtml(appId)}"
+          >
+
+            <td>
+              <div class="applicant-cell">
+                <div class="applicant-avatar">
+                  ${escapeApplicationHtml(
+                    fullName
+                      .split(/\s+/)
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map(
+                        part =>
+                          part
+                            .charAt(0)
+                            .toUpperCase()
+                      )
+                      .join('')
+                  )}
+                </div>
+
+                <div class="applicant-info">
+                  <span class="applicant-name">
+                    ${escapeApplicationHtml(
+                      fullName
+                    )}
+                  </span>
+
+                  <span class="applicant-id">
+                    ${escapeApplicationHtml(
+                      appId
+                    )}
+                  </span>
+                </div>
+              </div>
+            </td>
+
+            <td>
+              <span class="cell-text">
+                ${escapeApplicationHtml(
+                  date
+                )}
+              </span>
+            </td>
+
+            <td>
+              <span class="cell-text">
+                ${escapeApplicationHtml(
+                  barangay
+                )}
+              </span>
+            </td>
+
+            <td>
+              <span class="badge ${badgeClass}">
+                ${escapeApplicationHtml(
+                  status
+                )}
+              </span>
+            </td>
+
+            <td style="text-align:right">
+              <button
+                class="row-action always-visible"
+                onclick="
+                  openApplicationDetail(
+                    '${escapeApplicationHtml(appId)}'
+                  )
+                "
+              >
+                View
+              </button>
+            </td>
+
+          </tr>
+        `;
+      }
+    )
+    .join('');
+
+  // Update Recent Submissions footer
+
+  const footer =
+    Array.from(
+      document.querySelectorAll(
+        '.data-table-card'
+      )
+    )
+      .find(card =>
+        card.querySelector(
+          '.table-header__title'
+        )
+          ?.textContent
+          ?.trim() ===
+        'Recent Submissions'
+      )
+      ?.querySelector(
+        '.table-footer__info'
+      );
+
+  if (footer) {
+
+    footer.textContent =
+      `Showing ${recentApplications.length} of ${recentApplications.length} pending review submissions`;
+
+  }
+
+}
+
 function updateApplicantSummaryCards(applications) {
 
   if (!Array.isArray(applications)) {
@@ -1393,6 +1671,12 @@ async function loadApplicationsFromDatabase() {
 
     if (typeof renderLiveApplicants === "function") {
       renderLiveApplicants(applications);
+    }
+
+    // UPDATE RECENT SUBMISSIONS
+
+    if (typeof renderRecentSubmissions === 'function') {
+      renderRecentSubmissions(applications);
     }
 
     // UPDATE APPLICANT SUMMARY CARDS

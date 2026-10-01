@@ -887,7 +887,13 @@ function applyDashboardMetrics() {
     const footer = card.querySelector('.table-footer__info');
     if (!footer) return;
     if (title === 'Recent Submissions') {
-      footer.textContent = `Showing 5 of ${fmt(data.pendingReview)} pending review submissions`;
+      const visible =
+        document.querySelectorAll(
+          '#recent-submissions-tbody tr'
+        ).length;
+
+      footer.textContent =
+        `Showing ${visible} of ${fmt(data.pendingReview)} pending review submissions`;
     }
   });
 }
