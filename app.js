@@ -333,6 +333,14 @@ function initIssuance() {
   });
 }
 function initProcessing() {
+  const analyticsModule = document.getElementById('mod-analytics');
+
+  if (
+    !analyticsModule ||
+    !analyticsModule.classList.contains('active')
+  ) {
+    return;
+  }
   const ctx = mkCanvas('chart-processing'); if (!ctx) return;
   const vals = analyticsScope().processing;
   CHARTS['processing'] = new Chart(ctx, {
@@ -934,7 +942,15 @@ function applyAnalyticsRoleView() {
     sel.style.display = canExport ? '' : 'none';
   });
 
-  if (chartsReady) initAllCharts();
+  if (
+    chartsReady &&
+    document
+      .getElementById('mod-analytics')
+      ?.classList
+      .contains('active')
+  ) {
+    initAllCharts();
+  }
 }
 
 function toggleRoleSwitcher() {

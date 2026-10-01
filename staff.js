@@ -3509,24 +3509,100 @@ async function loadApplicationsFromDatabase() {
     LIVE_APPLICATIONS = applications;
 
 
-    // UPDATE LIVE ANALYTICS
+    // UPDATE LIVE ANALYTICS DATA
 
-    if (typeof updateLiveAnalyticsData === "function") {
-      updateLiveAnalyticsData(applications);
+    if (
+      typeof updateLiveAnalyticsData ===
+      "function"
+    ) {
+      updateLiveAnalyticsData(
+        applications
+      );
     }
 
 
     // UPDATE DASHBOARD VISUALS
 
-    if (typeof updateLiveDashboardVisuals === "function") {
-      updateLiveDashboardVisuals(applications);
+    if (
+      typeof updateLiveDashboardVisuals ===
+      "function"
+    ) {
+      updateLiveDashboardVisuals(
+        applications
+      );
     }
 
 
     // UPDATE ANALYTICS CHART DATA
 
-    if (typeof updateLiveAnalyticsCharts === "function") {
-      updateLiveAnalyticsCharts(applications);
+    if (
+      typeof updateLiveAnalyticsCharts ===
+      "function"
+    ) {
+      updateLiveAnalyticsCharts(
+        applications
+      );
+    }
+
+
+    // APPLICATION FLOW
+    // Explicitly refresh the live trend chart after
+    // the database data has been loaded.
+
+    if (
+      typeof CHARTS !== "undefined" &&
+      CHARTS.trend
+    ) {
+
+      const currentYear =
+        new Date().getFullYear();
+
+      const submitted =
+        Array(12).fill(0);
+
+      applications.forEach(
+        application => {
+
+          const createdDateValue =
+            application.created_at ||
+            application.submitted_at ||
+            application.application_date ||
+            null;
+
+          if (!createdDateValue) {
+            return;
+          }
+
+          const createdDate =
+            new Date(
+              createdDateValue
+            );
+
+          if (
+            Number.isNaN(
+              createdDate.getTime()
+            )
+          ) {
+            return;
+          }
+
+          if (
+            createdDate.getFullYear() !==
+            currentYear
+          ) {
+            return;
+          }
+
+          submitted[
+            createdDate.getMonth()
+          ]++;
+        }
+      );
+
+      CHARTS.trend.data.datasets[0].data =
+        submitted;
+
+      CHARTS.trend.update();
     }
 
 
