@@ -2250,6 +2250,601 @@ function renderLiveApplicants(
 
 }
 
+// RENDER LIVE APPLICATIONS
+
+function renderLiveApplications(applications) {
+
+  const tbody =
+    document.getElementById(
+      'applications-tbody'
+    );
+
+  if (!tbody) {
+    return;
+  }
+
+  if (
+    !Array.isArray(applications) ||
+    applications.length === 0
+  ) {
+
+    tbody.innerHTML = `
+      <tr>
+        <td
+          colspan="8"
+          style="
+            text-align:center;
+            padding:32px;
+            color:var(--text-muted);
+          "
+        >
+          No applications found.
+        </td>
+      </tr>
+    `;
+
+    const shown =
+      document.getElementById(
+        'apps-shown'
+      );
+
+    const total =
+      document.getElementById(
+        'apps-total'
+      );
+
+    if (shown) {
+      shown.textContent = '0';
+    }
+
+    if (total) {
+      total.textContent = '0';
+    }
+
+    return;
+  }
+
+
+  // SAVE EACH LIVE APPLICATION
+  // so status updates can still use APP_DB
+
+  applications.forEach(
+    application => {
+
+      const appId =
+        application.application_id ||
+        application.id ||
+        '';
+
+      if (appId) {
+        APP_DB[appId] = application;
+      }
+
+    }
+  );
+
+
+  tbody.innerHTML =
+    applications.map(
+      (application, index) => {
+
+        const appId =
+          application.application_id ||
+          application.id ||
+          '';
+
+
+        const fullName = [
+          application.first_name,
+          application.middle_name,
+          application.surname
+        ]
+          .filter(Boolean)
+          .join(' ')
+          .trim() ||
+          'Unnamed Applicant';
+
+
+        const barangay =
+          application.barangay_district ||
+          '—';
+
+
+        const createdAt =
+          application.created_at ||
+          application.submitted_at ||
+          null;
+
+
+        let formattedDate =
+          '—';
+
+
+        if (createdAt) {
+
+          const date =
+            new Date(createdAt);
+
+          if (
+            !Number.isNaN(
+              date.getTime()
+            )
+          ) {
+
+            formattedDate =
+              date.toLocaleDateString(
+                'en-US',
+                {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                }
+              );
+
+          }
+
+        }
+
+
+        const status =
+          application.status ||
+          'Pending';
+
+
+        // APPLICATION TYPE
+
+        let applicationTypeHtml =
+          '<span class="app-type-pill app-type-pill--first">★ First-Time</span>';
+
+        if (
+          typeof buildApplicationTypePill ===
+          'function'
+        ) {
+
+          try {
+
+            applicationTypeHtml =
+              buildApplicationTypePill(
+                application
+              );
+
+          } catch (error) {
+
+            console.warn(
+              'Unable to build application type:',
+              error
+            );
+
+          }
+
+        }
+
+
+        // DOCUMENT STATUS
+
+        let docsHtml =
+          '<span class="docs-pill">—</span>';
+
+        if (
+          typeof buildDocsStatusPill ===
+          'function'
+        ) {
+
+          try {
+
+            docsHtml =
+              buildDocsStatusPill(
+                application
+              );
+
+          } catch (error) {
+
+            console.warn(
+              'Unable to build document status:',
+              error
+            );
+
+          }
+
+        }
+
+
+        // STATUS DROPDOWN
+
+        let statusHtml =
+          `<span class="status-select__label">
+            ${escapeApplicationHtml(status)}
+          </span>`;
+
+
+        if (
+          typeof buildStatusSelect ===
+          'function'
+        ) {
+
+          try {
+
+            statusHtml =
+              buildStatusSelect(
+                appId,
+                status
+              );
+
+          } catch (error) {
+
+            console.warn(
+              'Unable to build application status:',
+              error
+            );
+
+          }
+
+        }
+
+
+        // URGENT CHECK
+
+        let daysPending =
+          Number(
+            application.days_pending
+          );
+
+        if (
+          !Number.isFinite(daysPending)
+        ) {
+
+          daysPending = 0;
+
+          if (
+            createdAt &&
+            (
+              String(status)
+                .toLowerCase() ===
+                'pending' ||
+              String(status)
+                .toLowerCase() ===
+                'under review'
+            )
+          ) {
+
+            const created =
+              new Date(createdAt);
+
+            if (
+              !Number.isNaN(
+                created.getTime()
+              )
+            ) {
+
+              daysPending =
+                Math.floor(
+                  (
+                    Date.now() -
+                    created.getTime()
+                  ) /
+                  (
+                    1000 *
+                    60 *
+                    60 *
+                    24
+                  )
+                );
+
+            }
+
+          }
+
+        }
+
+
+        const avatar =
+          fullName
+            .split(/\s+/)
+            .filter(Boolean)
+            .slice(0, 2)
+            .map(
+              part =>
+                part
+                  .charAt(0)
+                  .toUpperCase()
+            )
+            .join('');
+
+
+        const gradients = [
+          'linear-gradient(135deg,#FDE68A,#D97706)',
+          'linear-gradient(135deg,#34D399,#059669)',
+          'linear-gradient(135deg,#93C5FD,#2563EB)',
+          'linear-gradient(135deg,#F9A8D4,#DB2777)',
+          'linear-gradient(135deg,#C4B5FD,#7C3AED)',
+          'linear-gradient(135deg,#FCA5A5,#DC2626)'
+        ];
+
+        const gradient =
+          gradients[
+            index % gradients.length
+          ];
+
+
+        return `
+          <tr
+            data-app-id="${escapeApplicationHtml(appId)}"
+          >
+
+            <td style="width:40px">
+
+              <input
+                type="checkbox"
+                class="row-check"
+                data-app-id="${escapeApplicationHtml(appId)}"
+                aria-label="Select ${escapeApplicationHtml(fullName)}"
+                onchange="updateBatchState()"
+              />
+
+            </td>
+
+
+            <td data-label="Applicant">
+
+              <div class="applicant-cell">
+
+                <div
+                  class="applicant-avatar"
+                  style="background:${gradient}"
+                >
+                  ${escapeApplicationHtml(avatar)}
+                </div>
+
+                <div class="applicant-info">
+
+                  <span class="applicant-name">
+                    ${escapeApplicationHtml(fullName)}
+                  </span>
+
+                  <span class="applicant-id">
+                    ${escapeApplicationHtml(appId)}
+                  </span>
+
+                </div>
+
+              </div>
+
+            </td>
+
+
+            <td data-label="Date">
+
+              <span class="cell-text">
+                ${escapeApplicationHtml(
+                  formattedDate
+                )}
+              </span>
+
+            </td>
+
+
+            <td data-label="Application Type">
+
+              ${applicationTypeHtml}
+
+            </td>
+
+
+            <td data-label="Barangay">
+
+              <span class="cell-text">
+                ${escapeApplicationHtml(
+                  barangay
+                )}
+              </span>
+
+            </td>
+
+
+            <td data-label="Docs Status">
+
+              ${docsHtml}
+
+            </td>
+
+
+            <td data-label="Status">
+
+              ${statusHtml}
+
+            </td>
+
+
+            <td style="text-align:right">
+
+              ${
+                typeof buildViewAction ===
+                'function'
+                  ? buildViewAction(appId)
+                  : `
+                    <button
+                      type="button"
+                      class="row-action always-visible"
+                      onclick="openApplicationDetail('${escapeApplicationHtml(appId)}')"
+                    >
+                      View
+                    </button>
+                  `
+              }
+
+            </td>
+
+          </tr>
+        `;
+
+      }
+    )
+    .join('');
+
+
+  // UPDATE TOTALS
+
+  const shown =
+    document.getElementById(
+      'apps-shown'
+    );
+
+  const total =
+    document.getElementById(
+      'apps-total'
+    );
+
+  if (shown) {
+    shown.textContent =
+      applications.length;
+  }
+
+  if (total) {
+    total.textContent =
+      applications.length;
+  }
+
+
+  // UPDATE STATUS TAB COUNTS
+
+  if (
+    typeof updateStatusTabCounts ===
+    'function'
+  ) {
+
+    updateStatusTabCounts();
+
+  }
+
+
+  // UPDATE URGENT COUNT
+
+  const urgentCount =
+    applications.filter(
+      application => {
+
+        const status =
+          String(
+            application.status ||
+            ''
+          )
+            .trim()
+            .toLowerCase();
+
+        let days =
+          Number(
+            application.days_pending
+          );
+
+        if (
+          !Number.isFinite(days) &&
+          application.created_at &&
+          (
+            status === 'pending' ||
+            status === 'under review'
+          )
+        ) {
+
+          const created =
+            new Date(
+              application.created_at
+            );
+
+          if (
+            !Number.isNaN(
+              created.getTime()
+            )
+          ) {
+
+            days =
+              Math.floor(
+                (
+                  Date.now() -
+                  created.getTime()
+                ) /
+                (
+                  1000 *
+                  60 *
+                  60 *
+                  24
+                )
+              );
+
+          }
+
+        }
+
+        return days > 5;
+
+      }
+    )
+    .length;
+
+
+  const urgentElement =
+    document.getElementById(
+      'urgent-count'
+    );
+
+  if (urgentElement) {
+
+    urgentElement.textContent =
+      `${urgentCount} Urgent`;
+
+  }
+
+
+  const urgentAlert =
+    document.getElementById(
+      'urgent-alert'
+    );
+
+  const urgentTitle =
+    document.getElementById(
+      'urgent-alert-title'
+    );
+
+  const urgentDescription =
+    document.getElementById(
+      'urgent-alert-desc'
+    );
+
+
+  if (urgentAlert) {
+
+    urgentAlert.style.display =
+      urgentCount > 0
+        ? ''
+        : 'none';
+
+  }
+
+
+  if (urgentTitle) {
+
+    urgentTitle.textContent =
+      urgentCount > 0
+        ? `${urgentCount} application${
+            urgentCount === 1
+              ? ''
+              : 's'
+          } require urgent review`
+        : 'No urgent applications';
+
+  }
+
+
+  if (urgentDescription) {
+
+    urgentDescription.textContent =
+      urgentCount > 0
+        ? 'These applications have been pending for more than 5 days and need immediate attention.'
+        : 'Applications pending for more than 5 days will appear here.';
+
+  }
+
+}
+
 // ESCAPE HTML
 
 function escapeApplicationHtml(
@@ -2717,11 +3312,11 @@ async function loadApplicationsFromDatabase() {
     // UPDATE APPLICATIONS TABLE
 
     if (
-      typeof displayApplications ===
+      typeof renderLiveApplications ===
       "function"
     ) {
 
-      displayApplications(
+      renderLiveApplications(
         applications
       );
 
