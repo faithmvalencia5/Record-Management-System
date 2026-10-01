@@ -320,7 +320,7 @@ function initAge() {
   CHARTS['age'] = new Chart(ctx, {
     type: 'doughnut',
     data: { labels: ['60–64', '65–69', '70–74', '75–79', '80–84', '85+'], datasets: [{ data: analyticsScope().ageDistribution || [0, 0, 0, 0, 0, 0], backgroundColor: ['#BFDBFE', '#60A5FA', '#2563EB', '#1A4FBA', '#1E3A8A', '#0F1F4D'], hoverOffset: 6, borderWidth: 0 }] },
-    options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { display: false }, tooltip: { ...TIP, callbacks: { label: c => ` Age ${c.label}: ${c.parsed}%` } } } }
+    options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { display: false }, tooltip: {...TIP, callbacks: {label: c => ` Age ${c.label}: ${c.parsed}`} } } }
   });
 }
 function initIssuance() {

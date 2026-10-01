@@ -1058,6 +1058,109 @@ function updateStaffKPICards(
 
 }
 
+function updateAgeDistributionLegend() {
+
+  const container =
+    document.getElementById(
+      'age-distribution-legend'
+    );
+
+  if (!container) {
+    return;
+  }
+
+  const data =
+    analyticsScope().ageDistribution ||
+    [0, 0, 0, 0, 0, 0];
+
+  const groups = [
+    {
+      label: '60–64 yrs',
+      value: Number(data[0]) || 0
+    },
+    {
+      label: '65–69 yrs',
+      value: Number(data[1]) || 0
+    },
+    {
+      label: '70–74 yrs',
+      value: Number(data[2]) || 0
+    },
+    {
+      label: '75–79 yrs',
+      value: Number(data[3]) || 0
+    },
+    {
+      label: '80–84 yrs',
+      value: Number(data[4]) || 0
+    },
+    {
+      label: '85+ yrs',
+      value: Number(data[5]) || 0
+    }
+  ];
+
+  const total =
+    groups.reduce(
+      (sum, group) =>
+        sum + group.value,
+      0
+    );
+
+  container.innerHTML =
+    groups.map(
+      group => {
+
+        const percent =
+          total > 0
+            ? Math.round(
+                (group.value / total) * 100
+              )
+            : 0;
+
+        return `
+          <div
+            style="
+              display:flex;
+              align-items:center;
+              gap:8px;
+              font-size:13px;
+              line-height:1.3;
+            "
+          >
+            <span
+              style="
+                width:10px;
+                height:10px;
+                border-radius:50%;
+                background:var(--primary);
+                flex-shrink:0;
+              "
+            ></span>
+
+            <span>
+              <strong style="font-size:13px">
+                ${group.label}
+              </strong>
+
+              <br />
+
+              <span
+                style="
+                  color:var(--text-muted);
+                  font-size:12px;
+                "
+              >
+                ${percent}% · ${group.value}
+              </span>
+            </span>
+          </div>
+        `;
+
+      }
+    )
+    .join('');
+}
 
 // BUILD LIVE ANALYTICS DATA
 
@@ -1108,11 +1211,15 @@ function updateLiveAnalyticsCharts(
   applications.forEach(
     application => {
 
+      const createdDateValue =
+        application.created_at ||
+        application.submitted_at ||
+        application.application_date ||
+        null;
+
       const createdDate =
-        application.created_at
-          ? new Date(
-              application.created_at
-            )
+        createdDateValue
+          ? new Date(createdDateValue)
           : null;
 
 
@@ -1144,11 +1251,14 @@ function updateLiveAnalyticsCharts(
 
       // STATUS DATE
 
+      const statusDateValue =
+        application.status_updated_at ||
+        application.updated_at ||
+        createdDateValue;
+
       const statusDate =
-        application.status_updated_at
-          ? new Date(
-              application.status_updated_at
-            )
+        statusDateValue
+          ? new Date(statusDateValue)
           : createdDate;
 
 
@@ -1506,6 +1616,8 @@ function updateLiveAnalyticsCharts(
 
       data.ageDistribution =
         [...ageDistribution];
+      
+      updateAgeDistributionLegend();
 
 
       data.issuance =
@@ -1571,42 +1683,48 @@ function updateLiveAnalyticsCharts(
       }
 
 
-      if (
-        CHARTS.status
-      ) {
+      if (CHARTS.status) {
 
-        const data =
-          analyticsScope();
+        const data = analyticsScope();
 
-        CHARTS.status.data.datasets[0]
-          .data = [
+        CHARTS.status.data.labels = [
+          'Approved',
+          'Pending',
+          'In Review',
+          'Rejected'
+        ];
 
-            data.pendingReview ||
-              0,
-
-            data.approved ||
-              0,
-
-            data.rejected ||
-              0
-
-          ];
+        CHARTS.status.data.datasets[0].data = [
+          Number(data.approved) || 0,
+          Number(data.pending) || 0,
+          Number(data.inReview) || 0,
+          Number(data.rejected) || 0
+        ];
 
         CHARTS.status.update();
 
       }
 
 
-      if (
-        CHARTS.barangay
-      ) {
+      if (CHARTS.barangay) {
 
         CHARTS.barangay.data.labels =
           barangayLabels;
 
-        CHARTS.barangay.data.datasets[0]
-          .data =
+        if (CHARTS.barangay.data.datasets[0]) {
+          CHARTS.barangay.data.datasets[0].data =
             barangayTotal;
+        }
+
+        if (CHARTS.barangay.data.datasets[1]) {
+          CHARTS.barangay.data.datasets[1].data =
+            barangayApproved;
+        }
+
+        if (CHARTS.barangay.data.datasets[2]) {
+          CHARTS.barangay.data.datasets[2].data =
+            barangayPending;
+        }
 
         CHARTS.barangay.update();
 
@@ -1651,12 +1769,72 @@ function updateLiveAnalyticsCharts(
 
       }
 
+      updateAnalyticsHandoff(applications);
+
     }
 
   }
+   updateAnalyticsHandoff(applications);
 
 }
 
+function updateAnalyticsHandoff(applications) {
+
+  if (!Array.isArray(applications)) {
+    return;
+  }
+
+  const total = applications.length;
+
+  const ready = applications.filter(
+    application =>
+      normalizeApplicationStatus(
+        application.status
+      ) === 'ready'
+  ).length;
+
+  const percent =
+    total > 0
+      ? Math.round(
+          (ready / total) * 100
+        )
+      : 0;
+
+  const percentEl =
+    document.querySelector(
+      '.analytics-handoff__percent'
+    );
+
+  const titleEl =
+    document.querySelector(
+      '.analytics-handoff__title'
+    );
+
+  const descriptionEl =
+    document.querySelector(
+      '.analytics-handoff__description'
+    );
+
+  if (percentEl) {
+    percentEl.textContent =
+      `${percent}%`;
+  }
+
+  if (titleEl) {
+    titleEl.textContent =
+      ready > 0
+        ? `${ready} application${ready === 1 ? '' : 's'} ready for handoff`
+        : 'No handoff data yet';
+  }
+
+  if (descriptionEl) {
+    descriptionEl.textContent =
+      ready > 0
+        ? 'Approved applications ready to move to the ID Maker queue.'
+        : 'Applications marked Ready for Release will appear here.';
+  }
+
+}
 
 // INITIALIZE CHARTS IF READY
 
@@ -2085,6 +2263,7 @@ function renderLiveApplicants(applications) {
 
         const barangay =
           application.barangay_district ||
+          application.barangay ||
           '—';
 
 
