@@ -2173,7 +2173,6 @@ function renderLiveApplicants(applications) {
           >
 
             <td>
-
               <div class="applicant-cell">
 
                 <div class="applicant-avatar">
@@ -2188,8 +2187,7 @@ function renderLiveApplicants(applications) {
 
                   <span class="applicant-id">
                     ${escapeApplicationHtml(
-                      application.sex ||
-                      'Applicant'
+                      application.sex || 'Applicant'
                     )}
                     ·
                     ${escapeApplicationHtml(
@@ -2201,7 +2199,6 @@ function renderLiveApplicants(applications) {
                 </div>
 
               </div>
-
             </td>
 
 
@@ -2273,7 +2270,7 @@ function renderLiveApplicants(applications) {
             </td>
 
 
-            <td>
+            <td style="text-align:right">
               <button
                 class="row-action always-visible"
                 type="button"
@@ -3205,13 +3202,7 @@ function renderRecentSubmissions(
 
                   <button
                     class="row-action always-visible"
-                    onclick="
-                      openApplicationDetail(
-                        '${escapeApplicationHtml(
-                          appId
-                        )}'
-                      )
-                    "
+                    onclick="openApplicationDetail('${escapeApplicationHtml(appId)}')"
                   >
                     View
                   </button>
