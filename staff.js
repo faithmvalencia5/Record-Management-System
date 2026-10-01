@@ -2175,7 +2175,7 @@ function renderLiveApplicants(applications) {
             <td>
               <div class="applicant-cell">
 
-                <div class="applicant-avatar">
+                <div class="applicant-avatar" style="background:linear-gradient(135deg,#FDE68A,#D97706)">
                   ${escapeApplicationHtml(initials)}
                 </div>
 
@@ -2705,20 +2705,13 @@ function renderLiveApplications(applications) {
 
             <td style="text-align:right">
 
-              ${
-                typeof buildViewAction ===
-                'function'
-                  ? buildViewAction(appId)
-                  : `
-                    <button
-                      type="button"
-                      class="row-action always-visible"
-                      onclick="openApplicationDetail('${escapeApplicationHtml(appId)}')"
-                    >
-                      View
-                    </button>
-                  `
-              }
+              <button
+                type="button"
+                class="row-action always-visible"
+                onclick="openApplicationDetail('${escapeApplicationHtml(appId)}')"
+              >
+                View
+              </button>
 
             </td>
 
