@@ -1577,14 +1577,16 @@ function updateLiveAnalyticsCharts(
   // UPDATE ANALYTICS DATA
 
   const roles = [
-    ANALYTICS_DATA.admin,
-    ANALYTICS_DATA.staff,
-    ANALYTICS_DATA.idmaker
+    'Admin',
+    'Staff',
+    'ID Maker'
   ];
 
-
   roles.forEach(
-    data => {
+    role => {
+
+      const data =
+        ANALYTICS_DATA[role];
 
       if (!data) {
         return;
@@ -3543,68 +3545,6 @@ async function loadApplicationsFromDatabase() {
         applications
       );
     }
-
-
-    // APPLICATION FLOW
-    // Explicitly refresh the live trend chart after
-    // the database data has been loaded.
-
-    if (
-      typeof CHARTS !== "undefined" &&
-      CHARTS.trend
-    ) {
-
-      const currentYear =
-        new Date().getFullYear();
-
-      const submitted =
-        Array(12).fill(0);
-
-      applications.forEach(
-        application => {
-
-          const createdDateValue =
-            application.created_at ||
-            application.submitted_at ||
-            application.application_date ||
-            null;
-
-          if (!createdDateValue) {
-            return;
-          }
-
-          const createdDate =
-            new Date(
-              createdDateValue
-            );
-
-          if (
-            Number.isNaN(
-              createdDate.getTime()
-            )
-          ) {
-            return;
-          }
-
-          if (
-            createdDate.getFullYear() !==
-            currentYear
-          ) {
-            return;
-          }
-
-          submitted[
-            createdDate.getMonth()
-          ]++;
-        }
-      );
-
-      CHARTS.trend.data.datasets[0].data =
-        submitted;
-
-      CHARTS.trend.update();
-    }
-
 
     // UPDATE APPLICANTS TABLE
 

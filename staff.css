@@ -253,3 +253,12 @@ body > .status-select__menu{z-index:3000}
   .analytics-hero__stats{grid-template-columns:1fr}
   .analytics-handoff{padding:20px 18px;gap:14px}
 }
+
+/* Turnaround Time belongs only to Analytics */
+#analytics-turnaround-time {
+  display: block;
+}
+
+.module:not(.active) #analytics-turnaround-time {
+  display: none !important;
+}
