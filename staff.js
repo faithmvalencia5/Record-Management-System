@@ -2238,6 +2238,32 @@ function renderLiveApplicants(applications) {
 
 
             <td>
+              ${
+                typeof buildApplicationTypePill ===
+                'function'
+                  ? (() => {
+                      try {
+                        return buildApplicationTypePill(
+                          application
+                        );
+                      } catch (error) {
+                        return `
+                          <span class="badge badge-pending">
+                            Application
+                          </span>
+                        `;
+                      }
+                    })()
+                  : `
+                    <span class="badge badge-pending">
+                      Application
+                    </span>
+                  `
+              }
+            </td>
+
+
+            <td>
               ${docsHtml}
             </td>
 
@@ -2249,7 +2275,7 @@ function renderLiveApplicants(applications) {
 
             <td>
               <button
-                class="table-action-btn"
+                class="row-action always-visible"
                 type="button"
                 onclick="openApplicationDetail('${escapeApplicationHtml(appId)}')"
               >
