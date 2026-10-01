@@ -393,6 +393,28 @@ function switchPeriod(btn, p) {
   showToast('Switched to ' + p + ' view', 'info');
 }
 
+function syncTurnaroundTimeVisibility() {
+  const turnaroundTime =
+    document.getElementById(
+      'analytics-turnaround-time'
+    );
+
+  if (!turnaroundTime) {
+    return;
+  }
+
+  const analyticsModule =
+    document.getElementById(
+      'mod-analytics'
+    );
+
+  turnaroundTime.style.display =
+    analyticsModule &&
+    analyticsModule.classList.contains('active')
+      ? ''
+      : 'none';
+}
+
 /* ── NAVIGATION (kept) ── */
 function navigate(moduleId) {
   const p = ROLE_PERMS[CURRENT_ROLE] || ROLE_PERMS.Staff;
@@ -423,13 +445,53 @@ function navigate(moduleId) {
     showToast('This section is restricted to admin accounts.', 'error');
     return;
   }
-  document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
-  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
-  const mod = document.getElementById('mod-' + moduleId);
-  if (mod) mod.classList.add('active');
-  const link = document.querySelector('[data-module="' + moduleId + '"]');
-  if (link) link.classList.add('active');
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  document.querySelectorAll('.module').forEach(m =>
+    m.classList.remove('active')
+  );
+
+  document.querySelectorAll('.nav-link').forEach(l =>
+    l.classList.remove('active')
+  );
+
+  const mod =
+    document.getElementById(
+      'mod-' + moduleId
+    );
+
+  if (mod) {
+    mod.classList.add('active');
+  }
+
+  const link =
+    document.querySelector(
+      '[data-module="' + moduleId + '"]'
+    );
+
+  if (link) {
+    link.classList.add('active');
+  }
+
+
+  // TURNAROUND TIME VISIBILITY
+  // This card must only be visible on Analytics.
+
+  const turnaroundTime =
+    document.getElementById(
+      'analytics-turnaround-time'
+    );
+
+  if (turnaroundTime) {
+    turnaroundTime.style.display =
+      moduleId === 'analytics'
+        ? ''
+        : 'none';
+  }
+
+
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth'
+  });
   if (moduleId === 'analytics') setTimeout(initAllCharts, 80);
   if (moduleId === 'id-maker-dashboard') { if (typeof initIdMakerQueue === 'function') initIdMakerQueue(); if (typeof updateIdMakerKPIs === 'function') updateIdMakerKPIs(); }
   if (moduleId === 'id-maker-analytics') { if (typeof initIdMakerCharts === 'function') setTimeout(initIdMakerCharts, 80); }
