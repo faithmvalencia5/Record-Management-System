@@ -2041,6 +2041,14 @@ function renderLiveApplicants(applications) {
       </tr>
     `;
 
+    const footer = document.querySelector(
+      '#mod-applicants .table-footer__info'
+    );
+
+    if (footer) {
+      footer.textContent = 'Showing 0 of 0 applicants';
+    }
+
     return;
   }
 
@@ -2243,7 +2251,7 @@ function renderLiveApplicants(applications) {
               <button
                 class="table-action-btn"
                 type="button"
-                onclick="loadApplicationDetails('${escapeApplicationHtml(appId)}')"
+                onclick="openApplicationDetail('${escapeApplicationHtml(appId)}')"
               >
                 View
               </button>
@@ -2255,6 +2263,15 @@ function renderLiveApplicants(applications) {
       }
     )
     .join('');
+
+    const footer = document.querySelector(
+      '#mod-applicants .table-footer__info'
+    );
+
+    if (footer) {
+      footer.textContent =
+        `Showing ${applications.length.toLocaleString()} of ${applications.length.toLocaleString()} applicants`;
+    }
 
 }
 
