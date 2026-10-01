@@ -262,12 +262,43 @@
             <div class="bar-chart-wrap">
               <div class="chart-empty-note" id="barangay-empty-note">No registration data available for 2026 yet. Connect the live system to populate this chart.</div>
               <div class="bar-chart">
-                <div class="bar-col"><div class="bar-col__bar" style="height:0"></div></div>
-                <div class="bar-col"><div class="bar-col__bar" style="height:0"></div></div>
-                <div class="bar-col"><div class="bar-col__bar" style="height:0"></div></div>
-                <div class="bar-col"><div class="bar-col__bar" style="height:0"></div></div>
-                <div class="bar-col"><div class="bar-col__bar" style="height:0"></div></div>
-                <div class="bar-col"><div class="bar-col__bar" style="height:0"></div></div>
+
+                <div class="bar-col">
+                  <div class="bar-col__value">0</div>
+                  <div class="bar-col__bar" style="height:0"></div>
+                  <div class="bar-col__label">—</div>
+                </div>
+
+                <div class="bar-col">
+                  <div class="bar-col__value">0</div>
+                  <div class="bar-col__bar" style="height:0"></div>
+                  <div class="bar-col__label">—</div>
+                </div>
+
+                <div class="bar-col">
+                  <div class="bar-col__value">0</div>
+                  <div class="bar-col__bar" style="height:0"></div>
+                  <div class="bar-col__label">—</div>
+                </div>
+
+                <div class="bar-col">
+                  <div class="bar-col__value">0</div>
+                  <div class="bar-col__bar" style="height:0"></div>
+                  <div class="bar-col__label">—</div>
+                </div>
+
+                <div class="bar-col">
+                  <div class="bar-col__value">0</div>
+                  <div class="bar-col__bar" style="height:0"></div>
+                  <div class="bar-col__label">—</div>
+                </div>
+
+                <div class="bar-col">
+                  <div class="bar-col__value">0</div>
+                  <div class="bar-col__bar" style="height:0"></div>
+                  <div class="bar-col__label">—</div>
+                </div>
+
               </div>
             </div>
           </div>
@@ -2018,7 +2049,7 @@
             const name = getApplicationFullName(application);
             const initials = getApplicationInitials(name);
             const date = formatApplicationDate(application.created_at);
-            const barangay = application.barangay_district || '—';
+            const barangay = application.barangay_district || application.barangay || '—';
 
             return `
               <tr data-app-id="${escapeApplicationHtml(appId)}">

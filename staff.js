@@ -624,31 +624,25 @@ function updateLiveDashboardVisuals(
 
   }
 
-
-  /*
-   * 2. DEMOGRAPHICS
-   */
-
   const donutSvg =
     document.querySelector(
-      '.demographics-donut svg'
+      '.donut-svg'
     );
 
   const donutPercent =
     document.querySelector(
-      '.demographics-donut__percent'
+      '.donut-inner__pct'
     );
 
   const donutTag =
     document.querySelector(
-      '.demographics-donut__tag'
+      '.donut-inner__tag'
     );
 
   const legendValues =
     document.querySelectorAll(
-      '.demographics-legend__value'
+      '.donut-legend__val'
     );
-
 
   let female = 0;
   let male = 0;
@@ -661,6 +655,7 @@ function updateLiveDashboardVisuals(
         String(
           application.sex ||
           application.gender ||
+          application.sex_at_birth ||
           ''
         )
           .trim()
