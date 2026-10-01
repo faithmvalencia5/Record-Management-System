@@ -1155,7 +1155,15 @@ function renderLiveApplicants(
   }
 
 
-  // UPDATE APPLICANTS FOOTER
+  const totalBadge =
+    document.getElementById(
+      'applicants-total-badge'
+    );
+
+  if (totalBadge) {
+    totalBadge.textContent =
+      `${applications.length.toLocaleString()} Total`;
+  }
 
   const applicantCards =
     document.querySelectorAll(
@@ -1215,6 +1223,87 @@ function renderLiveApplicants(
 
   }
 
+}
+
+function updateApplicantSummaryCards(applications) {
+
+  if (!Array.isArray(applications)) {
+    return;
+  }
+
+  const total = applications.length;
+
+  let verified = 0;
+  let unverified = 0;
+  let idsIssued = 0;
+
+  applications.forEach(application => {
+
+    const status = String(
+      application.status || ''
+    ).trim().toLowerCase();
+
+    if (status === 'verified') {
+      verified++;
+    }
+
+    if (
+      status === 'unverified' ||
+      status === 'pending'
+    ) {
+      unverified++;
+    }
+
+    if (
+      status === 'id issued' ||
+      status === 'issued' ||
+      status === 'completed'
+    ) {
+      idsIssued++;
+    }
+
+  });
+
+  const totalEl =
+    document.getElementById(
+      'applicants-total-count'
+    );
+
+  const verifiedEl =
+    document.getElementById(
+      'applicants-verified-count'
+    );
+
+  const unverifiedEl =
+    document.getElementById(
+      'applicants-unverified-count'
+    );
+
+  const issuedEl =
+    document.getElementById(
+      'applicants-issued-count'
+    );
+
+
+  if (totalEl) {
+    totalEl.textContent =
+      total.toLocaleString();
+  }
+
+  if (verifiedEl) {
+    verifiedEl.textContent =
+      verified.toLocaleString();
+  }
+
+  if (unverifiedEl) {
+    unverifiedEl.textContent =
+      unverified.toLocaleString();
+  }
+
+  if (issuedEl) {
+    issuedEl.textContent =
+      idsIssued.toLocaleString();
+  }
 }
 
 
@@ -1303,6 +1392,12 @@ async function loadApplicationsFromDatabase() {
 
     if (typeof renderLiveApplicants === "function") {
       renderLiveApplicants(applications);
+    }
+
+    // UPDATE APPLICANT SUMMARY CARDS
+
+    if (typeof updateApplicantSummaryCards === "function") {
+      updateApplicantSummaryCards(applications);
     }
 
     // UPDATE APPLICATIONS TABLE

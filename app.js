@@ -3684,10 +3684,6 @@ function resetInactivityTimer() {
   document.addEventListener(evt, resetInactivityTimer, { passive: true });
 });
 
-/* ACTIVITY LOG FILTERING */
-
-/* USER MANAGEMENT CRUD */
-
 /* APPLICANTS BARANGAY FILTER */
 function filterApplicantsByBarangay(barangay) {
   document.querySelectorAll('#applicants-tbody tr').forEach(r => {

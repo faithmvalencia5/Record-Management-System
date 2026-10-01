@@ -409,7 +409,7 @@
         <header class="page-header">
           <div class="page-header__left">
             <div class="page-header__eyebrow">
-              <h1 class="page-header__title">Applicants</h1><span class="page-header__badge">12,482 Total</span>
+              <h1 class="page-header__title">Applicants</h1> <span class="page-header__badge" id="applicants-total-badge">0 Total</span>
             </div>
             <p class="page-header__sub">Manage and review all registered senior citizen applicants</p>
           </div>
@@ -440,8 +440,8 @@
                 </svg></div>
               <div class="stat-card__meta"><span class="stat-card__trend trend-good">0</span></div>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Total Registered</span><span
-              class="stat-card__value">0</span><span class="stat-card__sub">Active database records</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Total Registered</span>
+              <span class="stat-card__value" id="applicants-total-count">0</span><span class="stat-card__sub">Active database records</span></div>
           </article>
           <article class="stat-card stat-card--success">
             <div class="stat-card__top">
@@ -453,8 +453,8 @@
                 </svg></div>
               <div class="stat-card__meta"><span class="stat-card__trend trend-good">0</span></div>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Verified</span><span
-              class="stat-card__value">0</span><span class="stat-card__sub">Ready for ID generation</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Verified</span>
+              <span class="stat-card__value" id="applicants-verified-count">0</span><span class="stat-card__sub">Ready for ID generation</span></div>
           </article>
           <article class="stat-card">
             <div class="stat-card__top">
@@ -466,8 +466,8 @@
                 </svg></div>
               <div class="stat-card__meta"><span class="stat-card__period">Awaiting</span></div>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Unverified</span><span
-              class="stat-card__value">0</span><span class="stat-card__sub">Awaiting staff review</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Unverified</span>
+              <span class="stat-card__value" id="applicants-unverified-count">0</span><span class="stat-card__sub">Awaiting staff review</span></div>
           </article>
           <article class="stat-card stat-card--purple">
             <div class="stat-card__top">
@@ -478,8 +478,8 @@
                 </svg></div>
               <div class="stat-card__meta"><span class="stat-card__trend trend-neutral">0</span></div>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">IDs Issued</span><span
-              class="stat-card__value">0</span><span class="stat-card__sub">Printed and distributed</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">IDs Issued</span>
+              <span class="stat-card__value" id="applicants-issued-count">0</span><span class="stat-card__sub">Printed and distributed</span></div>
           </article>
         </div>
 
@@ -1926,11 +1926,7 @@
     <script src="staff.js?v=13"></script>
 
     <script>
-      /*
-       * LIVE APPLICATION DATA
-       * Loads the Staff Applications table from the Record Management API.
-       * The backend endpoint is /api/applications.
-       */
+      /* LIVE APPLICATION DATA */
       let LIVE_APPLICATIONS = [];
 
       function escapeApplicationHtml(value) {
