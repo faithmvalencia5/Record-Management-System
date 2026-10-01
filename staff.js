@@ -1768,14 +1768,9 @@ function updateLiveAnalyticsCharts(
         CHARTS.processing.update();
 
       }
-
-      updateAnalyticsHandoff(applications);
-
     }
-
   }
    updateAnalyticsHandoff(applications);
-
 }
 
 function updateAnalyticsHandoff(applications) {
@@ -1801,18 +1796,18 @@ function updateAnalyticsHandoff(applications) {
       : 0;
 
   const percentEl =
-    document.querySelector(
-      '.analytics-handoff__percent'
+    document.getElementById(
+      'analytics-handoff-percent'
     );
 
   const titleEl =
-    document.querySelector(
-      '.analytics-handoff__title'
+    document.getElementById(
+      'analytics-handoff-title'
     );
 
   const descriptionEl =
-    document.querySelector(
-      '.analytics-handoff__description'
+    document.getElementById(
+      'analytics-handoff-description'
     );
 
   if (percentEl) {
