@@ -122,19 +122,22 @@ function isSameDay(dateValue, referenceDate = new Date()) {
     return false;
   }
 
-  const date = new Date(dateValue);
+  const date =
+    new Date(dateValue);
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return false;
   }
 
   return (
     date.getFullYear() ===
       referenceDate.getFullYear() &&
-
     date.getMonth() ===
       referenceDate.getMonth() &&
-
     date.getDate() ===
       referenceDate.getDate()
   );
@@ -147,23 +150,32 @@ function isSameMonth(dateValue, referenceDate = new Date()) {
     return false;
   }
 
-  const date = new Date(dateValue);
+  const date =
+    new Date(dateValue);
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return false;
   }
 
   return (
     date.getFullYear() ===
       referenceDate.getFullYear() &&
-
     date.getMonth() ===
       referenceDate.getMonth()
   );
 }
 
 
-// UPDATE ANALYTICS DATA
+// LIVE APPLICATION STORAGE
+
+let LIVE_APPLICATIONS = [];
+
+
+// UPDATE LIVE ANALYTICS DATA
 
 function updateLiveAnalyticsData(applications) {
 
@@ -171,7 +183,11 @@ function updateLiveAnalyticsData(applications) {
     return;
   }
 
-  const now = new Date();
+  LIVE_APPLICATIONS =
+    applications;
+
+  const now =
+    new Date();
 
   let pending = 0;
   let inReview = 0;
@@ -196,13 +212,17 @@ function updateLiveAnalyticsData(applications) {
       null;
 
 
-    // Current status counts
+    // CURRENT STATUS COUNTS
 
-    if (status === 'pending') {
+    if (
+      status === 'pending'
+    ) {
       pending++;
     }
 
-    if (status === 'review') {
+    if (
+      status === 'review'
+    ) {
       inReview++;
     }
 
@@ -215,7 +235,9 @@ function updateLiveAnalyticsData(applications) {
       approved++;
     }
 
-    if (status === 'rejected') {
+    if (
+      status === 'rejected'
+    ) {
       rejected++;
     }
 
@@ -227,7 +249,7 @@ function updateLiveAnalyticsData(applications) {
     }
 
 
-    // Approved today
+    // APPROVED TODAY
 
     if (
       (
@@ -236,13 +258,16 @@ function updateLiveAnalyticsData(applications) {
         status === 'issued' ||
         status === 'completed'
       ) &&
-      isSameDay(statusDate, now)
+      isSameDay(
+        statusDate,
+        now
+      )
     ) {
       approvedToday++;
     }
 
 
-    // Processed this month
+    // PROCESSED THIS MONTH
 
     if (
       (
@@ -253,17 +278,23 @@ function updateLiveAnalyticsData(applications) {
         status === 'completed' ||
         status === 'rejected'
       ) &&
-      isSameMonth(statusDate, now)
+      isSameMonth(
+        statusDate,
+        now
+      )
     ) {
       processedThisMonth++;
     }
 
 
-    // Rejected this month
+    // REJECTED THIS MONTH
 
     if (
       status === 'rejected' &&
-      isSameMonth(statusDate, now)
+      isSameMonth(
+        statusDate,
+        now
+      )
     ) {
       rejectedThisMonth++;
     }
@@ -275,10 +306,11 @@ function updateLiveAnalyticsData(applications) {
     pending + inReview;
 
 
-  // UPDATE ANALYTICS_DATA
+  // UPDATE ANALYTICS DATA
 
   if (
-    typeof ANALYTICS_DATA !== 'undefined'
+    typeof ANALYTICS_DATA !==
+    'undefined'
   ) {
 
     const roles = [
@@ -293,28 +325,36 @@ function updateLiveAnalyticsData(applications) {
         return;
       }
 
-      ANALYTICS_DATA[role].totalApplications =
+      ANALYTICS_DATA[role]
+        .totalApplications =
         applications.length;
 
-      ANALYTICS_DATA[role].pending =
+      ANALYTICS_DATA[role]
+        .pending =
         pending;
 
-      ANALYTICS_DATA[role].inReview =
+      ANALYTICS_DATA[role]
+        .inReview =
         inReview;
 
-      ANALYTICS_DATA[role].pendingReview =
+      ANALYTICS_DATA[role]
+        .pendingReview =
         pendingReview;
 
-      ANALYTICS_DATA[role].approved =
+      ANALYTICS_DATA[role]
+        .approved =
         approved;
 
-      ANALYTICS_DATA[role].rejected =
+      ANALYTICS_DATA[role]
+        .rejected =
         rejected;
 
-      ANALYTICS_DATA[role].idsIssued =
+      ANALYTICS_DATA[role]
+        .idsIssued =
         idsIssued;
 
-      ANALYTICS_DATA[role].statusDenominator =
+      ANALYTICS_DATA[role]
+        .statusDenominator =
         applications.length;
     });
   }
@@ -323,46 +363,455 @@ function updateLiveAnalyticsData(applications) {
   // UPDATE MAIN DASHBOARD
 
   if (
-    typeof applyDashboardMetrics === 'function'
+    typeof applyDashboardMetrics ===
+    'function'
   ) {
     applyDashboardMetrics();
   }
 
 
   if (
-    typeof applyAnalyticsRoleView === 'function'
+    typeof applyAnalyticsRoleView ===
+    'function'
   ) {
+
     try {
+
       applyAnalyticsRoleView();
+
     } catch (error) {
+
       console.warn(
         'Unable to refresh analytics view:',
         error
       );
+
     }
+
   }
+
 
   // UPDATE APPLICATION SUMMARY CARDS
 
-  updateApplicationSummaryCards(applications);
+  updateApplicationSummaryCards(
+    applications
+  );
 
 
   // UPDATE STAFF KPI STRIP
 
   updateStaffKPICards({
-    total: applications.length,
+    total:
+      applications.length,
     pendingReview,
     approvedToday,
     processedThisMonth,
     rejectedThisMonth
   });
+
 }
+
+
+// UPDATE LIVE DASHBOARD VISUALS
+
+function updateLiveDashboardVisuals(
+  applications
+) {
+
+  if (!Array.isArray(applications)) {
+    return;
+  }
+
+
+  /*
+   * 1. BARANGAY REGISTRATIONS
+   */
+
+  const yearFilter =
+    document.getElementById(
+      'barangay-year-filter'
+    );
+
+  const selectedYear =
+    yearFilter
+      ? String(
+          yearFilter.value
+        )
+      : String(
+          new Date()
+            .getFullYear()
+        );
+
+  const barangayCounts = {};
+
+
+  applications.forEach(
+    application => {
+
+      const dateValue =
+        application.created_at ||
+        application.submitted_at ||
+        null;
+
+      if (!dateValue) {
+        return;
+      }
+
+      const date =
+        new Date(dateValue);
+
+      if (
+        Number.isNaN(
+          date.getTime()
+        )
+      ) {
+        return;
+      }
+
+      if (
+        String(
+          date.getFullYear()
+        ) !== selectedYear
+      ) {
+        return;
+      }
+
+      const barangay =
+        application.barangay_district ||
+        'Unknown';
+
+      barangayCounts[barangay] =
+        (
+          barangayCounts[barangay] ||
+          0
+        ) + 1;
+
+    }
+  );
+
+
+  const barangayRows =
+    Object.entries(
+      barangayCounts
+    )
+      .sort(
+        (a, b) =>
+          b[1] - a[1]
+      )
+      .slice(0, 6);
+
+
+  const barColumns =
+    document.querySelectorAll(
+      '.barangay-empty-card .bar-col'
+    );
+
+  const emptyNote =
+    document.getElementById(
+      'barangay-empty-note'
+    );
+
+
+  if (
+    !barangayRows.length
+  ) {
+
+    if (emptyNote) {
+
+      emptyNote.style.display =
+        'flex';
+
+      emptyNote.textContent =
+        `No registration data available for ${selectedYear} yet.`;
+
+    }
+
+    barColumns.forEach(
+      column => {
+
+        const bar =
+          column.querySelector(
+            '.bar-col__bar'
+          );
+
+        if (bar) {
+          bar.style.height =
+            '0';
+        }
+
+      }
+    );
+
+  } else {
+
+    if (emptyNote) {
+      emptyNote.style.display =
+        'none';
+    }
+
+    const maxValue =
+      barangayRows[0][1] ||
+      1;
+
+    barColumns.forEach(
+      (column, index) => {
+
+        const bar =
+          column.querySelector(
+            '.bar-col__bar'
+          );
+
+        if (!bar) {
+          return;
+        }
+
+        const row =
+          barangayRows[index];
+
+        if (!row) {
+
+          bar.style.height =
+            '0';
+
+          return;
+        }
+
+        const barangay =
+          row[0];
+
+        const count =
+          row[1];
+
+        const height =
+          Math.max(
+            12,
+            Math.round(
+              (
+                count /
+                maxValue
+              ) * 100
+            )
+          );
+
+        bar.style.height =
+          `${height}%`;
+
+        bar.title =
+          `${barangay}: ${count}`;
+
+        const label =
+          column.querySelector(
+            '.bar-col__label'
+          );
+
+        if (label) {
+          label.textContent =
+            barangay;
+        }
+
+        const value =
+          column.querySelector(
+            '.bar-col__value'
+          );
+
+        if (value) {
+          value.textContent =
+            count;
+        }
+
+      }
+    );
+
+  }
+
+
+  /*
+   * 2. DEMOGRAPHICS
+   */
+
+  const donutSvg =
+    document.querySelector(
+      '.demographics-donut svg'
+    );
+
+  const donutPercent =
+    document.querySelector(
+      '.demographics-donut__percent'
+    );
+
+  const donutTag =
+    document.querySelector(
+      '.demographics-donut__tag'
+    );
+
+  const legendValues =
+    document.querySelectorAll(
+      '.demographics-legend__value'
+    );
+
+
+  let female = 0;
+  let male = 0;
+
+
+  applications.forEach(
+    application => {
+
+      const sex =
+        String(
+          application.sex ||
+          application.gender ||
+          ''
+        )
+          .trim()
+          .toLowerCase();
+
+      if (
+        sex === 'female' ||
+        sex === 'f'
+      ) {
+        female++;
+      }
+
+      if (
+        sex === 'male' ||
+        sex === 'm'
+      ) {
+        male++;
+      }
+
+    }
+  );
+
+
+  const demographicTotal =
+    female + male;
+
+
+  if (
+    demographicTotal > 0
+  ) {
+
+    const femalePercent =
+      Math.round(
+        (
+          female /
+          demographicTotal
+        ) * 100
+      );
+
+    const malePercent =
+      100 - femalePercent;
+
+
+    if (donutSvg) {
+
+      donutSvg.innerHTML = `
+        <circle
+          cx="67"
+          cy="67"
+          r="54"
+          fill="none"
+          stroke="#93C5FD"
+          stroke-width="14"
+          stroke-dasharray="${femalePercent * 3.393} 339.3"
+          stroke-linecap="butt"
+          transform="rotate(-90 67 67)"
+        />
+
+        <circle
+          cx="67"
+          cy="67"
+          r="54"
+          fill="none"
+          stroke="#3D6FE8"
+          stroke-width="14"
+          stroke-dasharray="${malePercent * 3.393} 339.3"
+          stroke-dashoffset="${-(femalePercent * 3.393)}"
+          stroke-linecap="butt"
+          transform="rotate(-90 67 67)"
+        />
+      `;
+
+    }
+
+
+    if (donutPercent) {
+      donutPercent.textContent =
+        '100%';
+    }
+
+    if (donutTag) {
+      donutTag.textContent =
+        'Total';
+    }
+
+    if (legendValues[0]) {
+      legendValues[0].textContent =
+        `${femalePercent}%`;
+    }
+
+    if (legendValues[1]) {
+      legendValues[1].textContent =
+        `${malePercent}%`;
+    }
+
+  } else {
+
+    if (donutPercent) {
+      donutPercent.textContent =
+        '0%';
+    }
+
+    if (donutTag) {
+      donutTag.textContent =
+        'No data';
+    }
+
+    if (legendValues[0]) {
+      legendValues[0].textContent =
+        '0%';
+    }
+
+    if (legendValues[1]) {
+      legendValues[1].textContent =
+        '0%';
+    }
+
+  }
+
+}
+
+
+// BARANGAY YEAR FILTER
+
+function filterBarangayYear(year) {
+
+  if (
+    typeof LIVE_APPLICATIONS ===
+    'undefined'
+  ) {
+    return;
+  }
+
+  updateLiveDashboardVisuals(
+    LIVE_APPLICATIONS
+  );
+
+}
+
 
 // UPDATE APPLICATION SUMMARY CARDS
 
-function updateApplicationSummaryCards(applications) {
+function updateApplicationSummaryCards(
+  applications
+) {
 
-  if (!Array.isArray(applications)) {
+  if (
+    !Array.isArray(
+      applications
+    )
+  ) {
     return;
   }
 
@@ -373,114 +822,145 @@ function updateApplicationSummaryCards(applications) {
   let readyForIdMaker = 0;
 
 
-  applications.forEach(application => {
+  applications.forEach(
+    application => {
 
-    // CURRENT STATUS
+      const status =
+        normalizeApplicationStatus(
+          application.status
+        );
 
-    const status = normalizeApplicationStatus(
-      application.status
-    );
+
+      // PENDING
+
+      if (
+        status === 'pending'
+      ) {
+        pending++;
+      }
 
 
-    // 1. PENDING
+      // UNDER REVIEW
 
-    if (status === 'pending') {
-      pending++;
+      if (
+        status === 'review'
+      ) {
+        underReview++;
+      }
+
+
+      // FLAGGED DUPLICATES
+
+      const duplicate =
+        application.duplicate;
+
+      const duplicateRisk =
+        application.duplicate_risk;
+
+
+      if (
+        duplicate === true ||
+        (
+          duplicate &&
+          typeof duplicate ===
+            'object'
+        ) ||
+        (
+          duplicateRisk &&
+          Number(
+            duplicateRisk.score ||
+            0
+          ) >= 0.80
+        )
+      ) {
+
+        flaggedDuplicates++;
+
+      }
+
+
+      // INCOMPLETE DOCUMENTS
+
+      const documents =
+        application.documents ||
+        {};
+
+      const hasPhoto =
+        Boolean(
+          documents.photo ||
+          documents.latest_photo_signed_url
+        );
+
+      const hasBirthCertificate =
+        Boolean(
+          documents.bc ||
+          documents.birth_certificate_signed_url
+        );
+
+      const hasCedula =
+        Boolean(
+          documents.cedula ||
+          documents.community_tax_certificate_signed_url
+        );
+
+
+      if (
+        !hasPhoto ||
+        !hasBirthCertificate ||
+        !hasCedula
+      ) {
+        incompleteDocs++;
+      }
+
+
+      // READY FOR ID MAKER
+
+      if (
+        status === 'ready'
+      ) {
+        readyForIdMaker++;
+      }
+
     }
+  );
 
-
-    // 2. UNDER REVIEW
-
-    if (status === 'review') {
-      underReview++;
-    }
-
-
-    // 3. FLAGGED DUPLICATES
-
-    const duplicate =
-      application.duplicate;
-
-    const duplicateRisk =
-      application.duplicate_risk;
-
-    if (
-      duplicate === true ||
-      (
-        duplicate &&
-        typeof duplicate === 'object'
-      ) ||
-      (
-        duplicateRisk &&
-        Number(duplicateRisk.score || 0) >= 0.80
-      )
-    ) {
-      flaggedDuplicates++;
-    }
-
-
-    // 4. INCOMPLETE DOCUMENTS
-
-    const documents =
-      application.documents || {};
-
-    const hasPhoto =
-      Boolean(
-        documents.photo ||
-        documents.latest_photo_signed_url
-      );
-
-    const hasBirthCertificate =
-      Boolean(
-        documents.bc ||
-        documents.birth_certificate_signed_url
-      );
-
-    const hasCedula =
-      Boolean(
-        documents.cedula ||
-        documents.community_tax_certificate_signed_url
-      );
-
-
-    if (
-      !hasPhoto ||
-      !hasBirthCertificate ||
-      !hasCedula
-    ) {
-      incompleteDocs++;
-    }
-
-
-    // 5. READY FOR ID MAKER
-
-    if (status === 'ready') {
-      readyForIdMaker++;
-    }
-
-  });
-
-
-  // UPDATE THE FIVE APPLICATION SUMMARY CARDS
 
   const values = {
-    'summary-pending': pending,
-    'summary-review': underReview,
-    'summary-duplicates': flaggedDuplicates,
-    'summary-incomplete': incompleteDocs,
-    'summary-ready': readyForIdMaker
+
+    'summary-pending':
+      pending,
+
+    'summary-review':
+      underReview,
+
+    'summary-duplicates':
+      flaggedDuplicates,
+
+    'summary-incomplete':
+      incompleteDocs,
+
+    'summary-ready':
+      readyForIdMaker
+
   };
 
 
-  Object.entries(values).forEach(
+  Object.entries(
+    values
+  ).forEach(
     ([id, value]) => {
 
       const element =
-        document.getElementById(id);
+        document.getElementById(
+          id
+        );
 
       if (element) {
+
         element.textContent =
-          Number(value).toLocaleString();
+          Number(value)
+            .toLocaleString();
+
       }
 
     }
@@ -488,9 +968,12 @@ function updateApplicationSummaryCards(applications) {
 
 }
 
+
 // UPDATE STAFF KPI CARDS
 
-function updateStaffKPICards(metrics) {
+function updateStaffKPICards(
+  metrics
+) {
 
   const strip =
     document.getElementById(
@@ -529,40 +1012,667 @@ function updateStaffKPICards(metrics) {
   ];
 
 
-  cards.forEach((card, index) => {
+  cards.forEach(
+    (card, index) => {
 
-    const value =
-      card.querySelector(
-        '.stat-card__value'
-      );
+      const value =
+        card.querySelector(
+          '.stat-card__value'
+        );
 
-    const sub =
-      card.querySelector(
-        '.stat-card__sub'
-      );
+      const sub =
+        card.querySelector(
+          '.stat-card__sub'
+        );
 
-    const trend =
-      card.querySelector(
-        '.stat-card__trend'
-      );
+      const trend =
+        card.querySelector(
+          '.stat-card__trend'
+        );
 
 
-    if (value) {
-      value.textContent =
-        Number(values[index] || 0)
-          .toLocaleString();
+      if (value) {
+
+        value.textContent =
+          Number(
+            values[index] || 0
+          )
+            .toLocaleString();
+
+      }
+
+
+      if (sub) {
+
+        sub.textContent =
+          subtitles[index] ||
+          '';
+
+      }
+
+
+      if (trend) {
+
+        trend.textContent =
+          'Live';
+
+      }
+
+    }
+  );
+
+}
+
+
+// BUILD LIVE ANALYTICS DATA
+
+function updateLiveAnalyticsCharts(
+  applications
+) {
+
+  if (
+    !Array.isArray(
+      applications
+    )
+  ) {
+    return;
+  }
+
+  const currentYear =
+    new Date().getFullYear();
+
+
+  // INITIAL DATA ARRAYS
+
+  const submitted =
+    Array(12).fill(0);
+
+  const approvedMonthly =
+    Array(12).fill(0);
+
+  const rejectedMonthly =
+    Array(12).fill(0);
+
+  const issuanceMonthly =
+    Array(12).fill(0);
+
+  const processingTotals =
+    Array(12).fill(0);
+
+  const processingCounts =
+    Array(12).fill(0);
+
+  const barangays = {};
+
+  const ageDistribution =
+    Array(6).fill(0);
+
+
+  // PROCESS APPLICATIONS
+
+  applications.forEach(
+    application => {
+
+      const createdDate =
+        application.created_at
+          ? new Date(
+              application.created_at
+            )
+          : null;
+
+
+      // MONTHLY SUBMISSIONS
+
+      if (
+        createdDate &&
+        !Number.isNaN(
+          createdDate.getTime()
+        ) &&
+        createdDate.getFullYear() ===
+          currentYear
+      ) {
+
+        submitted[
+          createdDate.getMonth()
+        ]++;
+
+      }
+
+
+      // APPLICATION STATUS
+
+      const status =
+        normalizeApplicationStatus(
+          application.status
+        );
+
+
+      // STATUS DATE
+
+      const statusDate =
+        application.status_updated_at
+          ? new Date(
+              application.status_updated_at
+            )
+          : createdDate;
+
+
+      // APPROVED / REJECTED MONTHLY
+
+      if (
+        statusDate &&
+        !Number.isNaN(
+          statusDate.getTime()
+        ) &&
+        statusDate.getFullYear() ===
+          currentYear
+      ) {
+
+        const month =
+          statusDate.getMonth();
+
+
+        if (
+          status === 'approved' ||
+          status === 'ready' ||
+          status === 'issued' ||
+          status === 'completed'
+        ) {
+
+          approvedMonthly[
+            month
+          ]++;
+
+        }
+
+
+        if (
+          status === 'rejected'
+        ) {
+
+          rejectedMonthly[
+            month
+          ]++;
+
+        }
+
+      }
+
+
+      // BARANGAY DATA
+
+      const barangay =
+        application.barangay_district ||
+        'Unknown';
+
+
+      if (
+        !barangays[barangay]
+      ) {
+
+        barangays[barangay] = {
+
+          total: 0,
+
+          approved: 0,
+
+          pending: 0
+
+        };
+
+      }
+
+
+      barangays[barangay]
+        .total++;
+
+
+      if (
+        status === 'approved' ||
+        status === 'ready' ||
+        status === 'issued' ||
+        status === 'completed'
+      ) {
+
+        barangays[barangay]
+          .approved++;
+
+      }
+
+
+      if (
+        status === 'pending' ||
+        status === 'review'
+      ) {
+
+        barangays[barangay]
+          .pending++;
+
+      }
+
+
+      // AGE DISTRIBUTION
+
+      const age =
+        Number(
+          application.age
+        );
+
+
+      if (
+        !Number.isNaN(age)
+      ) {
+
+        if (
+          age >= 60 &&
+          age <= 64
+        ) {
+
+          ageDistribution[0]++;
+
+        }
+
+        else if (
+          age >= 65 &&
+          age <= 69
+        ) {
+
+          ageDistribution[1]++;
+
+        }
+
+        else if (
+          age >= 70 &&
+          age <= 74
+        ) {
+
+          ageDistribution[2]++;
+
+        }
+
+        else if (
+          age >= 75 &&
+          age <= 79
+        ) {
+
+          ageDistribution[3]++;
+
+        }
+
+        else if (
+          age >= 80 &&
+          age <= 84
+        ) {
+
+          ageDistribution[4]++;
+
+        }
+
+        else if (
+          age >= 85
+        ) {
+
+          ageDistribution[5]++;
+
+        }
+
+      }
+
+
+      // ID ISSUANCE
+
+      if (
+        (
+          status === 'issued' ||
+          status === 'completed'
+        ) &&
+        statusDate &&
+        !Number.isNaN(
+          statusDate.getTime()
+        ) &&
+        statusDate.getFullYear() ===
+          currentYear
+      ) {
+
+        issuanceMonthly[
+          statusDate.getMonth()
+        ]++;
+
+      }
+
+
+      // PROCESSING TIME
+
+      if (
+        createdDate &&
+        statusDate &&
+        !Number.isNaN(
+          createdDate.getTime()
+        ) &&
+        !Number.isNaN(
+          statusDate.getTime()
+        ) &&
+        (
+          status === 'approved' ||
+          status === 'ready' ||
+          status === 'issued' ||
+          status === 'completed' ||
+          status === 'rejected'
+        )
+      ) {
+
+        const days =
+          Math.max(
+            0,
+            Math.round(
+              (
+                statusDate.getTime() -
+                createdDate.getTime()
+              ) /
+              (
+                1000 *
+                60 *
+                60 *
+                24
+              )
+            )
+          );
+
+
+        const month =
+          statusDate.getMonth();
+
+
+        processingTotals[month] +=
+          days;
+
+        processingCounts[month]++;
+
+      }
+
+    }
+  );
+
+
+  // PREPARE BARANGAY DATA
+
+  const barangayLabels =
+    Object.keys(
+      barangays
+    );
+
+
+  const barangayTotal =
+    barangayLabels.map(
+      barangay =>
+        barangays[barangay]
+          .total
+    );
+
+
+  const barangayApproved =
+    barangayLabels.map(
+      barangay =>
+        barangays[barangay]
+          .approved
+    );
+
+
+  const barangayPending =
+    barangayLabels.map(
+      barangay =>
+        barangays[barangay]
+          .pending
+    );
+
+
+  // CALCULATE AVERAGE PROCESSING TIME
+
+  const processing =
+    processingTotals.map(
+      (total, index) => {
+
+        if (
+          processingCounts[index] ===
+          0
+        ) {
+          return 0;
+        }
+
+        return Number(
+          (
+            total /
+            processingCounts[index]
+          ).toFixed(1)
+        );
+
+      }
+    );
+
+
+  // CALCULATE CUMULATIVE ID ISSUANCE
+
+  let issuedRunningTotal =
+    0;
+
+
+  const issuance =
+    issuanceMonthly.map(
+      count => {
+
+        issuedRunningTotal +=
+          count;
+
+        return issuedRunningTotal;
+
+      }
+    );
+
+
+  // UPDATE ANALYTICS DATA
+
+  const roles = [
+    ANALYTICS_DATA.admin,
+    ANALYTICS_DATA.staff,
+    ANALYTICS_DATA.idmaker
+  ];
+
+
+  roles.forEach(
+    data => {
+
+      if (!data) {
+        return;
+      }
+
+
+      data.submitted =
+        [...submitted];
+
+      data.approvedMonthly =
+        [...approvedMonthly];
+
+      data.rejectedMonthly =
+        [...rejectedMonthly];
+
+
+      data.barangayLabels =
+        [...barangayLabels];
+
+      data.barangayTotal =
+        [...barangayTotal];
+
+      data.barangayApproved =
+        [...barangayApproved];
+
+      data.barangayPending =
+        [...barangayPending];
+
+
+      data.ageDistribution =
+        [...ageDistribution];
+
+
+      data.issuance =
+        [...issuance];
+
+
+      data.processing =
+        [...processing];
+
+    }
+  );
+
+
+  // REFRESH CHARTS
+
+  if (
+    typeof chartsReady !==
+      'undefined' &&
+    chartsReady
+  ) {
+
+    if (
+      typeof CHARTS !==
+      'undefined'
+    ) {
+
+      if (
+        CHARTS.trend
+      ) {
+
+        if (
+          CHARTS.trend.data.datasets[0]
+        ) {
+
+          CHARTS.trend.data.datasets[0]
+            .data =
+              submitted;
+
+        }
+
+        if (
+          CHARTS.trend.data.datasets[1]
+        ) {
+
+          CHARTS.trend.data.datasets[1]
+            .data =
+              approvedMonthly;
+
+        }
+
+        if (
+          CHARTS.trend.data.datasets[2]
+        ) {
+
+          CHARTS.trend.data.datasets[2]
+            .data =
+              rejectedMonthly;
+
+        }
+
+        CHARTS.trend.update();
+
+      }
+
+
+      if (
+        CHARTS.status
+      ) {
+
+        const data =
+          analyticsScope();
+
+        CHARTS.status.data.datasets[0]
+          .data = [
+
+            data.pendingReview ||
+              0,
+
+            data.approved ||
+              0,
+
+            data.rejected ||
+              0
+
+          ];
+
+        CHARTS.status.update();
+
+      }
+
+
+      if (
+        CHARTS.barangay
+      ) {
+
+        CHARTS.barangay.data.labels =
+          barangayLabels;
+
+        CHARTS.barangay.data.datasets[0]
+          .data =
+            barangayTotal;
+
+        CHARTS.barangay.update();
+
+      }
+
+
+      if (
+        CHARTS.age
+      ) {
+
+        CHARTS.age.data.datasets[0]
+          .data =
+            ageDistribution;
+
+        CHARTS.age.update();
+
+      }
+
+
+      if (
+        CHARTS.issuance
+      ) {
+
+        CHARTS.issuance.data.datasets[0]
+          .data =
+            issuance;
+
+        CHARTS.issuance.update();
+
+      }
+
+
+      if (
+        CHARTS.processing
+      ) {
+
+        CHARTS.processing.data.datasets[0]
+          .data =
+            processing;
+
+        CHARTS.processing.update();
+
+      }
+
     }
 
-    if (sub) {
-      sub.textContent =
-        subtitles[index] || '';
-    }
+  }
 
-    if (trend) {
-      trend.textContent = 'Live';
-    }
+}
 
-  });
+
+// INITIALIZE CHARTS IF READY
+
+if (
+  typeof chartsReady !==
+    'undefined' &&
+  chartsReady
+) {
+
+  initAllCharts();
+
 }
 
 
@@ -581,11 +1691,15 @@ function switchKPIs(role) {
     );
 
 
-  if (role === 'Staff') {
+  if (
+    role === 'Staff'
+  ) {
 
     if (adminStrip) {
+
       adminStrip.style.display =
         'none';
+
     }
 
 
@@ -651,9 +1765,11 @@ function switchKPIs(role) {
             </div>
           `;
 
+
           staffContainer.appendChild(
             card
           );
+
         }
       );
 
@@ -671,6 +1787,7 @@ function switchKPIs(role) {
 
       staffStrip.style.display =
         'grid';
+
     }
 
 
@@ -680,8 +1797,10 @@ function switchKPIs(role) {
       )
       .forEach(
         element => {
+
           element.style.display =
             'none';
+
         }
       );
 
@@ -698,13 +1817,17 @@ function switchKPIs(role) {
 
 
     if (roleBadge) {
+
       roleBadge.textContent =
         'Staff View';
+
     }
 
     if (dashboardTitle) {
+
       dashboardTitle.textContent =
         'Staff Dashboard';
+
     }
 
 
@@ -713,8 +1836,10 @@ function switchKPIs(role) {
   ) {
 
     if (adminStrip) {
+
       adminStrip.style.display =
         'none';
+
     }
 
 
@@ -724,8 +1849,10 @@ function switchKPIs(role) {
       );
 
     if (idMakerStaffStrip) {
+
       idMakerStaffStrip.style.display =
         'none';
+
     }
 
 
@@ -735,8 +1862,10 @@ function switchKPIs(role) {
       )
       .forEach(
         element => {
+
           element.style.display =
             'none';
+
         }
       );
 
@@ -753,21 +1882,27 @@ function switchKPIs(role) {
 
 
     if (idBadge) {
+
       idBadge.textContent =
         'ID Maker View';
+
     }
 
     if (idTitle) {
+
       idTitle.textContent =
         'ID Maker Dashboard';
+
     }
 
 
   } else {
 
     if (adminStrip) {
+
       adminStrip.style.display =
         'grid';
+
     }
 
 
@@ -777,7 +1912,9 @@ function switchKPIs(role) {
       );
 
     if (staffStrip) {
+
       staffStrip.remove();
+
     }
 
 
@@ -787,8 +1924,10 @@ function switchKPIs(role) {
       )
       .forEach(
         element => {
+
           element.style.display =
             '';
+
         }
       );
 
@@ -805,22 +1944,29 @@ function switchKPIs(role) {
 
 
     if (roleBadge) {
+
       roleBadge.textContent =
         'Admin View';
+
     }
 
     if (dashboardTitle) {
+
       dashboardTitle.textContent =
         'Dashboard';
+
     }
+
   }
+
 }
 
 
 // SET ROLE OVERRIDE
 
 const originalSetRole =
-  window.setRole || (() => {});
+  window.setRole ||
+  (() => {});
 
 
 window.setRole =
@@ -845,6 +1991,7 @@ window.setRole =
       );
 
     }
+
   };
 
 
@@ -865,7 +2012,9 @@ function renderLiveApplicants(
 
 
   if (
-    !Array.isArray(applications) ||
+    !Array.isArray(
+      applications
+    ) ||
     applications.length === 0
   ) {
 
@@ -967,6 +2116,7 @@ function renderLiveApplicants(
             );
 
           }
+
         }
 
 
@@ -997,6 +2147,7 @@ function renderLiveApplicants(
             );
 
           }
+
         }
 
 
@@ -1005,7 +2156,6 @@ function renderLiveApplicants(
             data-app-id="${escapeApplicationHtml(appId)}"
           >
 
-            <!-- NAME -->
             <td>
 
               <div class="applicant-cell">
@@ -1022,7 +2172,8 @@ function renderLiveApplicants(
 
                   <span class="applicant-id">
                     ${escapeApplicationHtml(
-                      application.sex || 'Applicant'
+                      application.sex ||
+                      'Applicant'
                     )}
                     ·
                     ${escapeApplicationHtml(
@@ -1038,7 +2189,6 @@ function renderLiveApplicants(
             </td>
 
 
-            <!-- ID NUMBER -->
             <td>
               <span class="cell-text">
                 ${escapeApplicationHtml(appId)}
@@ -1046,7 +2196,6 @@ function renderLiveApplicants(
             </td>
 
 
-            <!-- BARANGAY -->
             <td>
               <span class="cell-text">
                 ${escapeApplicationHtml(barangay)}
@@ -1054,7 +2203,6 @@ function renderLiveApplicants(
             </td>
 
 
-            <!-- AGE -->
             <td>
               <span class="cell-text">
                 ${escapeApplicationHtml(
@@ -1064,7 +2212,6 @@ function renderLiveApplicants(
             </td>
 
 
-            <!-- OCCUPATION -->
             <td>
               <span class="cell-text">
                 ${escapeApplicationHtml(
@@ -1074,395 +2221,21 @@ function renderLiveApplicants(
             </td>
 
 
-            <!-- APPLICATION TYPE -->
-            <td>
-
-              ${
-                typeof buildApplicationTypePill ===
-                'function'
-                  ? (() => {
-                      try {
-                        return buildApplicationTypePill(
-                          application
-                        );
-                      } catch (error) {
-                        return `
-                          <span class="badge badge-pending">
-                            Application
-                          </span>
-                        `;
-                      }
-                    })()
-                  : `
-                    <span class="badge badge-pending">
-                      Application
-                    </span>
-                  `
-              }
-
-            </td>
-
-
-            <!-- DOCUMENT STATUS -->
             <td>
               ${docsHtml}
             </td>
 
 
-            <!-- STATUS -->
             <td>
               ${statusHtml}
             </td>
 
 
-            <!-- ACTION -->
-            <td
-              style="text-align:right"
-            >
-
+            <td>
               <button
-                class="row-action always-visible"
-                onclick="
-                  openApplicationDetail(
-                    '${escapeApplicationHtml(appId)}'
-                  )
-                "
-              >
-                View
-              </button>
-
-            </td>
-
-          </tr>
-        `;
-      }
-    )
-    .join('');
-
-
-  // UPDATE APPLICANTS COUNTERS
-
-  const applicantsBadge =
-    document.querySelector(
-      '[data-module="applicants"] .nav-link__badge'
-    );
-
-  if (applicantsBadge) {
-
-    applicantsBadge.textContent =
-      applications.length.toLocaleString();
-
-  }
-
-
-  const totalBadge =
-    document.getElementById(
-      'applicants-total-badge'
-    );
-
-  if (totalBadge) {
-    totalBadge.textContent =
-      `${applications.length.toLocaleString()} Total`;
-  }
-
-  const applicantCards =
-    document.querySelectorAll(
-      '.data-table-card'
-    );
-
-
-  applicantCards.forEach(card => {
-
-    const title =
-      card
-        .querySelector(
-          '.table-header__title'
-        )
-        ?.textContent
-        ?.trim();
-
-
-    if (
-      title !== 'All Applicants'
-    ) {
-      return;
-    }
-
-
-    const footer =
-      card.querySelector(
-        '.table-footer__info'
-      );
-
-
-    if (footer) {
-
-      footer.textContent =
-        `Showing ${applications.length.toLocaleString()} of ${applications.length.toLocaleString()} applicants`;
-
-    }
-
-  });
-
-
-  // UPDATE FILTER COUNTS
-
-  if (
-    typeof updateStatusTabCounts ===
-    'function'
-  ) {
-
-    try {
-      updateStatusTabCounts();
-    } catch (error) {
-      console.warn(
-        'Unable to update applicant status counts:',
-        error
-      );
-    }
-
-  }
-
-}
-
-// RENDER RECENT SUBMISSIONS FROM LIVE DATABASE
-
-function renderRecentSubmissions(applications) {
-
-  const tbody =
-    document.getElementById(
-      'recent-submissions-tbody'
-    );
-
-  if (!tbody) {
-    return;
-  }
-
-  if (
-    !Array.isArray(applications) ||
-    applications.length === 0
-  ) {
-    tbody.innerHTML = `
-      <tr>
-        <td
-          colspan="5"
-          style="
-            text-align:center;
-            padding:32px;
-            color:var(--text-muted);
-          "
-        >
-          No recent submissions yet.
-        </td>
-      </tr>
-    `;
-
-    return;
-  }
-
-  const recentApplications =
-    applications
-      .filter(application => {
-
-        const status =
-          String(
-            application.status || ''
-          )
-            .trim()
-            .toLowerCase();
-
-        return (
-          status === 'pending' ||
-          status === 'under review' ||
-          status === 'in review'
-        );
-
-      })
-      .sort((a, b) => {
-
-        const dateA =
-          new Date(
-            a.created_at || 0
-          ).getTime();
-
-        const dateB =
-          new Date(
-            b.created_at || 0
-          ).getTime();
-
-        return dateB - dateA;
-
-      })
-      .slice(0, 5);
-
-  if (!recentApplications.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td
-          colspan="5"
-          style="
-            text-align:center;
-            padding:32px;
-            color:var(--text-muted);
-          "
-        >
-          No recent submissions yet.
-        </td>
-      </tr>
-    `;
-
-    return;
-  }
-
-  tbody.innerHTML =
-    recentApplications.map(
-      application => {
-
-        const appId =
-          application.application_id ||
-          application.id ||
-          '';
-
-        const fullName = [
-          application.first_name,
-          application.middle_name,
-          application.surname
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .trim() ||
-          'Unnamed Applicant';
-
-        const barangay =
-          application.barangay_district ||
-          '—';
-
-        const status =
-          application.status ||
-          'Pending';
-
-        const date =
-          application.created_at
-            ? new Date(
-                application.created_at
-              ).toLocaleDateString(
-                'en-US',
-                {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric'
-                }
-              )
-            : '—';
-
-        const statusLower =
-          status
-            .toLowerCase();
-
-        let badgeClass =
-          'badge-pending';
-
-        if (
-          statusLower.includes('review')
-        ) {
-          badgeClass =
-            'badge-review';
-        }
-
-        if (
-          statusLower.includes('reject')
-        ) {
-          badgeClass =
-            'badge-rejected';
-        }
-
-        if (
-          statusLower.includes('approv') ||
-          statusLower.includes('verif')
-        ) {
-          badgeClass =
-            'badge-approved';
-        }
-
-        if (
-          statusLower.includes('issue') ||
-          statusLower.includes('complete')
-        ) {
-          badgeClass =
-            'badge-issued';
-        }
-
-        return `
-          <tr
-            data-app-id="${escapeApplicationHtml(appId)}"
-          >
-
-            <td>
-              <div class="applicant-cell">
-                <div class="applicant-avatar">
-                  ${escapeApplicationHtml(
-                    fullName
-                      .split(/\s+/)
-                      .filter(Boolean)
-                      .slice(0, 2)
-                      .map(
-                        part =>
-                          part
-                            .charAt(0)
-                            .toUpperCase()
-                      )
-                      .join('')
-                  )}
-                </div>
-
-                <div class="applicant-info">
-                  <span class="applicant-name">
-                    ${escapeApplicationHtml(
-                      fullName
-                    )}
-                  </span>
-
-                  <span class="applicant-id">
-                    ${escapeApplicationHtml(
-                      appId
-                    )}
-                  </span>
-                </div>
-              </div>
-            </td>
-
-            <td>
-              <span class="cell-text">
-                ${escapeApplicationHtml(
-                  date
-                )}
-              </span>
-            </td>
-
-            <td>
-              <span class="cell-text">
-                ${escapeApplicationHtml(
-                  barangay
-                )}
-              </span>
-            </td>
-
-            <td>
-              <span class="badge ${badgeClass}">
-                ${escapeApplicationHtml(
-                  status
-                )}
-              </span>
-            </td>
-
-            <td style="text-align:right">
-              <button
-                class="row-action always-visible"
-                onclick="
-                  openApplicationDetail(
-                    '${escapeApplicationHtml(appId)}'
-                  )
-                "
+                class="table-action-btn"
+                type="button"
+                onclick="loadApplicationDetails('${escapeApplicationHtml(appId)}')"
               >
                 View
               </button>
@@ -1470,121 +2243,12 @@ function renderRecentSubmissions(applications) {
 
           </tr>
         `;
+
       }
     )
     .join('');
 
-  // Update Recent Submissions footer
-
-  const footer =
-    Array.from(
-      document.querySelectorAll(
-        '.data-table-card'
-      )
-    )
-      .find(card =>
-        card.querySelector(
-          '.table-header__title'
-        )
-          ?.textContent
-          ?.trim() ===
-        'Recent Submissions'
-      )
-      ?.querySelector(
-        '.table-footer__info'
-      );
-
-  if (footer) {
-
-    footer.textContent =
-      `Showing ${recentApplications.length} of ${recentApplications.length} pending review submissions`;
-
-  }
-
 }
-
-function updateApplicantSummaryCards(applications) {
-
-  if (!Array.isArray(applications)) {
-    return;
-  }
-
-  const total = applications.length;
-
-  let verified = 0;
-  let unverified = 0;
-  let idsIssued = 0;
-
-  applications.forEach(application => {
-
-    const status = String(
-      application.status || ''
-    ).trim().toLowerCase();
-
-    if (status === 'verified') {
-      verified++;
-    }
-
-    if (
-      status === 'unverified' ||
-      status === 'pending'||
-      status === 'under review'
-    ) {
-      unverified++;
-    }
-
-    if (
-      status === 'id issued' ||
-      status === 'issued' ||
-      status === 'completed'
-    ) {
-      idsIssued++;
-    }
-
-  });
-
-  const totalEl =
-    document.getElementById(
-      'applicants-total-count'
-    );
-
-  const verifiedEl =
-    document.getElementById(
-      'applicants-verified-count'
-    );
-
-  const unverifiedEl =
-    document.getElementById(
-      'applicants-unverified-count'
-    );
-
-  const issuedEl =
-    document.getElementById(
-      'applicants-issued-count'
-    );
-
-
-  if (totalEl) {
-    totalEl.textContent =
-      total.toLocaleString();
-  }
-
-  if (verifiedEl) {
-    verifiedEl.textContent =
-      verified.toLocaleString();
-  }
-
-  if (unverifiedEl) {
-    unverifiedEl.textContent =
-      unverified.toLocaleString();
-  }
-
-  if (issuedEl) {
-    issuedEl.textContent =
-      idsIssued.toLocaleString();
-  }
-}
-
 
 // ESCAPE HTML
 
@@ -1618,80 +2282,454 @@ function escapeApplicationHtml(
 }
 
 
+// RENDER RECENT SUBMISSIONS
+
+function renderRecentSubmissions(
+  applications
+) {
+
+  const tbody =
+    document.getElementById(
+      'recent-submissions-tbody'
+    );
+
+  if (!tbody) {
+    return;
+  }
+
+
+  if (
+    !Array.isArray(
+      applications
+    )
+  ) {
+    return;
+  }
+
+
+  const recentApplications =
+    applications
+      .filter(application => {
+
+        const status =
+          normalizeApplicationStatus(
+            application.status
+          );
+
+        return (
+          status === 'pending' ||
+          status === 'review'
+        );
+
+      })
+      .sort(
+        (a, b) => {
+
+          const dateA =
+            new Date(
+              a.created_at ||
+              a.submitted_at ||
+              0
+            );
+
+          const dateB =
+            new Date(
+              b.created_at ||
+              b.submitted_at ||
+              0
+            );
+
+          return (
+            dateB.getTime() -
+            dateA.getTime()
+          );
+
+        }
+      )
+      .slice(0, 5);
+
+
+  if (
+    !recentApplications.length
+  ) {
+
+    tbody.innerHTML = `
+      <tr>
+        <td
+          colspan="5"
+          style="
+            text-align:center;
+            padding:24px;
+            color:var(--text-muted);
+          "
+        >
+          No recent submissions found.
+        </td>
+      </tr>
+    `;
+
+  } else {
+
+    tbody.innerHTML =
+      recentApplications
+        .map(
+          application => {
+
+            const appId =
+              application.application_id ||
+              application.id ||
+              '';
+
+            const fullName = [
+              application.first_name,
+              application.middle_name,
+              application.surname
+            ]
+              .filter(Boolean)
+              .join(' ')
+              .trim() ||
+              'Unnamed Applicant';
+
+
+            const barangay =
+              application.barangay_district ||
+              '—';
+
+
+            const createdAt =
+              application.created_at ||
+              application.submitted_at ||
+              null;
+
+
+            let formattedDate =
+              '—';
+
+
+            if (createdAt) {
+
+              const date =
+                new Date(
+                  createdAt
+                );
+
+              if (
+                !Number.isNaN(
+                  date.getTime()
+                )
+              ) {
+
+                formattedDate =
+                  date.toLocaleDateString(
+                    'en-US',
+                    {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    }
+                  );
+
+              }
+
+            }
+
+
+            const status =
+              application.status ||
+              'Pending';
+
+
+            return `
+              <tr>
+
+                <td>
+                  <span class="cell-text">
+                    ${escapeApplicationHtml(
+                      fullName
+                    )}
+                  </span>
+                </td>
+
+                <td>
+                  <span class="cell-text">
+                    ${escapeApplicationHtml(
+                      formattedDate
+                    )}
+                  </span>
+                </td>
+
+                <td>
+                  <span class="cell-text">
+                    ${escapeApplicationHtml(
+                      barangay
+                    )}
+                  </span>
+                </td>
+
+                <td>
+                  <span class="status-select__label">
+                    ${escapeApplicationHtml(
+                      status
+                    )}
+                  </span>
+                </td>
+
+                <td style="text-align:right">
+
+                  <button
+                    class="row-action always-visible"
+                    onclick="
+                      openApplicationDetail(
+                        '${escapeApplicationHtml(
+                          appId
+                        )}'
+                      )
+                    "
+                  >
+                    View
+                  </button>
+
+                </td>
+
+              </tr>
+            `;
+
+          }
+        )
+        .join('');
+
+  }
+
+
+  // UPDATE RECENT SUBMISSIONS FOOTER
+
+  const cards =
+    document.querySelectorAll(
+      '.data-table-card'
+    );
+
+
+  cards.forEach(card => {
+
+    const title =
+      card
+        .querySelector(
+          '.table-header__title'
+        )
+        ?.textContent
+        ?.trim();
+
+
+    if (
+      title !==
+      'Recent Submissions'
+    ) {
+      return;
+    }
+
+
+    const footer =
+      card.querySelector(
+        '.table-footer__info'
+      );
+
+
+    if (footer) {
+
+      footer.textContent =
+        `Showing ${
+          recentApplications.length
+        } of ${
+          applications.length
+        } applicants`;
+
+    }
+
+  });
+
+}
+
+
 // LOAD APPLICATIONS
 
 async function loadApplicationsFromDatabase() {
-  try {
-    console.log("Loading applications from backend...");
 
-    const response = await fetch(
-      "https://management-backend-3cij.onrender.com/api/applications",
-      {
-        method: "GET",
-        headers: {
-          "Accept": "application/json"
-        }
-      }
+  try {
+
+    console.log(
+      "Loading applications from backend..."
     );
 
-    console.log("API response status:", response.status);
+
+    const response =
+      await fetch(
+        "https://management-backend-3cij.onrender.com/api/applications",
+        {
+          method: "GET",
+
+          headers: {
+            "Accept":
+              "application/json"
+          }
+        }
+      );
+
+
+    console.log(
+      "API response status:",
+      response.status
+    );
+
 
     if (!response.ok) {
+
       throw new Error(
         `API request failed with status ${response.status}`
       );
+
     }
 
-    const result = await response.json();
 
-    console.log("API result:", result);
+    const result =
+      await response.json();
+
+
+    console.log(
+      "API result:",
+      result
+    );
+
 
     if (!result.success) {
+
       throw new Error(
-        result.message || "Backend returned success:false"
+        result.message ||
+        "Backend returned success:false"
       );
+
     }
 
-    const applications = Array.isArray(result.applications)
-      ? result.applications
-      : [];
+
+    const applications =
+      Array.isArray(
+        result.applications
+      )
+        ? result.applications
+        : [];
+
 
     console.log(
       "Applications loaded successfully:",
       applications.length
     );
 
+
+    // SAVE LIVE APPLICATIONS
+
+    LIVE_APPLICATIONS =
+      applications;
+
+
     // UPDATE LIVE ANALYTICS
 
-    if (typeof updateLiveAnalyticsData === "function") {
-      updateLiveAnalyticsData(applications);
+    if (
+      typeof updateLiveAnalyticsData ===
+      "function"
+    ) {
+
+      updateLiveAnalyticsData(
+        applications
+      );
+
     }
+
+
+    // UPDATE DASHBOARD VISUALS
+
+    if (
+      typeof updateLiveDashboardVisuals ===
+      "function"
+    ) {
+
+      updateLiveDashboardVisuals(
+        applications
+      );
+
+    }
+
+
+    // UPDATE ANALYTICS CHART DATA
+
+    if (
+      typeof updateLiveAnalyticsCharts ===
+      "function"
+    ) {
+
+      updateLiveAnalyticsCharts(
+        applications
+      );
+
+    }
+
 
     // UPDATE APPLICANTS TABLE
 
-    if (typeof renderLiveApplicants === "function") {
-      renderLiveApplicants(applications);
+    if (
+      typeof renderLiveApplicants ===
+      "function"
+    ) {
+
+      renderLiveApplicants(
+        applications
+      );
+
     }
+
 
     // UPDATE RECENT SUBMISSIONS
 
-    if (typeof renderRecentSubmissions === 'function') {
-      renderRecentSubmissions(applications);
+    if (
+      typeof renderRecentSubmissions ===
+      "function"
+    ) {
+
+      renderRecentSubmissions(
+        applications
+      );
+
     }
+
 
     // UPDATE APPLICANT SUMMARY CARDS
 
-    if (typeof updateApplicantSummaryCards === "function") {
-      updateApplicantSummaryCards(applications);
+    if (
+      typeof updateApplicantSummaryCards ===
+      "function"
+    ) {
+
+      updateApplicantSummaryCards(
+        applications
+      );
+
     }
+
 
     // UPDATE APPLICATIONS TABLE
 
-    if (typeof displayApplications === "function") {
-      displayApplications(applications);
+    if (
+      typeof displayApplications ===
+      "function"
+    ) {
+
+      displayApplications(
+        applications
+      );
+
     }
 
+
     return applications;
+
 
   } catch (error) {
 
@@ -1700,21 +2738,30 @@ async function loadApplicationsFromDatabase() {
       error
     );
 
-    // Show the actual error in the browser console
+
     console.error(
       "Make sure the backend is running at:",
       "http://localhost:5000"
     );
 
-    if (typeof showToast === "function") {
+
+    if (
+      typeof showToast ===
+      "function"
+    ) {
+
       showToast(
         "Failed to load applications. Check the browser console.",
         "error"
       );
+
     }
 
+
     return [];
+
   }
+
 }
 
 
@@ -1765,6 +2812,7 @@ async function loadApplicationDetails(
 
     return result;
 
+
   } catch (error) {
 
     console.error(
@@ -1787,7 +2835,9 @@ async function loadApplicationDetails(
 
 
     return null;
+
   }
+
 }
 
 
@@ -1797,20 +2847,30 @@ document.addEventListener(
   "DOMContentLoaded",
   () => {
 
+    console.log("Staff dashboard loaded.");
+
     if (
-      typeof CURRENT_ROLE !==
-        'undefined' &&
+      typeof CURRENT_ROLE !== 'undefined' &&
       CURRENT_ROLE
     ) {
-
       switchKPIs(
         CURRENT_ROLE
       );
-
     }
 
+    // INITIALIZE ANALYTICS CHARTS
+    if (
+      typeof initAllCharts === "function"
+    ) {
+      initAllCharts();
+    }
 
-    loadApplicationsFromDatabase();
+    // LOAD APPLICATIONS FROM DATABASE
+    if (
+      typeof loadApplicationsFromDatabase === "function"
+    ) {
+      loadApplicationsFromDatabase();
+    }
 
   }
 );

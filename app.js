@@ -50,7 +50,8 @@ const ANALYTICS_DATA = {
     barangayPending: [],
     statusDenominator: 0,
     issuance: [],
-    processing: []
+    processing: [],
+    ageDistribution: []
   },
   Staff: {
     scopeLabel: 'Staff Scope',
@@ -72,7 +73,8 @@ const ANALYTICS_DATA = {
     barangayPending: [],
     statusDenominator: 0,
     issuance: [],
-    processing: []
+    processing: [],
+    ageDistribution: []
   },
   'ID Maker': {
     scopeLabel: 'ID Maker Scope',
@@ -94,7 +96,8 @@ const ANALYTICS_DATA = {
     barangayPending: [],
     statusDenominator: 0,
     issuance: [],
-    processing: []
+    processing: [],
+    ageDistribution: []
   }
 };
 const SUBMITTED = ANALYTICS_DATA.Admin.submitted;
@@ -316,8 +319,7 @@ function initAge() {
   const ctx = mkCanvas('chart-age'); if (!ctx) return;
   CHARTS['age'] = new Chart(ctx, {
     type: 'doughnut',
-    // TODO(integration): populate age distribution from the live system.
-    data: { labels: ['60–64', '65–69', '70–74', '75–79', '80–84', '85+'], datasets: [{ data: [0, 0, 0, 0, 0, 0], backgroundColor: ['#BFDBFE', '#60A5FA', '#2563EB', '#1A4FBA', '#1E3A8A', '#0F1F4D'], hoverOffset: 6, borderWidth: 0 }] },
+    data: { labels: ['60–64', '65–69', '70–74', '75–79', '80–84', '85+'], datasets: [{ data: analyticsScope().ageDistribution || [0, 0, 0, 0, 0, 0], backgroundColor: ['#BFDBFE', '#60A5FA', '#2563EB', '#1A4FBA', '#1E3A8A', '#0F1F4D'], hoverOffset: 6, borderWidth: 0 }] },
     options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { display: false }, tooltip: { ...TIP, callbacks: { label: c => ` Age ${c.label}: ${c.parsed}%` } } } }
   });
 }
