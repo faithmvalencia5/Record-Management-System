@@ -2159,6 +2159,15 @@
             );
           }
 
+          // Update Recent Submissions
+          if (
+            typeof renderRecentSubmissions === 'function'
+          ) {
+            renderRecentSubmissions(
+              LIVE_APPLICATIONS
+            );
+          }
+
           // Update Applicants summary cards
           if (
             typeof updateApplicantSummaryCards === 'function'
