@@ -4046,7 +4046,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Render the full applications table from the dataset so every record is viewable
   runOptionalInit('Applications table render', renderApplicationsTable);
-  runOptionalInit('Applicants table render', renderApplicantsTable);
 });
 
 /* ── Table Sort ── */
