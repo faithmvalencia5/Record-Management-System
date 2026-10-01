@@ -1183,7 +1183,7 @@ function renderLiveApplicants(
 
 
     if (
-      title !== 'Applicants'
+      title !== 'All Applicants'
     ) {
       return;
     }
