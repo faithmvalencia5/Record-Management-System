@@ -3695,10 +3695,45 @@ function filterApplicantsByBarangay(barangay) {
 
 function filterApplicantsByStatus(status) {
   document.querySelectorAll('#applicants-tbody tr').forEach(r => {
-    if (!status || status === 'All Status') { r.style.display = ''; return; }
-    const badge = r.querySelector('.badge');
-    const rowStatus = badge ? badge.textContent.trim() : '';
-    r.style.display = rowStatus === status ? '' : 'none';
+
+    if (!status || status === 'All Status') {
+      r.style.display = '';
+      return;
+    }
+
+    const statusElement =
+      r.querySelector('.status-select__label, .badge');
+
+    const rowStatus =
+      statusElement
+        ? statusElement.textContent.trim().toLowerCase()
+        : '';
+
+    const selectedStatus =
+      status.trim().toLowerCase();
+
+    let matches = false;
+
+    if (selectedStatus === 'verified') {
+      matches = rowStatus === 'verified';
+    }
+
+    else if (selectedStatus === 'unverified') {
+      matches =
+        rowStatus === 'unverified' ||
+        rowStatus === 'pending' ||
+        rowStatus === 'under review';
+    }
+
+    else if (selectedStatus === 'id issued') {
+      matches =
+        rowStatus === 'id issued' ||
+        rowStatus === 'issued' ||
+        rowStatus === 'completed';
+    }
+
+    r.style.display =
+      matches ? '' : 'none';
   });
 }
 
@@ -4040,8 +4075,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (applicantsBarangaySel) applicantsBarangaySel.addEventListener('change', function () { filterApplicantsByBarangay(this.value); });
   if (applicantsStatusSel) applicantsStatusSel.addEventListener('change', function () { filterApplicantsByStatus(this.value); });
 
-  // Render the full applications table from the dataset so every record is viewable
-  runOptionalInit('Applications table render', renderApplicationsTable);
 });
 
 /* ── Table Sort ── */

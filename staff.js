@@ -1249,7 +1249,8 @@ function updateApplicantSummaryCards(applications) {
 
     if (
       status === 'unverified' ||
-      status === 'pending'
+      status === 'pending'||
+      status === 'under review'
     ) {
       unverified++;
     }
