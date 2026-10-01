@@ -1997,9 +1997,7 @@ window.setRole =
 
 // RENDER LIVE APPLICANTS
 
-function renderLiveApplicants(
-  applications
-) {
+function renderLiveApplicants(applications) {
 
   const tbody =
     document.getElementById(
@@ -2008,6 +2006,16 @@ function renderLiveApplicants(
 
   if (!tbody) {
     return;
+  }
+
+  const totalBadge =
+    document.getElementById(
+      'applicants-total-badge'
+    );
+
+  if (totalBadge) {
+    totalBadge.textContent =
+      `${applications.length.toLocaleString()} Total`;
   }
 
 
@@ -2845,6 +2853,87 @@ function renderLiveApplications(applications) {
 
 }
 
+function updateApplicantSummaryCards(applications) {
+
+  if (!Array.isArray(applications)) {
+    return;
+  }
+
+  const total = applications.length;
+
+  let verified = 0;
+  let unverified = 0;
+  let idsIssued = 0;
+
+  applications.forEach(application => {
+
+    const status = String(
+      application.status || ''
+    ).trim().toLowerCase();
+
+    if (status === 'verified') {
+      verified++;
+    }
+
+    if (
+      status === 'unverified' ||
+      status === 'pending' ||
+      status === 'under review'
+    ) {
+      unverified++;
+    }
+
+    if (
+      status === 'id issued' ||
+      status === 'issued' ||
+      status === 'completed'
+    ) {
+      idsIssued++;
+    }
+
+  });
+
+  const totalEl =
+    document.getElementById(
+      'applicants-total-count'
+    );
+
+  const verifiedEl =
+    document.getElementById(
+      'applicants-verified-count'
+    );
+
+  const unverifiedEl =
+    document.getElementById(
+      'applicants-unverified-count'
+    );
+
+  const issuedEl =
+    document.getElementById(
+      'applicants-issued-count'
+    );
+
+  if (totalEl) {
+    totalEl.textContent =
+      total.toLocaleString();
+  }
+
+  if (verifiedEl) {
+    verifiedEl.textContent =
+      verified.toLocaleString();
+  }
+
+  if (unverifiedEl) {
+    unverifiedEl.textContent =
+      unverified.toLocaleString();
+  }
+
+  if (issuedEl) {
+    issuedEl.textContent =
+      idsIssued.toLocaleString();
+  }
+}
+
 // ESCAPE HTML
 
 function escapeApplicationHtml(
@@ -3221,105 +3310,52 @@ async function loadApplicationsFromDatabase() {
 
     // SAVE LIVE APPLICATIONS
 
-    LIVE_APPLICATIONS =
-      applications;
+    LIVE_APPLICATIONS = applications;
 
 
     // UPDATE LIVE ANALYTICS
 
-    if (
-      typeof updateLiveAnalyticsData ===
-      "function"
-    ) {
-
-      updateLiveAnalyticsData(
-        applications
-      );
-
+    if (typeof updateLiveAnalyticsData === "function") {
+      updateLiveAnalyticsData(applications);
     }
 
 
     // UPDATE DASHBOARD VISUALS
 
-    if (
-      typeof updateLiveDashboardVisuals ===
-      "function"
-    ) {
-
-      updateLiveDashboardVisuals(
-        applications
-      );
-
+    if (typeof updateLiveDashboardVisuals === "function") {
+      updateLiveDashboardVisuals(applications);
     }
 
 
     // UPDATE ANALYTICS CHART DATA
 
-    if (
-      typeof updateLiveAnalyticsCharts ===
-      "function"
-    ) {
-
-      updateLiveAnalyticsCharts(
-        applications
-      );
-
+    if (typeof updateLiveAnalyticsCharts === "function") {
+      updateLiveAnalyticsCharts(applications);
     }
 
 
     // UPDATE APPLICANTS TABLE
 
-    if (
-      typeof renderLiveApplicants ===
-      "function"
-    ) {
+    if (typeof renderLiveApplicants === "function") {
+      renderLiveApplicants(applications);
+    }
 
-      renderLiveApplicants(
-        applications
-      );
-
+    if (typeof updateApplicantSummaryCards === "function") {
+      updateApplicantSummaryCards(applications);
     }
 
 
     // UPDATE RECENT SUBMISSIONS
 
-    if (
-      typeof renderRecentSubmissions ===
-      "function"
-    ) {
-
-      renderRecentSubmissions(
-        applications
-      );
-
-    }
-
-
-    // UPDATE APPLICANT SUMMARY CARDS
-
-    if (
-      typeof updateApplicantSummaryCards ===
-      "function"
-    ) {
-
-      updateApplicantSummaryCards(
-        applications
-      );
-
+    if (typeof renderRecentSubmissions === "function") {
+      renderRecentSubmissions(applications);
     }
 
 
     // UPDATE APPLICATIONS TABLE
 
-    if (
-      typeof renderLiveApplications ===
-      "function"
-    ) {
-
-      renderLiveApplications(
-        applications
-      );
-
+    if (typeof renderLiveApplications === "function") {
+      renderLiveApplications(applications);
     }
 
 
