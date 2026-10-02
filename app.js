@@ -109,6 +109,7 @@ const BRGY_APR = ANALYTICS_DATA.Admin.barangayApproved;
 const BRGY_PND = ANALYTICS_DATA.Admin.barangayPending;
 const CHARTS = {};
 
+
 function analyticsScope() {
   return ANALYTICS_DATA[CURRENT_ROLE] || ANALYTICS_DATA.Staff;
 }
@@ -1464,10 +1465,8 @@ function restoreSession() {
    NEW: Application Detail Modal + Workflow + Docs + Audit
 ─────────────────────────────────────────────────────────── */
 const FULL_APPLICANTS = [];
-
 const APP_DB = {};
-
-
+const ID_MAKER_QUEUE = [];
 let CURRENT_APP_ID = null;
 
 function syncApplicationsToAppDB(applications) {
