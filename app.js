@@ -4298,16 +4298,32 @@ function updateIssuancePreview(app) {
 function initSmallFormIssuance() {
   const select = document.getElementById('id-applicant');
   if (!select) return;
+
+  // Prevent duplicate event listeners
+  select.onchange = null;
+
+  // Rebuild applicant options
   select.innerHTML = '<option value="">Select applicant</option>';
+
   Object.keys(APP_DB).forEach((id) => {
     const app = APP_DB[id];
-    app.photo = app.photo || fallbackMedia(app.name);
-    app.signature = app.signature || fallbackMedia(app.name);
+    if (!app) return;
+
     const opt = document.createElement('option');
     opt.value = id;
-    opt.textContent = app.name + ' (' + id + ')';
+    opt.textContent = `${app.name || 'Unnamed Applicant'} (${id})`;
+
     select.appendChild(opt);
   });
+
+  // IMPORTANT:
+  // Autofill the form whenever the selected applicant changes.
+  select.onchange = function () {
+    updatePreview();
+  };
+
+  // Also update immediately in case an applicant was already selected.
+  updatePreview();
 }
 
 /* ID Card Preview & Print */
