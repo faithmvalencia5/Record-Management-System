@@ -1474,61 +1474,158 @@ function syncApplicationsToAppDB(applications) {
   if (!Array.isArray(applications)) return;
 
   applications.forEach(application => {
-    const id = application.application_id;
+    const id =
+      application.application_id ||
+      application.applicationId ||
+      application.id;
 
     if (!id) return;
+
+    const firstName =
+      application.first_name ||
+      application.firstName ||
+      '';
+
+    const middleName =
+      application.middle_name ||
+      application.middleName ||
+      '';
+
+    const surname =
+      application.surname ||
+      application.last_name ||
+      application.lastName ||
+      '';
+
+    const fullName =
+      application.name ||
+      [firstName, middleName, surname]
+        .filter(Boolean)
+        .join(' ');
 
     APP_DB[id] = {
       id: id,
 
-      name: [
-        application.first_name,
-        application.middle_name,
-        application.surname
-      ].filter(Boolean).join(' '),
+      name: fullName,
 
-      firstName: application.first_name || '',
-      middleName: application.middle_name || '',
-      surname: application.surname || '',
+      firstName: firstName,
+      middleName: middleName,
+      surname: surname,
 
-      address: application.house_street || '',
-      barangay: application.barangay_district || '',
+      address:
+        application.house_street ||
+        application.houseStreet ||
+        application.address ||
+        '',
 
-      dob: application.date_of_birth || '',
-      gender: application.sex || '',
-      age: application.age || '',
+      barangay:
+        application.barangay_district ||
+        application.barangayDistrict ||
+        application.barangay ||
+        '',
 
-      birthplace: application.place_of_birth || '',
-      civilStatus: application.civil_status || '',
-      education: application.educational_attainment || '',
-      religion: application.religion || '',
-      occupation: application.occupation || '',
-      contactNumber: application.contact_number || '',
+      dob:
+        application.date_of_birth ||
+        application.dateOfBirth ||
+        application.dob ||
+        '',
 
-      idOsca: application.osca_id_number || '',
-      idSss: application.sss_id_number || '',
-      idPhilhealth: application.philhealth_id_number || '',
-      idGsis: application.gsis_id_number || '',
-      idTin: application.tin_id_number || '',
+      gender:
+        application.sex ||
+        application.gender ||
+        '',
 
-      status: application.status || 'Pending',
+      age:
+        application.age ||
+        '',
+
+      birthplace:
+        application.place_of_birth ||
+        application.placeOfBirth ||
+        application.birthplace ||
+        '',
+
+      civilStatus:
+        application.civil_status ||
+        application.civilStatus ||
+        '',
+
+      education:
+        application.educational_attainment ||
+        application.educationalAttainment ||
+        application.education ||
+        '',
+
+      religion:
+        application.religion ||
+        '',
+
+      occupation:
+        application.occupation ||
+        '',
+
+      contactNumber:
+        application.contact_number ||
+        application.contactNumber ||
+        '',
+
+      idOsca:
+        application.osca_id_number ||
+        application.oscaIdNumber ||
+        application.idOsca ||
+        '',
+
+      idSss:
+        application.sss_id_number ||
+        application.sssIdNumber ||
+        application.idSss ||
+        '',
+
+      idPhilhealth:
+        application.philhealth_id_number ||
+        application.philhealthIdNumber ||
+        application.idPhilhealth ||
+        '',
+
+      idGsis:
+        application.gsis_id_number ||
+        application.gsisIdNumber ||
+        application.idGsis ||
+        '',
+
+      idTin:
+        application.tin_id_number ||
+        application.tinIdNumber ||
+        application.idTin ||
+        '',
+
+      status:
+        application.status ||
+        'Pending',
 
       regDate:
         application.created_at ||
+        application.createdAt ||
         application.submitted_at ||
+        application.submittedAt ||
         '',
 
       photo:
         application.documents?.photo ||
+        application.photo ||
         '',
 
       signature:
         application.documents?.signature ||
+        application.signature ||
         ''
     };
   });
 
   initSmallFormIssuance();
+
+  // Refresh the form if an applicant is already selected
+  updatePreview();
 }
 
 function ensureExampleData(app) {
@@ -4032,31 +4129,62 @@ function getCurrentApplicant() {
 }
 function updatePreview() {
   const app = getCurrentApplicant();
+
   const nameEl = document.getElementById('id-fullname');
   const addrEl = document.getElementById('id-address');
   const dobEl = document.getElementById('id-dob');
   const sexEl = document.getElementById('id-sex');
 
-  if (app) {
-    if (nameEl) nameEl.value = app.name || '';
-    if (addrEl) addrEl.value = app.address || '';
-    if (dobEl) dobEl.value = app.dob || '';
-    if (sexEl) sexEl.value = app.gender === 'M' ? 'Male' : app.gender === 'F' ? 'Female' : app.gender || '';
-  } else {
+  if (!app) {
     if (nameEl) nameEl.value = '';
     if (addrEl) addrEl.value = '';
     if (dobEl) dobEl.value = '';
     if (sexEl) sexEl.value = '';
+
+    document.getElementById('preview-name').textContent = '________________';
+    document.getElementById('preview-address').textContent = '________________';
+    document.getElementById('preview-dob').textContent = '________________';
+    document.getElementById('preview-sex').textContent = '________________';
+
+    return;
   }
 
+  // Auto-fill applicant information
+  if (nameEl) {
+    nameEl.value = app.name || '';
+  }
+
+  if (addrEl) {
+    addrEl.value = app.address || '';
+  }
+
+  if (dobEl) {
+    dobEl.value = app.dob || '';
+  }
+
+  if (sexEl) {
+    if (app.gender === 'M') {
+      sexEl.value = 'Male';
+    } else if (app.gender === 'F') {
+      sexEl.value = 'Female';
+    } else {
+      sexEl.value = app.gender || '';
+    }
+  }
+
+  // Get current values for the preview
   const nameVal = nameEl?.value || '';
   const addrVal = addrEl?.value || '';
   const dobVal = dobEl?.value || '';
   const sexVal = sexEl?.value || '';
-  const dateIssuedVal = document.getElementById('id-date-issued')?.value || '';
-  const controlNoVal = document.getElementById('id-control-no')?.value || '';
 
-  // Spans
+  const dateIssuedVal =
+    document.getElementById('id-date-issued')?.value || '';
+
+  const controlNoVal =
+    document.getElementById('id-control-no')?.value || '';
+
+  // Update preview text
   const pName = document.getElementById('preview-name');
   const pAddr = document.getElementById('preview-address');
   const pDob = document.getElementById('preview-dob');
@@ -4064,18 +4192,47 @@ function updatePreview() {
   const pDateIssued = document.getElementById('preview-date-issued');
   const pControlNo = document.getElementById('preview-control-no');
 
-  if (pName) pName.textContent = nameVal || '________________';
-  if (pAddr) pAddr.textContent = addrVal || '________________';
-  if (pDob) pDob.textContent = dobVal ? formatDateForForm(dobVal) : '________________';
-  if (pSex) pSex.textContent = sexVal || '________________';
-  if (pDateIssued) pDateIssued.textContent = dateIssuedVal ? formatDateForForm(dateIssuedVal) : '________________';
-  if (pControlNo) pControlNo.textContent = controlNoVal || '________________';
+  if (pName) {
+    pName.textContent = nameVal || '________________';
+  }
 
-  // Photo
-  const pPhoto = document.getElementById('preview-photo');
-  const pPhotoFb = document.getElementById('preview-photo-fallback');
+  if (pAddr) {
+    pAddr.textContent = addrVal || '________________';
+  }
+
+  if (pDob) {
+    pDob.textContent =
+      dobVal
+        ? formatDateForForm(dobVal)
+        : '________________';
+  }
+
+  if (pSex) {
+    pSex.textContent = sexVal || '________________';
+  }
+
+  if (pDateIssued) {
+    pDateIssued.textContent =
+      dateIssuedVal
+        ? formatDateForForm(dateIssuedVal)
+        : '________________';
+  }
+
+  if (pControlNo) {
+    pControlNo.textContent =
+      controlNoVal || '________________';
+  }
+
+  // Update applicant photo
+  const pPhoto =
+    document.getElementById('preview-photo');
+
+  const pPhotoFb =
+    document.getElementById('preview-photo-fallback');
+
+  const photoSrc = app.photo || '';
+
   if (pPhoto && pPhotoFb) {
-    const photoSrc = app?.photo || '';
     if (photoSrc) {
       pPhoto.src = photoSrc;
       pPhoto.style.display = 'block';
@@ -4084,17 +4241,25 @@ function updatePreview() {
       pPhoto.src = '';
       pPhoto.style.display = 'none';
       pPhotoFb.style.display = 'block';
-      pPhotoFb.textContent = (nameVal || '--').slice(0, 2).toUpperCase();
+      pPhotoFb.textContent =
+        (nameVal || '--')
+          .slice(0, 2)
+          .toUpperCase();
     }
   }
 
-  // Signature
-  const pSig = document.getElementById('preview-signature');
-  const pSigFb = document.getElementById('preview-sign-fallback');
+  // Update signature
+  const pSig =
+    document.getElementById('preview-signature');
+
+  const pSigFb =
+    document.getElementById('preview-sign-fallback');
+
+  const signatureSrc = app.signature || '';
+
   if (pSig && pSigFb) {
-    const sigSrc = app?.signature || '';
-    if (sigSrc) {
-      pSig.src = sigSrc;
+    if (signatureSrc) {
+      pSig.src = signatureSrc;
       pSig.style.display = 'block';
       pSigFb.style.display = 'none';
     } else {
