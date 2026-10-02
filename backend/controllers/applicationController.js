@@ -668,54 +668,28 @@ const updateApplicationStatus = async (req, res) => {
 
     const now = new Date().toISOString();
 
-    // --------------------------------------------------
-    // 1. UPDATE MAIN APPLICATION RECORD
-    // --------------------------------------------------
-
+    // Find existing status history records
     const {
-      data: updatedApplication,
-      error: updateApplicationError,
-    } = await supabase
-      .from("applications")
-      .update({
-        status: status,
-        updated_at: now,
-      })
-      .eq("application_id", applicationId)
-      .select()
-      .single();
-
-    if (updateApplicationError) {
-      throw updateApplicationError;
-    }
-
-    // --------------------------------------------------
-    // 2. UPDATE STATUS HISTORY
-    // --------------------------------------------------
-
-    const {
-      data: existingStatusRecords,
-      error: statusHistoryError,
+      data: existingRecords,
+      error: findStatusError,
     } = await supabase
       .from("application_status_history")
       .select("*")
       .eq("application_id", applicationId);
 
-    if (statusHistoryError) {
-      throw statusHistoryError;
+    if (findStatusError) {
+      throw findStatusError;
     }
 
-    let statusRecord = null;
+    let statusRecord;
 
-    if (
-      existingStatusRecords &&
-      existingStatusRecords.length > 0
-    ) {
-      // Update all existing status records.
-      // This keeps the current system structure compatible
-      // even if there are duplicate history rows.
+    // --------------------------------------------
+    // UPDATE EXISTING STATUS RECORD
+    // --------------------------------------------
+    if (existingRecords && existingRecords.length > 0) {
+
       const {
-        data: updatedStatusRecords,
+        data: updatedRecords,
         error: updateStatusError,
       } = await supabase
         .from("application_status_history")
@@ -730,11 +704,15 @@ const updateApplicationStatus = async (req, res) => {
         throw updateStatusError;
       }
 
-      statusRecord =
-        updatedStatusRecords?.[0] || null;
+      statusRecord = updatedRecords?.[0] || null;
 
-    } else {
-      // No status history exists yet, so create one.
+    }
+
+    // --------------------------------------------
+    // CREATE STATUS RECORD IF NONE EXISTS
+    // --------------------------------------------
+    else {
+
       const {
         data: newStatusRecord,
         error: insertStatusError,
@@ -755,19 +733,15 @@ const updateApplicationStatus = async (req, res) => {
       statusRecord = newStatusRecord;
     }
 
-    // --------------------------------------------------
-    // 3. RETURN SUCCESS
-    // --------------------------------------------------
-
     return res.status(200).json({
       success: true,
       message: "Application status updated successfully.",
       status: status,
-      application: updatedApplication,
       statusHistory: statusRecord,
     });
 
   } catch (error) {
+
     console.error(
       "Error updating application status:",
       error
