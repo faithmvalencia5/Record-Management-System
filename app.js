@@ -4299,26 +4299,30 @@ function initSmallFormIssuance() {
   const select = document.getElementById('id-applicant');
   if (!select) return;
 
-  const currentValue = select.value;
+  // Prevent duplicate event listeners
+  select.onchange = null;
 
+  // Rebuild applicant options
   select.innerHTML = '<option value="">Select applicant</option>';
 
   Object.keys(APP_DB).forEach((id) => {
     const app = APP_DB[id];
+    if (!app) return;
 
     const opt = document.createElement('option');
     opt.value = id;
-    opt.textContent = app.name + ' (' + id + ')';
+    opt.textContent = `${app.name || 'Unnamed Applicant'} (${id})`;
 
     select.appendChild(opt);
   });
 
-  // Restore the previously selected applicant
-  if (currentValue && APP_DB[currentValue]) {
-    select.value = currentValue;
-  }
+  // IMPORTANT:
+  // Autofill the form whenever the selected applicant changes.
+  select.onchange = function () {
+    updatePreview();
+  };
 
-  // Fill the form if an applicant is already selected
+  // Also update immediately in case an applicant was already selected.
   updatePreview();
 }
 
