@@ -2538,21 +2538,80 @@ async function sendToIdMaker() {
     // 2. UPDATE LOCAL APPLICATION DATA
     // --------------------------------------------------
 
-    if (APP_DB[appId]) {
-      APP_DB[appId].status = result.status || 'In Process';
+    const savedStatus = result.status || 'In Process';
 
-      renderWorkflow('In Process');
+    // Update APP_DB
+    if (APP_DB[appId]) {
+      APP_DB[appId].status = savedStatus;
+
+      renderWorkflow(savedStatus);
 
       const modalSub = document.getElementById('modal-sub');
 
       if (modalSub) {
         modalSub.textContent =
           `${APP_DB[appId].id || appId} · Barangay: ` +
-          `${APP_DB[appId].barangay || '—'} · Status: In Process`;
+          `${APP_DB[appId].barangay || '—'} · Status: ${savedStatus}`;
+      }
+    }
+
+    // IMPORTANT:
+    // Also update FULL_APPLICANTS because the applications table
+    // is rendered from this array.
+    const fullApplicant = FULL_APPLICANTS.find(function (item) {
+      return item.id === appId;
+    });
+
+    if (fullApplicant) {
+      fullApplicant.status = savedStatus;
+    }
+
+    // Update the applications table immediately
+    const applicationRow = document.querySelector(
+      '#applications-tbody tr[data-app-id="' +
+        appId +
+        '"]'
+    );
+
+    if (applicationRow) {
+      const statusLabel = applicationRow.querySelector(
+        '.status-select__label'
+      );
+
+      if (statusLabel) {
+        statusLabel.textContent = savedStatus;
       }
 
-      syncApplicationsTableBadge(appId, 'In Process');
+      const statusRoot = applicationRow.querySelector(
+        '.status-select'
+      );
+
+      if (statusRoot) {
+        const colorMap = {
+          'Pending': '#C07A0A',
+          'Unverified': '#D97706',
+          'Under Review': '#1A4FBA',
+          'Verified': '#059669',
+          'In Process': '#0B9E6C',
+          'Ready for Release': '#7C3AED',
+          'ID Issued': '#6B5BD1',
+          'Completed': '#0B9E6C',
+          'Rejected': '#D9233A'
+        };
+
+        const icon = statusRoot.querySelector(
+          '.status-select__icon'
+        );
+
+        if (icon) {
+          icon.style.color =
+            colorMap[savedStatus] || '#666';
+        }
+      }
     }
+
+    // Update status counters
+    updateStatusTabCounts();
 
     // --------------------------------------------------
     // 3. CREATE ID MAKER QUEUE ENTRY
@@ -3559,7 +3618,7 @@ document.addEventListener('keydown', function (e) {
   else if (e.key === 'ArrowRight') navDocViewer(1);
 });
 
-async function setDocStatus(doc, state) {
+async function setDocStatus(doc, state, options = {}) {
   if (!CURRENT_APP_ID) {
     showToast(
       'No application selected.',
@@ -3726,12 +3785,14 @@ async function setDocStatus(doc, state) {
       CURRENT_ROLE || 'Staff'
     );
 
-    showToast(
-      `${DOC_LABELS[doc] || doc} saved as ${
-        labels[state] || state
-      }.`,
-      'success'
-    );
+    if (!options.silent) {
+      showToast(
+        `${DOC_LABELS[doc] || doc} saved as ${
+          labels[state] || state
+        }.`,
+        'success'
+      );
+    }
 
     return true;
 
@@ -3741,11 +3802,13 @@ async function setDocStatus(doc, state) {
       error
     );
 
-    showToast(
-      'Document status was not saved: ' +
-        error.message,
-      'error'
-    );
+    if (!options.silent) {
+      showToast(
+        'Document status was not saved: ' +
+          error.message,
+        'error'
+      );
+    }
 
     return false;
   }
@@ -3968,28 +4031,60 @@ async function requestReupload() {
 
 async function generateIssuanceForm() {
   if (!CURRENT_APP_ID) return;
+
   var app = APP_DB[CURRENT_APP_ID];
+
   if (!app) return;
+
   if (app.duplicate) {
-    showToast('Cannot generate form: duplicate risk flagged. Resolve first.', 'error');
+    showToast(
+      'Cannot generate form: duplicate risk flagged. Resolve first.',
+      'error'
+    );
     return;
   }
-  // Block only if any doc was explicitly rejected
+
+  // Block if any document was explicitly rejected
   var docVals = Object.values(DOC_STATUS);
-  var anyBad = docVals.some(function (v) { return v === 'bad'; });
+
+  var anyBad = docVals.some(function (v) {
+    return v === 'bad';
+  });
+
   if (anyBad) {
-    showToast('Cannot generate form: one or more documents were rejected. Request re-upload first.', 'error');
+    showToast(
+      'Cannot generate form: one or more documents were rejected. Request re-upload first.',
+      'error'
+    );
     return;
   }
-  var requiredDocs = { bc: 'Birth Certificate', cedula: 'Community Tax Certificate' };
-  var missingVerified = Object.keys(requiredDocs).filter(function (d) { return DOC_STATUS[d] !== 'ok'; });
+
+  // Required documents must be approved
+  var requiredDocs = {
+    bc: 'Birth Certificate',
+    cedula: 'Community Tax Certificate'
+  };
+
+  var missingVerified = Object.keys(requiredDocs).filter(function (d) {
+    return DOC_STATUS[d] !== 'ok';
+  });
+
   if (missingVerified.length > 0) {
-    var names = missingVerified.map(function (d) { return requiredDocs[d]; }).join(' and ');
-    showToast('Approve ' + names + ' before generating the form.', 'error');
+    var names = missingVerified
+      .map(function (d) {
+        return requiredDocs[d];
+      })
+      .join(' and ');
+
+    showToast(
+      'Approve ' + names + ' before generating the form.',
+      'error'
+    );
+
     return;
   }
-  // Save approval for all documents before generating
-  // the issuance form.
+
+  // Documents that still need to be marked approved
   const issuanceDocs = [
     'idFront',
     'idBack',
@@ -3999,14 +4094,26 @@ async function generateIssuanceForm() {
     'signature'
   ];
 
-  for (const doc of issuanceDocs) {
-    const saved =
-      await setDocStatus(
-        doc,
-        'ok'
-      );
+  const docsToApprove = issuanceDocs.filter(function (doc) {
+    return DOC_STATUS[doc] !== 'ok';
+  });
 
-    if (!saved) {
+  // Save only documents that are not already approved.
+  // Run the requests in parallel and suppress individual success notifications.
+  if (docsToApprove.length > 0) {
+    const results = await Promise.all(
+      docsToApprove.map(function (doc) {
+        return setDocStatus(doc, 'ok', {
+          silent: true
+        });
+      })
+    );
+
+    const allSaved = results.every(function (saved) {
+      return saved === true;
+    });
+
+    if (!allSaved) {
       showToast(
         'Unable to save all document approvals. Issuance form was not generated.',
         'error'
@@ -4015,28 +4122,33 @@ async function generateIssuanceForm() {
     }
   }
 
+  // Make sure all document cards display Approved
   issuanceDocs.forEach(function (doc) {
-    const el =
-      document.getElementById(
-        'doc-' +
+    const el = document.getElementById(
+      'doc-' +
         doc
-          .replace(
-            /([A-Z])/g,
-            '-$1'
-          )
+          .replace(/([A-Z])/g, '-$1')
           .toLowerCase() +
         '-status'
-      );
+    );
 
     if (el) {
-      el.className =
-        'doc-card__status ok';
-
-      el.textContent =
-        'Approved';
+      el.className = 'doc-card__status ok';
+      el.textContent = 'Approved';
     }
+
+    DOC_STATUS[doc] = 'ok';
   });
-  appendAudit(CURRENT_USER?.displayName || 'Staff', 'Documents approved (issuance form generated)', CURRENT_ROLE);
+
+  updateDocsSummary();
+
+  appendAudit(
+    CURRENT_USER?.displayName || 'Staff',
+    'Documents approved (issuance form generated)',
+    CURRENT_ROLE
+  );
+
+  // Open the issuance form immediately
   openIssuancePreview(CURRENT_APP_ID);
 }
 
