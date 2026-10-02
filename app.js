@@ -1609,12 +1609,24 @@ function syncApplicationsToAppDB(applications) {
 
       photo:
         application.documents?.photo ||
+        application.documents?.photo_url ||
+        application.documents?.photoUrl ||
         application.photo ||
+        application.photo_url ||
+        application.photoUrl ||
+        application.photo_path ||
+        application.photoPath ||
         '',
 
       signature:
         application.documents?.signature ||
+        application.documents?.signature_url ||
+        application.documents?.signatureUrl ||
         application.signature ||
+        application.signature_url ||
+        application.signatureUrl ||
+        application.signature_path ||
+        application.signaturePath ||
         ''
     };
   });
@@ -2562,7 +2574,7 @@ async function sendToIdMaker() {
       gender: editedSex,
 
       photo: app.photo || fallbackMedia(editedName),
-      signature: app.signature || '',
+      signature: app.signature || fallbackMedia(editedName),
 
       controlNo: editedControlNo,
       dateIssued: editedDateIssued,
