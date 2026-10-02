@@ -2585,19 +2585,19 @@ async function sendToIdMaker() {
       );
     }
 
-    // --------------------------------------------------
     // 2. UPDATE LOCAL APPLICATION DATA
-    // --------------------------------------------------
 
     const savedStatus = result.status || 'In Process';
 
-    // Update APP_DB
+    // UPDATE ALL LOCAL APPLICATION DATA SOURCES
+
     if (APP_DB[appId]) {
       APP_DB[appId].status = savedStatus;
 
       renderWorkflow(savedStatus);
 
-      const modalSub = document.getElementById('modal-sub');
+      const modalSub =
+        document.getElementById('modal-sub');
 
       if (modalSub) {
         modalSub.textContent =
@@ -2606,67 +2606,74 @@ async function sendToIdMaker() {
       }
     }
 
-    // IMPORTANT:
-    // Also update FULL_APPLICANTS because the applications table
-    // is rendered from this array.
-    const fullApplicant = FULL_APPLICANTS.find(function (item) {
-      return item.id === appId;
-    });
+    if (Array.isArray(LIVE_APPLICATIONS)) {
+
+      const liveApplication =
+        LIVE_APPLICATIONS.find(function (item) {
+
+          return (
+            String(
+              item.application_id ||
+              item.applicationId ||
+              item.id
+            ) === String(appId)
+          );
+
+        });
+
+      if (liveApplication) {
+
+        liveApplication.status =
+          savedStatus;
+
+        liveApplication.status_updated_at =
+          new Date().toISOString();
+
+      }
+    }
+
+
+    const fullApplicant =
+      FULL_APPLICANTS.find(function (item) {
+        return String(item.id) === String(appId);
+      });
 
     if (fullApplicant) {
-      fullApplicant.status = savedStatus;
+      fullApplicant.status =
+        savedStatus;
     }
 
-    // Update the applications table immediately
-    const applicationRow = document.querySelector(
-      '#applications-tbody tr[data-app-id="' +
-        appId +
-        '"]'
-    );
 
-    if (applicationRow) {
-      const statusLabel = applicationRow.querySelector(
-        '.status-select__label'
+    // REFRESH THE LIVE APPLICATIONS TABLE
+
+    if (
+      typeof renderLiveApplications ===
+      'function' &&
+      Array.isArray(LIVE_APPLICATIONS)
+    ) {
+      renderLiveApplications(
+        LIVE_APPLICATIONS
       );
-
-      if (statusLabel) {
-        statusLabel.textContent = savedStatus;
-      }
-
-      const statusRoot = applicationRow.querySelector(
-        '.status-select'
-      );
-
-      if (statusRoot) {
-        const colorMap = {
-          'Pending': '#C07A0A',
-          'Unverified': '#D97706',
-          'Under Review': '#1A4FBA',
-          'Verified': '#059669',
-          'In Process': '#0B9E6C',
-          'Ready for Release': '#7C3AED',
-          'ID Issued': '#6B5BD1',
-          'Completed': '#0B9E6C',
-          'Rejected': '#D9233A'
-        };
-
-        const icon = statusRoot.querySelector(
-          '.status-select__icon'
-        );
-
-        if (icon) {
-          icon.style.color =
-            colorMap[savedStatus] || '#666';
-        }
-      }
     }
 
-    // Update status counters
+
+    // REFRESH DASHBOARD / SUMMARY COUNTS
+
+    if (
+      typeof updateLiveAnalyticsData ===
+      'function' &&
+      Array.isArray(LIVE_APPLICATIONS)
+    ) {
+      updateLiveAnalyticsData(
+        LIVE_APPLICATIONS
+      );
+    }
+
+
+    // Update the status counter tabs
     updateStatusTabCounts();
 
-    // --------------------------------------------------
     // 3. CREATE ID MAKER QUEUE ENTRY
-    // --------------------------------------------------
 
     const queueEntry = {
       id: app.id || appId,
@@ -2712,9 +2719,7 @@ async function sendToIdMaker() {
       ID_MAKER_QUEUE.push(queueEntry);
     }
 
-    // --------------------------------------------------
     // 4. SAVE QUEUE TO LOCAL STORAGE
-    // --------------------------------------------------
 
     try {
       localStorage.setItem(
@@ -2728,9 +2733,7 @@ async function sendToIdMaker() {
       );
     }
 
-    // --------------------------------------------------
     // 5. UPDATE ID MAKER UI IF AVAILABLE
-    // --------------------------------------------------
 
     if (typeof initIdMakerQueue === 'function') {
       initIdMakerQueue();
@@ -2740,9 +2743,7 @@ async function sendToIdMaker() {
       updateIdMakerKPIs();
     }
 
-    // --------------------------------------------------
     // 6. AUDIT / NOTIFICATION
-    // --------------------------------------------------
 
     appendAudit(
       CURRENT_USER?.displayName || 'Staff',
@@ -2757,16 +2758,12 @@ async function sendToIdMaker() {
       'Delivered'
     );
 
-    // --------------------------------------------------
     // 7. CLOSE BOTH MODALS
-    // --------------------------------------------------
 
     closeDigitalIssuance();
     closeModal();
 
-    // --------------------------------------------------
     // 8. SUCCESS MESSAGE
-    // --------------------------------------------------
 
     showToast(
       `${editedName} sent to ID Maker (In Process)`,
