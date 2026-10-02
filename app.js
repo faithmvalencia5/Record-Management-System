@@ -1470,8 +1470,67 @@ const APP_DB = {};
 
 let CURRENT_APP_ID = null;
 
-// Fill missing fields with coherent example data so every application
-// shows a complete, accurate-looking detail (frontend demo, mock data).
+function syncApplicationsToAppDB(applications) {
+  if (!Array.isArray(applications)) return;
+
+  applications.forEach(application => {
+    const id = application.application_id;
+
+    if (!id) return;
+
+    APP_DB[id] = {
+      id: id,
+
+      name: [
+        application.first_name,
+        application.middle_name,
+        application.surname
+      ].filter(Boolean).join(' '),
+
+      firstName: application.first_name || '',
+      middleName: application.middle_name || '',
+      surname: application.surname || '',
+
+      address: application.house_street || '',
+      barangay: application.barangay_district || '',
+
+      dob: application.date_of_birth || '',
+      gender: application.sex || '',
+      age: application.age || '',
+
+      birthplace: application.place_of_birth || '',
+      civilStatus: application.civil_status || '',
+      education: application.educational_attainment || '',
+      religion: application.religion || '',
+      occupation: application.occupation || '',
+      contactNumber: application.contact_number || '',
+
+      idOsca: application.osca_id_number || '',
+      idSss: application.sss_id_number || '',
+      idPhilhealth: application.philhealth_id_number || '',
+      idGsis: application.gsis_id_number || '',
+      idTin: application.tin_id_number || '',
+
+      status: application.status || 'Pending',
+
+      regDate:
+        application.created_at ||
+        application.submitted_at ||
+        '',
+
+      photo:
+        application.documents?.photo ||
+        '',
+
+      signature:
+        application.documents?.signature ||
+        ''
+    };
+  });
+
+  initSmallFormIssuance();
+}
+
 function ensureExampleData(app) {
   const parts = (app.name || '').trim().replace(/\s+/g, ' ').split(' ');
   if (app.surname === undefined) {

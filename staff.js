@@ -3510,6 +3510,10 @@ async function loadApplicationsFromDatabase() {
 
     LIVE_APPLICATIONS = applications;
 
+    if (typeof syncApplicationsToAppDB === 'function') {
+      syncApplicationsToAppDB(applications);
+    }
+
 
     // UPDATE LIVE ANALYTICS DATA
 
