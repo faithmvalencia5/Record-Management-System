@@ -251,6 +251,48 @@ function initIdMakerQueue(){
   applyQueueFilters();
 }
 
+function refreshIdMakerQueue() {
+
+  try {
+
+    var savedQueue =
+      JSON.parse(
+        localStorage.getItem(
+          'scb_id_maker_queue_v1'
+        ) || '[]'
+      );
+
+    if (Array.isArray(savedQueue)) {
+
+      ID_MAKER_QUEUE.length = 0;
+
+      savedQueue.forEach(function(item){
+        ID_MAKER_QUEUE.push(item);
+      });
+
+    }
+
+  } catch (error) {
+
+    console.warn(
+      'Could not refresh ID Maker queue:',
+      error
+    );
+
+  }
+
+  initIdMakerQueue();
+  updateIdMakerKPIs();
+  updateQueueTagCounts();
+  updateFilterCounts();
+  updateAlertCounts();
+
+  showToast(
+    'ID Maker queue refreshed.',
+    'success'
+  );
+}
+
 function initIdMakerStatusChart(){
   var ctx = mkCanvas('chart-idmaker-status'); if(!ctx)return;
   var counts = { Queued:0, 'In Production':0, Printed:0, 'In Transit':0 };
@@ -299,6 +341,88 @@ function inlineStatusChange(appId, newStatus){
   showToast('Status updated to "' + newStatus + '" for ' + (queueItem?.name || appId), 'success');
 
   applyQueueFilters();
+}
+
+function updateIdMakerKPIs() {
+
+  var queued = 0;
+  var production = 0;
+  var printed = 0;
+  var transit = 0;
+  var errors = 0;
+
+  ID_MAKER_QUEUE.forEach(function(app){
+
+    if (app.printStatus === 'Queued') {
+      queued++;
+    }
+
+    else if (
+      app.printStatus === 'In Production'
+    ) {
+      production++;
+    }
+
+    else if (
+      app.printStatus === 'Printed'
+    ) {
+      printed++;
+    }
+
+    else if (
+      app.printStatus === 'In Transit'
+    ) {
+      transit++;
+    }
+
+  });
+
+
+  // ---------------------------------------
+  // KPI CARD 1 — Pending Export
+  // ---------------------------------------
+
+  var cards =
+    document.querySelectorAll(
+      '.admin-kpi-strip .stat-card'
+    );
+
+  if (!cards.length) return;
+
+
+  var values = [
+    queued,
+    production,
+    printed,
+    transit,
+    errors
+  ];
+
+
+  cards.forEach(function(card, index){
+
+    var value =
+      card.querySelector(
+        '.stat-card__value'
+      );
+
+    var trend =
+      card.querySelector(
+        '.stat-card__trend'
+      );
+
+    if (value) {
+      value.textContent =
+        values[index];
+    }
+
+    if (trend) {
+      trend.textContent =
+        values[index];
+    }
+
+  });
+
 }
 
 function queueBadgeClass(status){
@@ -629,3 +753,17 @@ document.addEventListener('click',function(e){
 });
 
 document.addEventListener('click', () => document.querySelectorAll('.row-status-select.open').forEach(r => r.classList.remove('open')));
+
+document.addEventListener('DOMContentLoaded', function () {
+
+  initIdMakerQueue();
+
+  updateIdMakerKPIs();
+
+  updateQueueTagCounts();
+
+  updateFilterCounts();
+
+  updateAlertCounts();
+
+});
