@@ -1921,8 +1921,8 @@ async function openApplicationDetail(appId) {
     setText('info-problems-other', '—');
   }
 
-  // ── Documents (reset to pending + populate previews) ──
-  resetDocStatuses();
+  // ── Documents ──
+  loadSavedDocStatuses(app);
   populateDocPreviews(app);
   renderSavedValidation(app);
 
@@ -3024,6 +3024,131 @@ function resetDocStatuses() {
   if (sum) sum.textContent = 'All documents pending review';
 }
 
+function loadSavedDocStatuses(app) {
+  resetDocStatuses();
+
+  if (
+    !app ||
+    !Array.isArray(
+      app.documentAuthentications
+    )
+  ) {
+    return;
+  }
+
+  const databaseToUi = {
+    pending: 'pending',
+    approved: 'ok',
+    verified: 'ok',
+    reupload: 'warn',
+    rejected: 'bad'
+  };
+
+  const databaseToDoc = {
+    valid_id: 'idFront',
+    valid_id_back: 'idBack',
+    latest_photo: 'photo',
+    birth_certificate: 'bc',
+    community_tax_certificate: 'cedula',
+    signature: 'signature'
+  };
+
+  app.documentAuthentications.forEach(
+    record => {
+      const doc =
+        databaseToDoc[
+          record.document_type
+        ];
+
+      if (!doc) {
+        return;
+      }
+
+      const state =
+        databaseToUi[
+          String(
+            record.authentication_status ||
+              'pending'
+          ).toLowerCase()
+        ] || 'pending';
+
+      DOC_STATUS[doc] = state;
+
+      const elId =
+        'doc-' +
+        doc
+          .replace(
+            /([A-Z])/g,
+            '-$1'
+          )
+          .toLowerCase() +
+        '-status';
+
+      const statusEl =
+        document.getElementById(elId);
+
+      if (statusEl) {
+        statusEl.className =
+          'doc-card__status ' +
+          (
+            state === 'ok'
+              ? 'ok'
+              : state === 'warn'
+                ? 'warn'
+                : state === 'bad'
+                  ? 'bad'
+                  : 'ok'
+          );
+
+        statusEl.textContent =
+          state === 'ok'
+            ? (
+                String(
+                  record.authentication_status ||
+                    ''
+                ).toLowerCase() ===
+                'verified'
+                  ? 'Verified'
+                  : 'Approved'
+              )
+            : state === 'warn'
+              ? 'Re-upload'
+              : state === 'bad'
+                ? 'Rejected'
+                : 'Pending';
+      }
+
+      // Update the special Verified buttons
+      if (
+        doc === 'bc' ||
+        doc === 'cedula'
+      ) {
+        const btn =
+          document.getElementById(
+            'doc-' + doc + '-verify'
+          );
+
+        if (btn) {
+          const isVerified =
+            state === 'ok';
+
+          btn.classList.toggle(
+            'is-verified',
+            isVerified
+          );
+
+          btn.innerHTML =
+            isVerified
+              ? '&#10003; Verified'
+              : 'Verified';
+        }
+      }
+    }
+  );
+
+  updateDocsSummary();
+}
+
 /* Populate doc previews with thumbnails from applicant data */
 function populateDocPreviews(app) {
   if (!app || !app.documents) return;
@@ -3105,32 +3230,417 @@ document.addEventListener('keydown', function (e) {
   else if (e.key === 'ArrowRight') navDocViewer(1);
 });
 
-function setDocStatus(doc, state) {
-  DOC_STATUS[doc] = state;
-  const labels = { ok: 'Approved', warn: 'Re-upload', bad: 'Rejected', pending: 'Pending' };
-  const elId = 'doc-' + doc.replace(/([A-Z])/g, '-$1').toLowerCase() + '-status';
-  const el = document.getElementById(elId);
-  if (el) {
-    el.className = 'doc-card__status ' + (state === 'ok' ? 'ok' : state === 'warn' ? 'warn' : state === 'bad' ? 'bad' : 'ok');
-    el.textContent = labels[state] || state;
+async function setDocStatus(doc, state) {
+  if (!CURRENT_APP_ID) {
+    showToast(
+      'No application selected.',
+      'error'
+    );
+    return false;
   }
+
+  const statusMap = {
+    ok: 'approved',
+    warn: 'reupload',
+    bad: 'rejected',
+    pending: 'pending'
+  };
+
+  const databaseStatus =
+    statusMap[state] || 'pending';
+
+  const documentTypeMap = {
+    idFront: 'valid_id',
+    idBack: 'valid_id_back',
+    photo: 'latest_photo',
+    bc: 'birth_certificate',
+    cedula: 'community_tax_certificate',
+    signature: 'signature'
+  };
+
+  const documentType =
+    documentTypeMap[doc];
+
+  if (!documentType) {
+    showToast(
+      'Invalid document type.',
+      'error'
+    );
+    return false;
+  }
+
+  // Optimistically update the UI
+  DOC_STATUS[doc] = state;
+
+  const labels = {
+    ok: 'Approved',
+    warn: 'Re-upload',
+    bad: 'Rejected',
+    pending: 'Pending'
+  };
+
+  const elId =
+    'doc-' +
+    doc
+      .replace(/([A-Z])/g, '-$1')
+      .toLowerCase() +
+    '-status';
+
+  const el =
+    document.getElementById(elId);
+
+  if (el) {
+    el.className =
+      'doc-card__status ' +
+      (
+        state === 'ok'
+          ? 'ok'
+          : state === 'warn'
+            ? 'warn'
+            : state === 'bad'
+              ? 'bad'
+              : 'ok'
+      );
+
+    el.textContent =
+      labels[state] || state;
+  }
+
   updateDocsSummary();
-  appendAudit('Cindy B.', `Document updated: ${doc} → ${state}`, 'Admin');
+
+  try {
+    const response = await fetch(
+      `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(
+        CURRENT_APP_ID
+      )}/documents/${encodeURIComponent(
+        documentType
+      )}/authentication`,
+      {
+        method: 'PUT',
+
+        headers: {
+          'Content-Type':
+            'application/json'
+        },
+
+        body: JSON.stringify({
+          status: databaseStatus,
+
+          method: 'staff_review',
+
+          authenticated_by:
+            CURRENT_USER?.id || null,
+
+          remarks:
+            databaseStatus === 'approved'
+              ? 'Document approved by staff.'
+              : databaseStatus === 'verified'
+                ? 'Document verified by staff.'
+                : databaseStatus === 'reupload'
+                  ? 'Document requires re-upload.'
+                  : databaseStatus === 'rejected'
+                    ? 'Document rejected by staff.'
+                    : 'Document pending review.'
+        })
+      }
+    );
+
+    const result =
+      await response.json();
+
+    if (
+      !response.ok ||
+      !result.success
+    ) {
+      throw new Error(
+        result.message ||
+        'Failed to save document status.'
+      );
+    }
+
+    // Keep the saved authentication in
+    // the current application object
+    if (APP_DB[CURRENT_APP_ID]) {
+      if (!Array.isArray(
+        APP_DB[CURRENT_APP_ID]
+          .documentAuthentications
+      )) {
+        APP_DB[CURRENT_APP_ID]
+          .documentAuthentications = [];
+      }
+
+      const list =
+        APP_DB[CURRENT_APP_ID]
+          .documentAuthentications;
+
+      const saved =
+        result.documentAuthentication;
+
+      const existingIndex =
+        list.findIndex(
+          item =>
+            item.document_type ===
+            saved.document_type
+        );
+
+      if (existingIndex >= 0) {
+        list[existingIndex] = saved;
+      } else {
+        list.push(saved);
+      }
+    }
+
+    appendAudit(
+      CURRENT_USER?.displayName ||
+        'Staff',
+      `Document updated: ${
+        DOC_LABELS[doc] || doc
+      } → ${labels[state] || state}`,
+      CURRENT_ROLE || 'Staff'
+    );
+
+    showToast(
+      `${DOC_LABELS[doc] || doc} saved as ${
+        labels[state] || state
+      }.`,
+      'success'
+    );
+
+    return true;
+
+  } catch (error) {
+    console.error(
+      'Failed to save document authentication:',
+      error
+    );
+
+    showToast(
+      'Document status was not saved: ' +
+        error.message,
+      'error'
+    );
+
+    return false;
+  }
 }
 
-/* Simple checkmark toggle so staff can mark a requirement as verified before
-   generating the issuance form. Toggles between 'ok' (verified) and 'pending'. */
-function toggleDocVerified(doc) {
-  var next = DOC_STATUS[doc] === 'ok' ? 'pending' : 'ok';
-  setDocStatus(doc, next);
-  var btn = document.getElementById('doc-' + doc + '-verify');
-  if (btn) {
-    btn.classList.toggle('is-verified', next === 'ok');
-    btn.innerHTML = next === 'ok' ? '&#10003; Verified' : 'Verified';
+async function saveDocumentAuthentication(
+  doc,
+  databaseStatus
+) {
+  if (!CURRENT_APP_ID) {
+    showToast(
+      'No application selected.',
+      'error'
+    );
+    return false;
   }
-  if (next === 'ok') {
-    var label = doc === 'bc' ? 'Birth Certificate' : doc === 'cedula' ? 'Community Tax Certificate' : doc;
-    showToast(label + ' verified', 'success');
+
+  const documentTypeMap = {
+    idFront: 'valid_id',
+    idBack: 'valid_id_back',
+    photo: 'latest_photo',
+    bc: 'birth_certificate',
+    cedula: 'community_tax_certificate',
+    signature: 'signature'
+  };
+
+  const documentType =
+    documentTypeMap[doc];
+
+  if (!documentType) {
+    showToast(
+      'Invalid document type.',
+      'error'
+    );
+    return false;
+  }
+
+  try {
+    const response = await fetch(
+      `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(
+        CURRENT_APP_ID
+      )}/documents/${encodeURIComponent(
+        documentType
+      )}/authentication`,
+      {
+        method: 'PUT',
+
+        headers: {
+          'Content-Type':
+            'application/json'
+        },
+
+        body: JSON.stringify({
+          status: databaseStatus,
+
+          method: 'staff_review',
+
+          authenticated_by:
+            CURRENT_USER?.id || null,
+
+          remarks:
+            databaseStatus === 'verified'
+              ? 'Document verified by staff.'
+              : databaseStatus === 'pending'
+                ? 'Document returned to pending review.'
+                : null
+        })
+      }
+    );
+
+    const result =
+      await response.json();
+
+    if (
+      !response.ok ||
+      !result.success
+    ) {
+      throw new Error(
+        result.message ||
+        'Failed to save document verification.'
+      );
+    }
+
+    if (APP_DB[CURRENT_APP_ID]) {
+      if (!Array.isArray(
+        APP_DB[CURRENT_APP_ID]
+          .documentAuthentications
+      )) {
+        APP_DB[CURRENT_APP_ID]
+          .documentAuthentications = [];
+      }
+
+      const list =
+        APP_DB[CURRENT_APP_ID]
+          .documentAuthentications;
+
+      const saved =
+        result.documentAuthentication;
+
+      const existingIndex =
+        list.findIndex(
+          item =>
+            item.document_type ===
+            saved.document_type
+        );
+
+      if (existingIndex >= 0) {
+        list[existingIndex] = saved;
+      } else {
+        list.push(saved);
+      }
+    }
+
+    appendAudit(
+      CURRENT_USER?.displayName ||
+        'Staff',
+      `Document verification updated: ${
+        DOC_LABELS[doc] || doc
+      } → ${databaseStatus}`,
+      CURRENT_ROLE || 'Staff'
+    );
+
+    return true;
+
+  } catch (error) {
+    console.error(
+      'Failed to save document verification:',
+      error
+    );
+
+    showToast(
+      'Document verification was not saved: ' +
+        error.message,
+      'error'
+    );
+
+    return false;
+  }
+}
+
+async function toggleDocVerified(doc) {
+  const currentlyVerified =
+    DOC_STATUS[doc] === 'ok';
+
+  if (currentlyVerified) {
+    const saved =
+      await setDocStatus(
+        doc,
+        'pending'
+      );
+
+    if (!saved) {
+      return;
+    }
+  } else {
+    const saved =
+      await saveDocumentAuthentication(
+        doc,
+        'verified'
+      );
+
+    if (!saved) {
+      return;
+    }
+
+    DOC_STATUS[doc] = 'ok';
+
+    const statusEl =
+      document.getElementById(
+        'doc-' +
+        doc
+          .replace(
+            /([A-Z])/g,
+            '-$1'
+          )
+          .toLowerCase() +
+        '-status'
+      );
+
+    if (statusEl) {
+      statusEl.className =
+        'doc-card__status ok';
+
+      statusEl.textContent =
+        'Verified';
+    }
+
+    updateDocsSummary();
+  }
+
+  const btn =
+    document.getElementById(
+      'doc-' + doc + '-verify'
+    );
+
+  if (btn) {
+    const verified =
+      DOC_STATUS[doc] === 'ok';
+
+    btn.classList.toggle(
+      'is-verified',
+      verified
+    );
+
+    btn.innerHTML =
+      verified
+        ? '&#10003; Verified'
+        : 'Verified';
+  }
+
+  if (!currentlyVerified) {
+    const label =
+      doc === 'bc'
+        ? 'Birth Certificate'
+        : doc === 'cedula'
+          ? 'Community Tax Certificate'
+          : doc;
+
+    showToast(
+      label + ' verified',
+      'success'
+    );
   }
 }
 
@@ -3149,18 +3659,74 @@ function updateDocsSummary() {
   else sum.textContent = 'Some documents pending review';
 }
 
-function approveAllDocs() {
-  ['idFront', 'idBack', 'photo', 'bc', 'cedula', 'signature'].forEach(d => setDocStatus(d, 'ok'));
-  showToast('All documents approved', 'success');
+async function approveAllDocs() {
+  const docs = ['idFront', 'idBack', 'photo', 'bc', 'cedula', 'signature'];
+
+  let successCount = 0;
+
+  for (const doc of docs) {
+    const saved =
+      await setDocStatus(
+        doc,
+        'ok'
+      );
+
+    if (saved) {
+      successCount++;
+    }
+  }
+
+  if (successCount === docs.length) {
+    showToast(
+      'All documents approved and saved.',
+      'success'
+    );
+  } else {
+    showToast(
+      `${successCount} of ${docs.length} documents were saved.`,
+      'info'
+    );
+  }
 }
 
-function requestReupload() {
-  ['idFront', 'idBack', 'photo', 'bc', 'cedula', 'signature'].forEach(d => setDocStatus(d, 'warn'));
-  showToast('Re-upload requested for all documents (demo)', 'info');
-  addNotifyLog(CURRENT_APP_ID, 'Document Re-upload Requested', 'SMS', 'Queued');
+async function requestReupload() {
+  const docs = ['idFront', 'idBack', 'photo', 'bc', 'cedula', 'signature'];
+
+  let successCount = 0;
+
+  for (const doc of docs) {
+    const saved =
+      await setDocStatus(
+        doc,
+        'warn'
+      );
+
+    if (saved) {
+      successCount++;
+    }
+  }
+
+  if (successCount === docs.length) {
+    showToast(
+      'Re-upload requested for all documents.',
+      'info'
+    );
+
+    addNotifyLog(
+      CURRENT_APP_ID,
+      'Document Re-upload Requested',
+      'SMS',
+      'Queued'
+    );
+  } else {
+    showToast(
+      `${successCount} of ${docs.length} re-upload requests were saved.`,
+      'info'
+    );
+  }
 }
 
-function generateIssuanceForm() {
+async function generateIssuanceForm() {
   if (!CURRENT_APP_ID) return;
   var app = APP_DB[CURRENT_APP_ID];
   if (!app) return;
@@ -3184,13 +3750,67 @@ function generateIssuanceForm() {
     showToast('Verify ' + names + ' (mark them checked) before generating the form.', 'error');
     return;
   }
-  // Auto-approve all pending docs — generating the issuance form implies staff has verified them
-  Object.keys(DOC_STATUS).forEach(function (k) { DOC_STATUS[k] = 'ok'; });
-  ['idFront', 'idBack', 'photo', 'bc', 'cedula', 'signature'].forEach(function (doc) {
-    var el = document.getElementById('doc-' + doc.replace(/([A-Z])/g, '-$1').toLowerCase() + '-status');
-    if (el) { el.className = 'doc-card__status ok'; el.textContent = 'Approved'; }
-    var vbtn = document.getElementById('doc-' + doc + '-verify');
-    if (vbtn) { vbtn.classList.add('is-verified'); vbtn.innerHTML = '&#10003; Verified'; }
+  // Save approval for all documents before generating
+  // the issuance form.
+  const issuanceDocs = [
+    'idFront',
+    'idBack',
+    'photo',
+    'bc',
+    'cedula',
+    'signature'
+  ];
+
+  for (const doc of issuanceDocs) {
+    const saved =
+      await setDocStatus(
+        doc,
+        'ok'
+      );
+
+    if (!saved) {
+      showToast(
+        'Unable to save all document approvals. Issuance form was not generated.',
+        'error'
+      );
+      return;
+    }
+  }
+
+  issuanceDocs.forEach(function (doc) {
+    const el =
+      document.getElementById(
+        'doc-' +
+        doc
+          .replace(
+            /([A-Z])/g,
+            '-$1'
+          )
+          .toLowerCase() +
+        '-status'
+      );
+
+    if (el) {
+      el.className =
+        'doc-card__status ok';
+
+      el.textContent =
+        'Approved';
+    }
+
+    const vbtn =
+      document.getElementById(
+        'doc-' + doc + '-verify'
+      );
+
+    if (vbtn) {
+      vbtn.classList.add(
+        'is-verified'
+      );
+
+      vbtn.innerHTML =
+        '&#10003; Verified';
+    }
   });
   appendAudit(CURRENT_USER?.displayName || 'Staff', 'Documents approved (issuance form generated)', CURRENT_ROLE);
   openIssuancePreview(CURRENT_APP_ID);

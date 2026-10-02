@@ -445,6 +445,172 @@ const saveApplicationValidation = async (req, res) => {
   }
 };
 
+// UPDATE DOCUMENT AUTHENTICATION
+const updateDocumentAuthentication = async (req, res) => {
+  try {
+    const applicationId = req.params.applicationId;
+    const documentType = req.params.documentType;
+
+    const {
+      status,
+      method,
+      authenticated_by,
+      remarks,
+    } = req.body;
+
+    const allowedDocumentTypes = [
+      "valid_id",
+      "valid_id_back",
+      "latest_photo",
+      "birth_certificate",
+      "community_tax_certificate",
+      "signature",
+    ];
+
+    const allowedStatuses = [
+      "pending",
+      "approved",
+      "verified",
+      "reupload",
+      "rejected",
+    ];
+
+    if (!applicationId) {
+      return res.status(400).json({
+        success: false,
+        message: "Application ID is required.",
+      });
+    }
+
+    if (!allowedDocumentTypes.includes(documentType)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid document type.",
+      });
+    }
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: "Document authentication status is required.",
+      });
+    }
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid document authentication status.",
+      });
+    }
+
+    // Make sure the application exists
+    const { data: application, error: applicationError } =
+      await supabase
+        .from("applications")
+        .select("application_id")
+        .eq("application_id", applicationId)
+        .maybeSingle();
+
+    if (applicationError) {
+      throw applicationError;
+    }
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: "Application not found.",
+      });
+    }
+
+    const now = new Date().toISOString();
+
+    // Check whether an authentication record already exists
+    const { data: existingRecord, error: existingError } =
+      await supabase
+        .from("document_authentications")
+        .select("*")
+        .eq("application_id", applicationId)
+        .eq("document_type", documentType)
+        .maybeSingle();
+
+    if (existingError) {
+      throw existingError;
+    }
+
+    let savedRecord;
+
+    if (existingRecord) {
+      // Update existing authentication record
+      const { data, error } = await supabase
+        .from("document_authentications")
+        .update({
+          authentication_status: status,
+          authentication_method:
+            method || "staff_review",
+          authenticated_by:
+            authenticated_by || null,
+          authenticated_at: now,
+          authentication_remarks:
+            remarks || null,
+          updated_at: now,
+        })
+        .eq("id", existingRecord.id)
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      savedRecord = data;
+    } else {
+      // Create authentication record if this
+      // document has never been reviewed before
+      const { data, error } = await supabase
+        .from("document_authentications")
+        .insert({
+          application_id: applicationId,
+          document_type: documentType,
+          authentication_status: status,
+          authentication_method:
+            method || "staff_review",
+          authenticated_by:
+            authenticated_by || null,
+          authenticated_at: now,
+          authentication_remarks:
+            remarks || null,
+          created_at: now,
+          updated_at: now,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      savedRecord = data;
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Document authentication saved successfully.",
+      documentAuthentication: savedRecord,
+    });
+  } catch (error) {
+    console.error(
+      "Error updating document authentication:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save document authentication.",
+      error: error.message,
+    });
+  }
+};
+
 // UPDATE APPLICATION STATUS
 const updateApplicationStatus = async (req, res) => {
   try {
@@ -537,4 +703,5 @@ module.exports = {
   getApplicationById,
   saveApplicationValidation,
   updateApplicationStatus,
+  updateDocumentAuthentication,
 };

@@ -6,6 +6,7 @@ const {
   getApplicationById,
   saveApplicationValidation,
   updateApplicationStatus,
+  updateDocumentAuthentication,
 } = require("../controllers/applicationController");
 
 // Get all applications
@@ -16,6 +17,10 @@ router.get("/:applicationId", getApplicationById);
 
 // Update application status
 router.put("/:applicationId/status", updateApplicationStatus);
+
+// Update document authentication
+router.put(
+  "/:applicationId/documents/:documentType/authentication", updateDocumentAuthentication);
 
 // Save validation result
 router.put("/:applicationId/validation", saveApplicationValidation);
