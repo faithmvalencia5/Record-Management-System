@@ -645,8 +645,11 @@ const updateApplicationStatus = async (req, res) => {
       });
     }
 
-    // Check that the application actually exists
-    const { data: application, error: applicationError } = await supabase
+    // Check that the application exists
+    const {
+      data: application,
+      error: applicationError,
+    } = await supabase
       .from("applications")
       .select("application_id")
       .eq("application_id", applicationId)
@@ -663,31 +666,114 @@ const updateApplicationStatus = async (req, res) => {
       });
     }
 
-    // Update the existing status record
-    const { data: statusRecord, error: statusError } = await supabase
-      .from("application_status_history")
+    const now = new Date().toISOString();
+
+    // --------------------------------------------------
+    // 1. UPDATE MAIN APPLICATION RECORD
+    // --------------------------------------------------
+
+    const {
+      data: updatedApplication,
+      error: updateApplicationError,
+    } = await supabase
+      .from("applications")
       .update({
         status: status,
-        updated_at: new Date().toISOString(),
+        updated_at: now,
       })
       .eq("application_id", applicationId)
       .select()
       .single();
 
-    if (statusError) {
-      throw statusError;
+    if (updateApplicationError) {
+      throw updateApplicationError;
     }
 
-    res.status(200).json({
+    // --------------------------------------------------
+    // 2. UPDATE STATUS HISTORY
+    // --------------------------------------------------
+
+    const {
+      data: existingStatusRecords,
+      error: statusHistoryError,
+    } = await supabase
+      .from("application_status_history")
+      .select("*")
+      .eq("application_id", applicationId);
+
+    if (statusHistoryError) {
+      throw statusHistoryError;
+    }
+
+    let statusRecord = null;
+
+    if (
+      existingStatusRecords &&
+      existingStatusRecords.length > 0
+    ) {
+      // Update all existing status records.
+      // This keeps the current system structure compatible
+      // even if there are duplicate history rows.
+      const {
+        data: updatedStatusRecords,
+        error: updateStatusError,
+      } = await supabase
+        .from("application_status_history")
+        .update({
+          status: status,
+          updated_at: now,
+        })
+        .eq("application_id", applicationId)
+        .select();
+
+      if (updateStatusError) {
+        throw updateStatusError;
+      }
+
+      statusRecord =
+        updatedStatusRecords?.[0] || null;
+
+    } else {
+      // No status history exists yet, so create one.
+      const {
+        data: newStatusRecord,
+        error: insertStatusError,
+      } = await supabase
+        .from("application_status_history")
+        .insert({
+          application_id: applicationId,
+          status: status,
+          updated_at: now,
+        })
+        .select()
+        .single();
+
+      if (insertStatusError) {
+        throw insertStatusError;
+      }
+
+      statusRecord = newStatusRecord;
+    }
+
+    // --------------------------------------------------
+    // 3. RETURN SUCCESS
+    // --------------------------------------------------
+
+    return res.status(200).json({
       success: true,
       message: "Application status updated successfully.",
       status: status,
+      application: updatedApplication,
       statusHistory: statusRecord,
     });
-  } catch (error) {
-    console.error("Error updating application status:", error);
 
-    res.status(500).json({
+  } catch (error) {
+    console.error(
+      "Error updating application status:",
+      error
+    );
+
+    return res.status(500).json({
       success: false,
       message: "Failed to update application status.",
       error: error.message,
