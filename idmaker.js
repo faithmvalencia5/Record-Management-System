@@ -2,23 +2,126 @@
 
 /* ID maker queue bootstrap */
 const ID_MAKER_QUEUE = (function(){
-  var stages = ['Queued','In Production','Printed','In Transit'];
-  // NOTE(staff): previously seeded from FULL_APPLICANTS. Now empty until
-  // the live system pushes sent-to-ID-Maker applications into the queue.
+
+  var stages = [
+    'Queued',
+    'In Production',
+    'Printed',
+    'In Transit'
+  ];
+
+  // Load the queue sent from the Staff Portal
   var items = [];
-  // Keep the queue in sync when the live system sends a new item.
-  window.__pushIdMakerQueue = function(app, printStatus){
+
+  try {
+
+    var savedQueue =
+      JSON.parse(
+        localStorage.getItem(
+          'scb_id_maker_queue_v1'
+        ) || '[]'
+      );
+
+    if (Array.isArray(savedQueue)) {
+      items = savedQueue;
+    }
+
+  } catch (error) {
+
+    console.warn(
+      'Could not load ID Maker queue:',
+      error
+    );
+
+  }
+
+
+  // Keep the queue in sync when the live system
+  // sends a new applicant.
+  window.__pushIdMakerQueue = function(
+    app,
+    printStatus
+  ){
+
     var idx = -1;
-    for (var i = 0; i < items.length; i++) { if (items[i].id === app.id) { idx = i; break; } }
-    var entry = Object.assign({}, app, {
-      printStatus: printStatus || stages[0],
-      photo: app.photo || fallbackMedia(app.name),
-      controlNo: 'CTL-' + String(app.id || '').replace('SCB-','')
-    });
-    if (idx >= 0) items[idx] = entry; else items.push(entry);
+
+    for (
+      var i = 0;
+      i < items.length;
+      i++
+    ) {
+
+      if (
+        String(items[i].id) ===
+        String(app.id)
+      ) {
+        idx = i;
+        break;
+      }
+
+    }
+
+
+    var entry =
+      Object.assign(
+        {},
+        app,
+        {
+          printStatus:
+            printStatus ||
+            stages[0],
+
+          photo:
+            app.photo ||
+            fallbackMedia(app.name),
+
+          controlNo:
+            app.controlNo ||
+            (
+              'CTL-' +
+              String(
+                app.id || ''
+              ).replace(
+                'SCB-',
+                ''
+              )
+            )
+        }
+      );
+
+
+    if (idx >= 0) {
+      items[idx] = entry;
+    } else {
+      items.push(entry);
+    }
+
+
+    // Save queue
+    try {
+
+      localStorage.setItem(
+        'scb_id_maker_queue_v1',
+        JSON.stringify(items)
+      );
+
+    } catch (error) {
+
+      console.warn(
+        'Could not save ID Maker queue:',
+        error
+      );
+
+    }
+
+
     return entry;
+
   };
+
+
   return items;
+
 })();
 
 function closeQueueFilter(){
@@ -166,6 +269,21 @@ function initIdMakerStatusChart(){
 function inlineStatusChange(appId, newStatus){
   var queueItem = ID_MAKER_QUEUE.find(function(a){ return a.id === appId; });
   if(queueItem){ queueItem.printStatus = newStatus; }
+  try {
+
+    localStorage.setItem(
+      'scb_id_maker_queue_v1',
+      JSON.stringify(ID_MAKER_QUEUE)
+    );
+
+  } catch (error) {
+
+    console.warn(
+      'Could not save ID Maker queue:',
+      error
+    );
+
+  }
 
   var queueRow = document.querySelector('#id-maker-queue-tbody tr[data-app-id="'+appId+'"]');
   if(queueRow){ queueRow.dataset.printStatus = newStatus; }
