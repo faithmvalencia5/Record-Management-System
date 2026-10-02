@@ -2523,26 +2523,6 @@ function renderLiveApplications(applications) {
     return;
   }
 
-
-  // SAVE EACH LIVE APPLICATION
-  // so status updates can still use APP_DB
-
-  applications.forEach(
-    application => {
-
-      const appId =
-        application.application_id ||
-        application.id ||
-        '';
-
-      if (appId) {
-        APP_DB[appId] = application;
-      }
-
-    }
-  );
-
-
   tbody.innerHTML =
     applications.map(
       (application, index) => {
