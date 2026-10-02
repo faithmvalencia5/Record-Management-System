@@ -1461,9 +1461,7 @@ function restoreSession() {
   }
 }
 
-/* ───────────────────────────────────────────────────────────
-   NEW: Application Detail Modal + Workflow + Docs + Audit
-─────────────────────────────────────────────────────────── */
+/* NEW: Application Detail Modal + Workflow + Docs + Audit */
 const FULL_APPLICANTS = [];
 const APP_DB = {};
 const ID_MAKER_QUEUE = [];
@@ -2458,69 +2456,207 @@ function closeDigitalIssuance() {
   DI_CURRENT_APP_ID = null;
 }
 
-function sendToIdMaker() {
+async function sendToIdMaker() {
   if (!DI_CURRENT_APP_ID) return;
-  var appId = DI_CURRENT_APP_ID;
 
-  var app = APP_DB[appId] || ID_MAKER_QUEUE.find(function (a) { return a.id === appId; }) || FULL_APPLICANTS.find(function (a) { return a.id === appId; }) || {};
+  const appId = DI_CURRENT_APP_ID;
 
-  // Read (possibly edited) field values from the form
-  var editedName = document.getElementById('di-preview-name')?.textContent || app.name || '________________';
-  var editedAddress = document.getElementById('di-preview-address')?.textContent || app.address || '________________';
-  var editedControlNo = document.getElementById('di-preview-control-no')?.textContent || ('CTL-' + (appId || '').replace('SCB-', ''));
+  const app =
+    APP_DB[appId] ||
+    ID_MAKER_QUEUE.find(a => a.id === appId) ||
+    FULL_APPLICANTS.find(a => a.id === appId) ||
+    {};
 
-  // Data minimization: only send printing-relevant fields to ID Maker
-  var queueEntry = {
-    id: app.id || appId,
-    name: app.name || editedName,
-    firstName: app.firstName || '',
-    middleName: app.middleName || '',
-    surname: app.surname || app.name || '',
-    address: editedAddress,
-    barangay: app.barangay || '—',
-    dob: app.dob || '',
-    gender: app.gender || '',
-    photo: app.photo || fallbackMedia(app.name),
-    signature: app.signature || '',
-    controlNo: editedControlNo,
-    printStatus: 'Queued',
-    regDate: app.regDate || ''
-  };
+  // Get the values from the Generate Issuance Form
+  const editedName =
+    document.getElementById('di-preview-name')?.textContent?.trim() ||
+    app.name ||
+    '';
 
-  // Add to ID Maker queue (replace if already exists)
-  var existingIdx = -1;
-  for (var i = 0; i < ID_MAKER_QUEUE.length; i++) {
-    if (ID_MAKER_QUEUE[i].id === appId) { existingIdx = i; break; }
+  const editedAddress =
+    document.getElementById('di-preview-address')?.textContent?.trim() ||
+    app.address ||
+    '';
+
+  const editedDob =
+    document.getElementById('di-preview-dob')?.textContent?.trim() ||
+    app.dob ||
+    '';
+
+  const editedSex =
+    document.getElementById('di-preview-sex')?.textContent?.trim() ||
+    app.gender ||
+    '';
+
+  const editedDateIssued =
+    document.getElementById('di-preview-date-issued')?.textContent?.trim() ||
+    '';
+
+  const editedControlNo =
+    document.getElementById('di-preview-control-no')?.textContent?.trim() ||
+    ('CTL-' + String(appId).replace('SCB-', ''));
+
+  // --------------------------------------------------
+  // 1. SAVE STATUS TO BACKEND FIRST
+  // --------------------------------------------------
+
+  try {
+    const response = await fetch(
+      `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(appId)}/status`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          status: 'In Process'
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(
+        result.message || 'Failed to update application status.'
+      );
+    }
+
+    // --------------------------------------------------
+    // 2. UPDATE LOCAL APPLICATION DATA
+    // --------------------------------------------------
+
+    if (APP_DB[appId]) {
+      APP_DB[appId].status = result.status || 'In Process';
+
+      renderWorkflow('In Process');
+
+      const modalSub = document.getElementById('modal-sub');
+
+      if (modalSub) {
+        modalSub.textContent =
+          `${APP_DB[appId].id || appId} · Barangay: ` +
+          `${APP_DB[appId].barangay || '—'} · Status: In Process`;
+      }
+
+      syncApplicationsTableBadge(appId, 'In Process');
+    }
+
+    // --------------------------------------------------
+    // 3. CREATE ID MAKER QUEUE ENTRY
+    // --------------------------------------------------
+
+    const queueEntry = {
+      id: app.id || appId,
+
+      name: editedName,
+
+      firstName: app.firstName || '',
+      middleName: app.middleName || '',
+      surname: app.surname || editedName,
+
+      address: editedAddress,
+      barangay: app.barangay || '—',
+
+      dob: editedDob,
+      gender: editedSex,
+
+      photo: app.photo || fallbackMedia(editedName),
+      signature: app.signature || '',
+
+      controlNo: editedControlNo,
+      dateIssued: editedDateIssued,
+
+      printStatus: 'Queued',
+
+      regDate: app.regDate || ''
+    };
+
+    // Add or replace the applicant in the queue
+    const existingIndex = ID_MAKER_QUEUE.findIndex(
+      item => item.id === queueEntry.id
+    );
+
+    if (existingIndex >= 0) {
+      ID_MAKER_QUEUE[existingIndex] = queueEntry;
+    } else {
+      ID_MAKER_QUEUE.push(queueEntry);
+    }
+
+    // --------------------------------------------------
+    // 4. SAVE QUEUE TO LOCAL STORAGE
+    // --------------------------------------------------
+
+    try {
+      localStorage.setItem(
+        'scb_id_maker_queue_v1',
+        JSON.stringify(ID_MAKER_QUEUE)
+      );
+    } catch (storageError) {
+      console.warn(
+        'Could not save ID Maker queue to localStorage:',
+        storageError
+      );
+    }
+
+    // --------------------------------------------------
+    // 5. UPDATE ID MAKER UI IF AVAILABLE
+    // --------------------------------------------------
+
+    if (typeof initIdMakerQueue === 'function') {
+      initIdMakerQueue();
+    }
+
+    if (typeof updateIdMakerKPIs === 'function') {
+      updateIdMakerKPIs();
+    }
+
+    // --------------------------------------------------
+    // 6. AUDIT / NOTIFICATION
+    // --------------------------------------------------
+
+    appendAudit(
+      CURRENT_USER?.displayName || 'Staff',
+      'Sent to ID Maker (In Process)',
+      CURRENT_ROLE
+    );
+
+    addNotifyLog(
+      appId,
+      'Sent to ID Maker',
+      'System',
+      'Delivered'
+    );
+
+    // --------------------------------------------------
+    // 7. CLOSE BOTH MODALS
+    // --------------------------------------------------
+
+    closeDigitalIssuance();
+    closeModal();
+
+    // --------------------------------------------------
+    // 8. SUCCESS MESSAGE
+    // --------------------------------------------------
+
+    showToast(
+      `${editedName} sent to ID Maker (In Process)`,
+      'success'
+    );
+
+  } catch (error) {
+
+    console.error(
+      'Error sending application to ID Maker:',
+      error
+    );
+
+    // Do NOT close the modals if saving failed
+    showToast(
+      error.message || 'Failed to send application to ID Maker.',
+      'error'
+    );
   }
-  if (existingIdx >= 0) {
-    ID_MAKER_QUEUE[existingIdx] = queueEntry;
-  } else {
-    ID_MAKER_QUEUE.push(queueEntry);
-  }
-
-  // Transition status to In Process (production started). Direct update is used
-  // (not the strict 1-step workflow validator) because sending to ID Maker always
-  // legitimately means the application is now in production.
-  var dbApp = APP_DB[appId];
-  if (dbApp) {
-    dbApp.status = 'In Process';
-    renderWorkflow('In Process');
-    document.getElementById('modal-sub').textContent =
-      (dbApp.id || appId) + ' · Barangay: ' + (dbApp.barangay || '—') + ' · Status: In Process';
-    syncApplicationsTableBadge(appId, 'In Process');
-  }
-
-  // Re-render ID Maker queue + KPIs (guarded — idmaker.js is only loaded in the ID Maker portal)
-  if (typeof initIdMakerQueue === 'function') initIdMakerQueue();
-  if (typeof updateIdMakerKPIs === 'function') updateIdMakerKPIs();
-
-  // Audit + notify (DPA)
-  appendAudit(CURRENT_USER?.displayName || 'Staff', 'Sent to ID Maker (In Process)', CURRENT_ROLE);
-  addNotifyLog(appId, 'Sent to ID Maker', 'System', 'Delivered');
-
-  // Close the issuance modal
-  closeDigitalIssuance();
-  showToast('Application sent to ID Maker (In Process)', 'success');
 }
 
 function syncApplicationsTableBadge(appId, newStatus) {
