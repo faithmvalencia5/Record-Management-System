@@ -2551,9 +2551,19 @@ async function sendToIdMaker() {
     app.gender ||
     '';
 
-  const editedDateIssued =
+  const editedDateIssuedText =
     document.getElementById('di-preview-date-issued')?.textContent?.trim() ||
     '';
+
+  let editedDateIssued = '';
+
+  if (editedDateIssuedText) {
+    const parsedDate = new Date(editedDateIssuedText);
+
+    if (!Number.isNaN(parsedDate.getTime())) {
+      editedDateIssued = parsedDate.toISOString().split('T')[0];
+    }
+  }
 
   const editedControlNo =
     document.getElementById('di-preview-control-no')?.textContent?.trim() ||
@@ -2719,19 +2729,33 @@ async function sendToIdMaker() {
       ID_MAKER_QUEUE.push(queueEntry);
     }
 
-    // 4. SAVE QUEUE TO LOCAL STORAGE
+    // 4. SAVE TO ID MAKER DATABASE QUEUE
 
-    try {
-      localStorage.setItem(
-        'scb_id_maker_queue_v1',
-        JSON.stringify(ID_MAKER_QUEUE)
-      );
-    } catch (storageError) {
-      console.warn(
-        'Could not save ID Maker queue to localStorage:',
-        storageError
+    const queueResponse = await fetch(
+      'https://management-backend-3cij.onrender.com/api/id-maker-queue',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          application_id: appId,
+          control_no: editedControlNo,
+          date_issued: editedDateIssued,
+          print_status: 'Queued'
+        })
+      }
+    );
+
+    const queueResult = await queueResponse.json();
+
+    if (!queueResponse.ok || !queueResult.success) {
+      throw new Error(
+        queueResult.message || 'Failed to save applicant to ID Maker queue.'
       );
     }
+
+    console.log('ID Maker queue saved to database:', queueResult.queue);
 
     // 5. UPDATE ID MAKER UI IF AVAILABLE
 
