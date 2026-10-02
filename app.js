@@ -4534,7 +4534,7 @@ function buildApplicationTypePill(app) {
 }
 
 /* ── Documents status pill ── */
-const DOC_FIELDS = ['photo', 'bc', 'cedula'];
+const DOC_FIELDS = ['idFront', 'idBack', 'photo', 'bc', 'cedula', 'signature'];
 function getDocsStatus(app) {
   const docs = app.documents || {};
   const uploaded = DOC_FIELDS.filter(f => docs[f] && String(docs[f]).trim() !== '');
