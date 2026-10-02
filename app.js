@@ -3080,10 +3080,6 @@ function resetDocStatuses() {
       el.style.backgroundImage = '';
     }
   });
-  ['bc', 'cedula'].forEach(doc => {
-    const btn = document.getElementById('doc-' + doc + '-verify');
-    if (btn) { btn.classList.remove('is-verified'); btn.innerHTML = 'Verified'; }
-  });
   const sum = document.getElementById('docs-summary');
   if (sum) sum.textContent = 'All documents pending review';
 }
@@ -3166,46 +3162,12 @@ function loadSavedDocStatuses(app) {
 
         statusEl.textContent =
           state === 'ok'
-            ? (
-                String(
-                  record.authentication_status ||
-                    ''
-                ).toLowerCase() ===
-                'verified'
-                  ? 'Verified'
-                  : 'Approved'
-              )
+            ? 'Approved'
             : state === 'warn'
               ? 'Re-upload'
               : state === 'bad'
                 ? 'Rejected'
                 : 'Pending';
-      }
-
-      // Update the special Verified buttons
-      if (
-        doc === 'bc' ||
-        doc === 'cedula'
-      ) {
-        const btn =
-          document.getElementById(
-            'doc-' + doc + '-verify'
-          );
-
-        if (btn) {
-          const isVerified =
-            state === 'ok';
-
-          btn.classList.toggle(
-            'is-verified',
-            isVerified
-          );
-
-          btn.innerHTML =
-            isVerified
-              ? '&#10003; Verified'
-              : 'Verified';
-        }
       }
     }
   );
