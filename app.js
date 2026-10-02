@@ -2987,6 +2987,16 @@ function renderSavedValidation(app) {
     app.validation_status ===
     'Passed';
 
+  CURRENT_VALIDATION_RESULT = {
+    status: app.validation_status,
+    passed: passed,
+    ageOk: passed,
+    residencyOk: passed,
+    docsOk: passed,
+    duplicateOk: passed,
+    missingDocuments: [],
+    notes: app.validation_notes || ''
+  };
 
   body.innerHTML = `
 
