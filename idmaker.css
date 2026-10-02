@@ -107,9 +107,9 @@
 .row-status-select.open .qsd-trigger{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}
 .row-status-select.open .qsd-arrow{transform:rotate(180deg)}
 .qsd-menu{
-  position:absolute;top:calc(100% + 4px);left:0;min-width:170px;
+  position:absolute;bottom:calc(100% + 4px);left:0;min-width:170px;
   background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r-lg);
-  box-shadow:0 10px 30px rgba(13,27,62,0.16);padding:4px;z-index:40;
+  box-shadow:0 10px 30px rgba(13,27,62,0.16);padding:4px;z-index:1000;
   display:none;flex-direction:column;gap:1px
 }
 .row-status-select.open .qsd-menu{display:flex}
