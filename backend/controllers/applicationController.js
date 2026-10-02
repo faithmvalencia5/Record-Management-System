@@ -470,9 +470,7 @@ const updateDocumentAuthentication = async (req, res) => {
     const allowedStatuses = [
       "pending",
       "approved",
-      "verified",
       "reupload",
-      "rejected",
     ];
 
     if (!applicationId) {
@@ -549,7 +547,7 @@ const updateDocumentAuthentication = async (req, res) => {
             method || "staff_review",
           authenticated_by:
             authenticated_by || null,
-          authenticated_at: now,
+          authenticated_at: status === "approved" ? now : null,
           authentication_remarks:
             remarks || null,
           updated_at: now,
@@ -576,7 +574,7 @@ const updateDocumentAuthentication = async (req, res) => {
             method || "staff_review",
           authenticated_by:
             authenticated_by || null,
-          authenticated_at: now,
+          authenticated_at: status === "approved" ? now : null,
           authentication_remarks:
             remarks || null,
           created_at: now,

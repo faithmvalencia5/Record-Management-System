@@ -3268,7 +3268,6 @@ async function setDocStatus(doc, state) {
   const statusMap = {
     ok: 'approved',
     warn: 'reupload',
-    bad: 'rejected',
     pending: 'pending'
   };
 
@@ -3301,7 +3300,6 @@ async function setDocStatus(doc, state) {
   const labels = {
     ok: 'Approved',
     warn: 'Re-upload',
-    bad: 'Rejected',
     pending: 'Pending'
   };
 
@@ -3585,102 +3583,15 @@ async function saveDocumentAuthentication(
   }
 }
 
-async function toggleDocVerified(doc) {
-  const currentlyVerified =
-    DOC_STATUS[doc] === 'ok';
-
-  if (currentlyVerified) {
-    const saved =
-      await setDocStatus(
-        doc,
-        'pending'
-      );
-
-    if (!saved) {
-      return;
-    }
-  } else {
-    const saved =
-      await saveDocumentAuthentication(
-        doc,
-        'verified'
-      );
-
-    if (!saved) {
-      return;
-    }
-
-    DOC_STATUS[doc] = 'ok';
-
-    const statusEl =
-      document.getElementById(
-        'doc-' +
-        doc
-          .replace(
-            /([A-Z])/g,
-            '-$1'
-          )
-          .toLowerCase() +
-        '-status'
-      );
-
-    if (statusEl) {
-      statusEl.className =
-        'doc-card__status ok';
-
-      statusEl.textContent =
-        'Verified';
-    }
-
-    updateDocsSummary();
-  }
-
-  const btn =
-    document.getElementById(
-      'doc-' + doc + '-verify'
-    );
-
-  if (btn) {
-    const verified =
-      DOC_STATUS[doc] === 'ok';
-
-    btn.classList.toggle(
-      'is-verified',
-      verified
-    );
-
-    btn.innerHTML =
-      verified
-        ? '&#10003; Verified'
-        : 'Verified';
-  }
-
-  if (!currentlyVerified) {
-    const label =
-      doc === 'bc'
-        ? 'Birth Certificate'
-        : doc === 'cedula'
-          ? 'Community Tax Certificate'
-          : doc;
-
-    showToast(
-      label + ' verified',
-      'success'
-    );
-  }
-}
-
 function updateDocsSummary() {
   const sum = document.getElementById('docs-summary');
   if (!sum) return; // not every portal page has the docs summary card
   const vals = Object.values(DOC_STATUS);
   const allOk = vals.every(v => v === 'ok');
-  const anyRejected = vals.some(v => v === 'bad');
   const anyReupload = vals.some(v => v === 'warn');
   const allPending = vals.every(v => v === 'pending');
   if (allPending) sum.textContent = 'All documents pending review';
   else if (allOk) sum.textContent = 'All required documents approved';
-  else if (anyRejected) sum.textContent = 'One or more documents rejected';
   else if (anyReupload) sum.textContent = 'Re-upload requested for some documents';
   else sum.textContent = 'Some documents pending review';
 }
@@ -3767,13 +3678,11 @@ async function generateIssuanceForm() {
     showToast('Cannot generate form: one or more documents were rejected. Request re-upload first.', 'error');
     return;
   }
-  // Require the core requirement attachments (Birth Certificate + Cedula) to be
-  // explicitly marked verified before the form can be generated.
   var requiredDocs = { bc: 'Birth Certificate', cedula: 'Community Tax Certificate' };
   var missingVerified = Object.keys(requiredDocs).filter(function (d) { return DOC_STATUS[d] !== 'ok'; });
   if (missingVerified.length > 0) {
     var names = missingVerified.map(function (d) { return requiredDocs[d]; }).join(' and ');
-    showToast('Verify ' + names + ' (mark them checked) before generating the form.', 'error');
+    showToast('Approve ' + names + ' before generating the form.', 'error');
     return;
   }
   // Save approval for all documents before generating
@@ -3822,20 +3731,6 @@ async function generateIssuanceForm() {
 
       el.textContent =
         'Approved';
-    }
-
-    const vbtn =
-      document.getElementById(
-        'doc-' + doc + '-verify'
-      );
-
-    if (vbtn) {
-      vbtn.classList.add(
-        'is-verified'
-      );
-
-      vbtn.innerHTML =
-        '&#10003; Verified';
     }
   });
   appendAudit(CURRENT_USER?.displayName || 'Staff', 'Documents approved (issuance form generated)', CURRENT_ROLE);
