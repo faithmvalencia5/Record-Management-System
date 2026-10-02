@@ -1,6 +1,3 @@
-/* Shared portal logic */
-
-/* ── Chart palette + chart init from your previous code (kept) ── */
 const C = {
   primary: '#2563EB',
   primaryMid: '#3B82F6',

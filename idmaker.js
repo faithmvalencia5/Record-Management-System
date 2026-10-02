@@ -1,7 +1,4 @@
-var ID_MAKER_QUEUE = window.ID_MAKER_QUEUE || [];
-window.ID_MAKER_QUEUE = ID_MAKER_QUEUE;
-
-var ID_MAKER_API =
+const ID_MAKER_API =
   'https://management-backend-3cij.onrender.com/api/id-maker-queue';
 
 // LOAD QUEUE FROM DATABASE
