@@ -4128,28 +4128,27 @@ function getCurrentApplicant() {
   return APP_DB[sel.value] || null;
 }
 function updatePreview() {
-  const app = getCurrentApplicant();
+  const select = document.getElementById('id-applicant');
+  const appId = select?.value || '';
+  const app = appId ? APP_DB[appId] : null;
 
   const nameEl = document.getElementById('id-fullname');
   const addrEl = document.getElementById('id-address');
   const dobEl = document.getElementById('id-dob');
   const sexEl = document.getElementById('id-sex');
 
+  // Clear fields when no applicant is selected
   if (!app) {
     if (nameEl) nameEl.value = '';
     if (addrEl) addrEl.value = '';
     if (dobEl) dobEl.value = '';
     if (sexEl) sexEl.value = '';
 
-    document.getElementById('preview-name').textContent = '________________';
-    document.getElementById('preview-address').textContent = '________________';
-    document.getElementById('preview-dob').textContent = '________________';
-    document.getElementById('preview-sex').textContent = '________________';
-
+    updateIssuancePreview(null);
     return;
   }
 
-  // Auto-fill applicant information
+  // Fill applicant information
   if (nameEl) {
     nameEl.value = app.name || '';
   }
@@ -4163,28 +4162,21 @@ function updatePreview() {
   }
 
   if (sexEl) {
-    if (app.gender === 'M') {
+    const gender = String(app.gender || '').trim().toUpperCase();
+
+    if (gender === 'M') {
       sexEl.value = 'Male';
-    } else if (app.gender === 'F') {
+    } else if (gender === 'F') {
       sexEl.value = 'Female';
     } else {
       sexEl.value = app.gender || '';
     }
   }
 
-  // Get current values for the preview
-  const nameVal = nameEl?.value || '';
-  const addrVal = addrEl?.value || '';
-  const dobVal = dobEl?.value || '';
-  const sexVal = sexEl?.value || '';
-
-  const dateIssuedVal =
-    document.getElementById('id-date-issued')?.value || '';
-
-  const controlNoVal =
-    document.getElementById('id-control-no')?.value || '';
-
-  // Update preview text
+  // Update the preview on the right
+  updateIssuancePreview(app);
+}
+function updateIssuancePreview(app) {
   const pName = document.getElementById('preview-name');
   const pAddr = document.getElementById('preview-address');
   const pDob = document.getElementById('preview-dob');
@@ -4192,80 +4184,114 @@ function updatePreview() {
   const pDateIssued = document.getElementById('preview-date-issued');
   const pControlNo = document.getElementById('preview-control-no');
 
+  const pPhoto = document.getElementById('preview-photo');
+  const pPhotoFallback = document.getElementById('preview-photo-fallback');
+
+  const pSignature = document.getElementById('preview-signature');
+  const pSignatureFallback = document.getElementById('preview-sign-fallback');
+
+  if (!app) {
+    if (pName) pName.textContent = '________________';
+    if (pAddr) pAddr.textContent = '________________';
+    if (pDob) pDob.textContent = '________________';
+    if (pSex) pSex.textContent = '________________';
+
+    if (pPhoto) {
+      pPhoto.src = '';
+      pPhoto.style.display = 'none';
+    }
+
+    if (pPhotoFallback) {
+      pPhotoFallback.style.display = 'block';
+      pPhotoFallback.textContent = '--';
+    }
+
+    if (pSignature) {
+      pSignature.src = '';
+      pSignature.style.display = 'none';
+    }
+
+    if (pSignatureFallback) {
+      pSignatureFallback.style.display = 'block';
+    }
+
+    return;
+  }
+
+  // Text preview
   if (pName) {
-    pName.textContent = nameVal || '________________';
+    pName.textContent = app.name || '________________';
   }
 
   if (pAddr) {
-    pAddr.textContent = addrVal || '________________';
+    pAddr.textContent = app.address || '________________';
   }
 
   if (pDob) {
-    pDob.textContent =
-      dobVal
-        ? formatDateForForm(dobVal)
-        : '________________';
+    pDob.textContent = app.dob
+      ? formatDateForForm(app.dob)
+      : '________________';
   }
 
   if (pSex) {
-    pSex.textContent = sexVal || '________________';
+    const gender = String(app.gender || '').trim().toUpperCase();
+
+    pSex.textContent =
+      gender === 'M'
+        ? 'Male'
+        : gender === 'F'
+          ? 'Female'
+          : app.gender || '________________';
   }
+
+  // Date issued and control number are manually entered
+  const dateIssued =
+    document.getElementById('id-date-issued')?.value || '';
+
+  const controlNo =
+    document.getElementById('id-control-no')?.value || '';
 
   if (pDateIssued) {
     pDateIssued.textContent =
-      dateIssuedVal
-        ? formatDateForForm(dateIssuedVal)
+      dateIssued
+        ? formatDateForForm(dateIssued)
         : '________________';
   }
 
   if (pControlNo) {
     pControlNo.textContent =
-      controlNoVal || '________________';
+      controlNo || '________________';
   }
 
-  // Update applicant photo
-  const pPhoto =
-    document.getElementById('preview-photo');
-
-  const pPhotoFb =
-    document.getElementById('preview-photo-fallback');
-
+  // Photo
   const photoSrc = app.photo || '';
 
-  if (pPhoto && pPhotoFb) {
+  if (pPhoto && pPhotoFallback) {
     if (photoSrc) {
       pPhoto.src = photoSrc;
       pPhoto.style.display = 'block';
-      pPhotoFb.style.display = 'none';
+      pPhotoFallback.style.display = 'none';
     } else {
       pPhoto.src = '';
       pPhoto.style.display = 'none';
-      pPhotoFb.style.display = 'block';
-      pPhotoFb.textContent =
-        (nameVal || '--')
-          .slice(0, 2)
-          .toUpperCase();
+      pPhotoFallback.style.display = 'block';
+      pPhotoFallback.textContent =
+        (app.name || '--').slice(0, 2).toUpperCase();
     }
   }
 
-  // Update signature
-  const pSig =
-    document.getElementById('preview-signature');
-
-  const pSigFb =
-    document.getElementById('preview-sign-fallback');
-
+  // Signature
   const signatureSrc = app.signature || '';
 
-  if (pSig && pSigFb) {
+  if (pSignature && pSignatureFallback) {
     if (signatureSrc) {
-      pSig.src = signatureSrc;
-      pSig.style.display = 'block';
-      pSigFb.style.display = 'none';
+      pSignature.src = signatureSrc;
+      pSignature.style.display = 'block';
+      pSignatureFallback.style.display = 'none';
     } else {
-      pSig.src = '';
-      pSig.style.display = 'none';
-      pSigFb.style.display = 'block';
+      pSignature.src = '';
+      pSignature.style.display = 'none';
+      pSignatureFallback.style.display = 'block';
     }
   }
 }
