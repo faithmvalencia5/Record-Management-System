@@ -2471,7 +2471,7 @@ function downloadDigitalIssuanceDocs() {
 let CURRENT_VALIDATION_RESULT = null;
 
 
-function runValidation() {
+async function runValidation() {
 
   if (!CURRENT_APP_ID) {
 
@@ -2831,22 +2831,76 @@ function runValidation() {
   `;
 
 
-  appendAudit(
-    CURRENT_USER?.displayName ||
-      'Staff',
-    'Validation run',
-    'System'
-  );
+    // SAVE VALIDATION RESULT TO DATABASE
+  try {
+    const response = await fetch(
+      `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(
+        CURRENT_APP_ID
+      )}/validation`,
+      {
+        method: 'PUT',
 
+        headers: {
+          'Content-Type': 'application/json'
+        },
 
-  showToast(
-    validationPassed
-      ? 'Validation passed.'
-      : 'Validation completed with items to review.',
-    validationPassed
-      ? 'success'
-      : 'info'
-  );
+        body: JSON.stringify({
+          validation_status: validationStatus,
+          validation_notes: notes.join(' ')
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(
+        result.message ||
+        'Failed to save validation result.'
+      );
+    }
+
+    // Keep the saved result in the current application
+    if (APP_DB[CURRENT_APP_ID]) {
+      APP_DB[CURRENT_APP_ID].validation_status =
+        validationStatus;
+
+      APP_DB[CURRENT_APP_ID].validation_updated_at =
+        new Date().toISOString();
+
+      APP_DB[CURRENT_APP_ID].validation_notes =
+        notes.join(' ');
+    }
+
+    appendAudit(
+      CURRENT_USER?.displayName ||
+        'Staff',
+      'Validation run and saved',
+      'System'
+    );
+
+    showToast(
+      validationPassed
+        ? 'Validation passed and saved.'
+        : 'Validation completed and saved.',
+      validationPassed
+        ? 'success'
+        : 'info'
+    );
+
+  } catch (error) {
+
+    console.error(
+      'Failed to save validation:',
+      error
+    );
+
+    showToast(
+      'Validation ran, but could not be saved: ' +
+        error.message,
+      'error'
+    );
+  }
 
 }
 
