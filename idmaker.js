@@ -320,28 +320,58 @@ async function inlineStatusChange(appId, newStatus) {
     }
 
     // ========================================
-    // APPLICATION WORKFLOW
+    // SYNC APPLICATION WORKFLOW STATUS
     // ========================================
 
+    const applicationStatus =
+      newStatus === 'In Transit'
+        ? 'Ready for Release'
+        : 'In Process';
+
+    const applicationStatusResponse = await fetch(
+      'https://management-backend-3cij.onrender.com/api/applications/' +
+      encodeURIComponent(appId) +
+      '/status',
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          status: applicationStatus
+        })
+      }
+    );
+
+    const applicationStatusResult =
+      await applicationStatusResponse.json();
+
     if (
-      newStatus === 'In Transit' &&
+      !applicationStatusResponse.ok ||
+      !applicationStatusResult.success
+    ) {
+      throw new Error(
+        applicationStatusResult.message ||
+        'Failed to update application status.'
+      );
+    }
+
+    // Update local state after database update succeeds
+    if (
       typeof APP_DB !== 'undefined' &&
       APP_DB[appId]
     ) {
+      APP_DB[appId].status = applicationStatus;
+    }
 
-      APP_DB[appId].status =
-        'Ready for Release';
-
-      if (
-        typeof syncApplicationsTableBadge ===
-        'function'
-      ) {
-        syncApplicationsTableBadge(
-          appId,
-          'Ready for Release'
-        );
-      }
-
+    if (
+      typeof syncApplicationsTableBadge ===
+      'function'
+    ) {
+      syncApplicationsTableBadge(
+        appId,
+        applicationStatus
+      );
     }
 
     // ========================================
