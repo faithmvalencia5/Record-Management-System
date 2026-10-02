@@ -2422,9 +2422,39 @@ function _populateDigitalIssuance(appId) {
   // Photo
   const pPhoto = document.getElementById('di-preview-photo');
   const pPhotoFb = document.getElementById('di-preview-photo-fallback');
-  const photoSrc = app.photo || '';
-  if (pPhoto) { pPhoto.src = photoSrc; pPhoto.style.display = photoSrc ? 'block' : 'none'; }
-  if (pPhotoFb) { pPhotoFb.style.display = photoSrc ? 'none' : 'block'; pPhotoFb.textContent = (app.name || '--').slice(0, 2).toUpperCase(); }
+
+  const photoSrc =
+    app.photo ||
+    app.documents?.photo ||
+    '';
+
+  if (pPhoto) {
+    pPhoto.src = photoSrc;
+    pPhoto.style.display = photoSrc ? 'block' : 'none';
+
+    // If the image URL fails, show the fallback
+    pPhoto.onerror = function () {
+      pPhoto.style.display = 'none';
+
+      if (pPhotoFb) {
+        pPhotoFb.style.display = 'block';
+        pPhotoFb.textContent =
+          (app.name || '--')
+            .slice(0, 2)
+            .toUpperCase();
+      }
+    };
+  }
+
+  if (pPhotoFb) {
+    pPhotoFb.style.display =
+      photoSrc ? 'none' : 'block';
+
+    pPhotoFb.textContent =
+      (app.name || '--')
+        .slice(0, 2)
+        .toUpperCase();
+  }
 
   // Small form lines
   document.getElementById('di-preview-name').textContent = fullName;
@@ -2437,9 +2467,30 @@ function _populateDigitalIssuance(appId) {
   // Signature
   const pSig = document.getElementById('di-preview-signature');
   const pSigFb = document.getElementById('di-preview-sign-fallback');
-  const sigSrc = app.signature || '';
-  if (pSig) { pSig.src = sigSrc; pSig.style.display = sigSrc ? 'block' : 'none'; }
-  if (pSigFb) { pSigFb.style.display = sigSrc ? 'none' : 'block'; }
+
+  const sigSrc =
+    app.signature ||
+    app.documents?.signature ||
+    '';
+
+  if (pSig) {
+    pSig.src = sigSrc;
+    pSig.style.display = sigSrc ? 'block' : 'none';
+
+    // If the image URL fails, show the fallback
+    pSig.onerror = function () {
+      pSig.style.display = 'none';
+
+      if (pSigFb) {
+        pSigFb.style.display = 'block';
+      }
+    };
+  }
+
+  if (pSigFb) {
+    pSigFb.style.display =
+      sigSrc ? 'none' : 'block';
+  }
 
   // Mode-specific UI
   var footer = document.getElementById('di-modal-footer');
@@ -2632,8 +2683,15 @@ async function sendToIdMaker() {
       dob: editedDob,
       gender: editedSex,
 
-      photo: app.photo || fallbackMedia(editedName),
-      signature: app.signature || fallbackMedia(editedName),
+      photo:
+        app.photo ||
+        app.documents?.photo ||
+        fallbackMedia(editedName),
+
+      signature:
+        app.signature ||
+        app.documents?.signature ||
+        '',
 
       controlNo: editedControlNo,
       dateIssued: editedDateIssued,
