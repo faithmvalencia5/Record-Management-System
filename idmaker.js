@@ -1,128 +1,114 @@
-// ID maker portal logic
+const ID_MAKER_QUEUE = [];
 
-/* ID maker queue bootstrap */
-const ID_MAKER_QUEUE = (function(){
+const ID_MAKER_API =
+  'https://management-backend-3cij.onrender.com/api/id-maker-queue';
 
-  var stages = [
-    'Queued',
-    'In Production',
-    'Printed',
-    'In Transit'
-  ];
+// LOAD QUEUE FROM DATABASE
 
-  // Load the queue sent from the Staff Portal
-  var items = [];
-
+async function loadIdMakerQueueFromDatabase(showMessage = false) {
   try {
 
-    var savedQueue =
-      JSON.parse(
-        localStorage.getItem(
-          'scb_id_maker_queue_v1'
-        ) || '[]'
+    console.log('Loading ID Maker queue from database...');
+
+    const response = await fetch(ID_MAKER_API);
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(
+        result.message || 'Failed to load ID Maker queue.'
       );
-
-    if (Array.isArray(savedQueue)) {
-      items = savedQueue;
     }
 
-  } catch (error) {
+    // Clear current queue
+    ID_MAKER_QUEUE.length = 0;
 
-    console.warn(
-      'Could not load ID Maker queue:',
-      error
-    );
+    // Add database records
+    if (Array.isArray(result.queue)) {
 
-  }
+      result.queue.forEach(function(item) {
 
+        ID_MAKER_QUEUE.push({
+          ...item,
 
-  // Keep the queue in sync when the live system
-  // sends a new applicant.
-  window.__pushIdMakerQueue = function(
-    app,
-    printStatus
-  ){
+          // Keep the naming used by the existing ID Maker UI
+          id:
+            item.id ||
+            item.application_id,
 
-    var idx = -1;
-
-    for (
-      var i = 0;
-      i < items.length;
-      i++
-    ) {
-
-      if (
-        String(items[i].id) ===
-        String(app.id)
-      ) {
-        idx = i;
-        break;
-      }
-
-    }
-
-
-    var entry =
-      Object.assign(
-        {},
-        app,
-        {
           printStatus:
-            printStatus ||
-            stages[0],
-
-          photo:
-            app.photo ||
-            fallbackMedia(app.name),
+            item.printStatus ||
+            'Queued',
 
           controlNo:
-            app.controlNo ||
+            item.controlNo ||
             (
               'CTL-' +
               String(
-                app.id || ''
-              ).replace(
-                'SCB-',
+                item.id ||
+                item.application_id ||
                 ''
-              )
-            )
-        }
-      );
+              ).replace('SCB-', '')
+            ),
 
+          photo:
+            item.photo ||
+            fallbackMedia(item.name),
 
-    if (idx >= 0) {
-      items[idx] = entry;
-    } else {
-      items.push(entry);
-    }
+          signature:
+            item.signature ||
+            ''
+        });
 
-
-    // Save queue
-    try {
-
-      localStorage.setItem(
-        'scb_id_maker_queue_v1',
-        JSON.stringify(items)
-      );
-
-    } catch (error) {
-
-      console.warn(
-        'Could not save ID Maker queue:',
-        error
-      );
+      });
 
     }
 
+    console.log(
+      'ID Maker queue loaded from database:',
+      ID_MAKER_QUEUE
+    );
 
-    return entry;
+    // Re-render queue
+    initIdMakerQueue();
 
-  };
+    updateIdMakerKPIs();
+    updateQueueTagCounts();
+    updateFilterCounts();
+    updateAlertCounts();
 
+    if (showMessage) {
+      showToast(
+        'ID Maker queue refreshed from database.',
+        'success'
+      );
+    }
 
-  return items;
+    return ID_MAKER_QUEUE;
 
-})();
+  } catch (error) {
+
+    console.error(
+      'Error loading ID Maker queue:',
+      error
+    );
+
+    ID_MAKER_QUEUE.length = 0;
+
+    initIdMakerQueue();
+    updateIdMakerKPIs();
+
+    if (showMessage) {
+      showToast(
+        'Failed to load ID Maker queue.',
+        'error'
+      );
+    }
+
+    return [];
+
+  }
+}
 
 function closeQueueFilter(){
   document.getElementById('queue-filter-wrap')?.classList.remove('open');
@@ -251,46 +237,10 @@ function initIdMakerQueue(){
   applyQueueFilters();
 }
 
-function refreshIdMakerQueue() {
+async function refreshIdMakerQueue() {
 
-  try {
+  await loadIdMakerQueueFromDatabase(true);
 
-    var savedQueue =
-      JSON.parse(
-        localStorage.getItem(
-          'scb_id_maker_queue_v1'
-        ) || '[]'
-      );
-
-    if (Array.isArray(savedQueue)) {
-
-      ID_MAKER_QUEUE.length = 0;
-
-      savedQueue.forEach(function(item){
-        ID_MAKER_QUEUE.push(item);
-      });
-
-    }
-
-  } catch (error) {
-
-    console.warn(
-      'Could not refresh ID Maker queue:',
-      error
-    );
-
-  }
-
-  initIdMakerQueue();
-  updateIdMakerKPIs();
-  updateQueueTagCounts();
-  updateFilterCounts();
-  updateAlertCounts();
-
-  showToast(
-    'ID Maker queue refreshed.',
-    'success'
-  );
 }
 
 function initIdMakerStatusChart(){
@@ -308,39 +258,141 @@ function initIdMakerStatusChart(){
   });
 }
 
-function inlineStatusChange(appId, newStatus){
-  var queueItem = ID_MAKER_QUEUE.find(function(a){ return a.id === appId; });
-  if(queueItem){ queueItem.printStatus = newStatus; }
+async function inlineStatusChange(appId, newStatus) {
+
+  const queueItem = ID_MAKER_QUEUE.find(function(a) {
+    return String(a.id) === String(appId);
+  });
+
+  if (!queueItem) {
+    showToast(
+      'Queue item not found.',
+      'error'
+    );
+    return;
+  }
+
+  const oldStatus = queueItem.printStatus;
+
   try {
 
-    localStorage.setItem(
-      'scb_id_maker_queue_v1',
-      JSON.stringify(ID_MAKER_QUEUE)
+    // ========================================
+    // SAVE STATUS TO DATABASE
+    // ========================================
+
+    const response = await fetch(
+      ID_MAKER_API + '/' + encodeURIComponent(appId),
+      {
+        method: 'PUT',
+
+        headers: {
+          'Content-Type': 'application/json'
+        },
+
+        body: JSON.stringify({
+          print_status: newStatus
+        })
+      }
     );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(
+        result.message ||
+        'Failed to update queue status.'
+      );
+    }
+
+    // ========================================
+    // UPDATE LOCAL PAGE STATE
+    // ========================================
+
+    queueItem.printStatus = newStatus;
+
+    const queueRow =
+      document.querySelector(
+        '#id-maker-queue-tbody tr[data-app-id="' +
+        appId +
+        '"]'
+      );
+
+    if (queueRow) {
+      queueRow.dataset.printStatus = newStatus;
+    }
+
+    // ========================================
+    // APPLICATION WORKFLOW
+    // ========================================
+
+    if (
+      newStatus === 'In Transit' &&
+      typeof APP_DB !== 'undefined' &&
+      APP_DB[appId]
+    ) {
+
+      APP_DB[appId].status =
+        'Ready for Release';
+
+      if (
+        typeof syncApplicationsTableBadge ===
+        'function'
+      ) {
+        syncApplicationsTableBadge(
+          appId,
+          'Ready for Release'
+        );
+      }
+
+    }
+
+    // ========================================
+    // REFRESH UI
+    // ========================================
+
+    updateIdMakerKPIs();
+
+    appendAudit(
+      CURRENT_USER?.displayName ||
+      'ID Maker',
+
+      'Status set to: ' +
+      newStatus,
+
+      CURRENT_ROLE
+    );
+
+    showToast(
+      'Status updated to "' +
+      newStatus +
+      '" for ' +
+      (queueItem.name || appId),
+
+      'success'
+    );
+
+    applyQueueFilters();
 
   } catch (error) {
 
-    console.warn(
-      'Could not save ID Maker queue:',
+    console.error(
+      'Error updating ID Maker queue status:',
       error
     );
 
+    // Restore previous UI state
+    queueItem.printStatus = oldStatus;
+
+    showToast(
+      error.message ||
+      'Failed to update queue status.',
+
+      'error'
+    );
+
+    // Re-render to restore correct status
+    initIdMakerQueue();
   }
-
-  var queueRow = document.querySelector('#id-maker-queue-tbody tr[data-app-id="'+appId+'"]');
-  if(queueRow){ queueRow.dataset.printStatus = newStatus; }
-
-  // When ID Maker marks as In Transit, update application status to Ready for Release
-  if(newStatus === 'In Transit' && APP_DB[appId]){
-    APP_DB[appId].status = 'Ready for Release';
-    syncApplicationsTableBadge(appId, 'Ready for Release');
-  }
-
-  updateIdMakerKPIs();
-  appendAudit(CURRENT_USER?.displayName || 'ID Maker', 'Status set to: ' + newStatus, CURRENT_ROLE);
-  showToast('Status updated to "' + newStatus + '" for ' + (queueItem?.name || appId), 'success');
-
-  applyQueueFilters();
 }
 
 function updateIdMakerKPIs() {
@@ -754,16 +806,9 @@ document.addEventListener('click',function(e){
 
 document.addEventListener('click', () => document.querySelectorAll('.row-status-select.open').forEach(r => r.classList.remove('open')));
 
-document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', async function () {
 
-  initIdMakerQueue();
-
-  updateIdMakerKPIs();
-
-  updateQueueTagCounts();
-
-  updateFilterCounts();
-
-  updateAlertCounts();
+  // Load queue from Supabase
+  await loadIdMakerQueueFromDatabase(false);
 
 });
