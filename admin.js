@@ -205,13 +205,85 @@ function updateRolePermHint() {
   }
 }
 
+function isStrongPassword(password) {
+  const value = String(password || '');
+
+  return (
+    value.length >= 8 &&
+    /[A-Z]/.test(value) &&
+    /[0-9]/.test(value) &&
+    /[^A-Za-z0-9]/.test(value)
+  );
+}
+
+function validatePasswordField(
+  inputId,
+  errorId = 'um-password-error'
+) {
+  const input = document.getElementById(inputId);
+  const error = document.getElementById(errorId);
+
+  if (!input) return false;
+
+  const password = input.value || '';
+
+  if (!isStrongPassword(password)) {
+
+    if (error) {
+      error.textContent =
+        'Password must be at least 8 characters and include at least one capital letter, one number, and one special character.';
+      error.style.display = 'block';
+    }
+
+    input.setCustomValidity(
+      'Password must be at least 8 characters and include at least one capital letter, one number, and one special character.'
+    );
+
+    return false;
+  }
+
+  if (error) {
+    error.textContent = '';
+    error.style.display = 'none';
+  }
+
+  input.setCustomValidity('');
+
+  return true;
+}
+
 function saveUser() {
   const fullName = document.getElementById('um-fullname').value.trim();
   const username = document.getElementById('um-username').value.trim();
+  const password = document.getElementById('um-password')?.value || '';
   if (!fullName || !username) {
     showToast('Full Name and Username are required.', 'error');
     return;
   }
+
+  // Password is required when creating a new account.
+  if (!editingUserKey && !password) {
+    showToast(
+      'A strong password is required for new accounts.',
+      'error'
+    );
+
+    document.getElementById('um-password')?.focus();
+    return;
+  }
+
+  // If a password is entered during editing,
+  // it must also follow the strong-password rule.
+  if (password && !isStrongPassword(password)) {
+    showToast(
+      'Password must be at least 8 characters and include a capital letter, a number, and a special character.',
+      'error'
+    );
+
+    document.getElementById('um-password')?.focus();
+    return;
+  }
+
   const role = document.getElementById('um-role').value;
   const status = document.getElementById('um-status').value;
   const designation = document.getElementById('um-designation').value.trim() || (role === 'ID Maker' ? 'ID Card Producer' : 'OSCA Staff');
@@ -316,6 +388,15 @@ function resetUserCredentials() {
     showToast('Generate a temporary password before resetting credentials.', 'error');
     return;
   }
+  if (!isStrongPassword(newPassword)) {
+    showToast(
+      'Password must be at least 8 characters and include a capital letter, a number, and a special character.',
+      'error'
+    );
+
+    input?.focus();
+    return;
+  }
   if (u) {
     appendAudit(CURRENT_USER?.displayName || 'Admin', `Reset credentials for: ${u.fullName}`, 'Admin');
     // The password itself is never echoed to toasts/logs — it stays masked in the modal.
@@ -329,14 +410,15 @@ function exportUsers() {
   appendAudit(CURRENT_USER?.displayName || 'Admin', 'Exported user accounts list (CSV)', 'Admin');
 }
 
-/* ── Module C: Audit Logs ── */
+/* ── Module C: Audit Logs
    AUDIT_LOG_DATA — EMPTY bootstrap.
    All demo log events have been removed. Each audit entry keeps
    the shape: { ts, user, role, action, ip, device } so the table
    can render events from the other application system (e.g. a
    tamper-proof audit endpoint).
    TODO(integration): load audit events from the live system.
-========================================================== */
+*/
+
 const AUDIT_LOG_DATA = [];
 
 function determineAuditActionType(action) {
@@ -353,10 +435,11 @@ function determineAuditActionType(action) {
   if (a.includes('user') || a.includes('role') || a.includes('password') || a.includes('two-factor')) return 'user';
   return 'other';
 }
-
+/*
    AUDIT USER FILTER — populated from ADMIN_USER_ACCOUNTS
    (plus any audit-only actors such as "System").
-========================================================== */
+*/
+
 const escHtml = (s) => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -567,7 +650,7 @@ function exportAuditReport() {
   showToast(`Audit trail exported (${filtered.length} rows) — DPA-safe CSV`, 'success');
 }
 
-/* ── Module D: AI & API Service Status ── */
+/* ── Module D: AI & API Service Status
    SERVICE_STATUS — EMPTY bootstrap.
    All demo service monitors have been removed. Each entry keeps
    the shape: { name, desc, icon, status, latency, action? }
@@ -575,7 +658,8 @@ function exportAuditReport() {
    the card icon) so the grid can render monitors from the other
    application system (e.g. GET /services/status).
    TODO(integration): load service status from the live system.
-========================================================== */
+*/
+
 const SERVICE_STATUS = [];
 
 function renderServiceStatus() {
@@ -650,14 +734,14 @@ function tplSave() {
   showToast('SMS templates saved successfully', 'success');
 }
 
-/* ── Module E: Backup & Recovery ── */
+/* ── Module E: Backup & Recovery
 let backupIsRunning = false;
    BACKUP_HISTORY — EMPTY bootstrap.
    All demo backup records have been removed. Each entry keeps the
    shape: { ts, type, size, status, loc } so the history table can
    render backups from the other application system.
    TODO(integration): load backup history from the live system.
-========================================================== */
+*/
 const BACKUP_HISTORY = [];
 
 function renderBackupHistory() {
@@ -679,10 +763,11 @@ function renderBackupHistory() {
     </tr>`;
   }).join('');
 }
-
+/*
    RESTORE POINT SELECT — options are bound to BACKUP_HISTORY
    (newest first) instead of hardcoded literals.
-========================================================== */
+*/
+
 function renderRestorePoints() {
   const sel = document.getElementById('restore-point-select');
   if (!sel) return;
