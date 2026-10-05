@@ -20,11 +20,14 @@ const createSignedFileUrl = async (filePath) => {
 
 const getApplications = async (req, res) => {
   try {
-    // Get applications
-    const { data: applications, error: applicationsError } = await supabase
-      .from("applications")
-      .select("*")
-      .order("created_at", { ascending: false });
+    // --------------------------------------------------
+    // 1. GET APPLICATIONS
+    // --------------------------------------------------
+    const { data: applications, error: applicationsError } =
+      await supabase
+        .from("applications")
+        .select("*")
+        .order("created_at", { ascending: false });
 
     if (applicationsError) {
       throw applicationsError;
@@ -37,16 +40,19 @@ const getApplications = async (req, res) => {
       });
     }
 
-    // Get application IDs
+    // --------------------------------------------------
+    // 2. GET APPLICATION IDS
+    // --------------------------------------------------
     const applicationIds = applications.map(
-      (application) => application.application_id,
+      (application) => application.application_id
     );
 
-    // Get uploaded files
+    // --------------------------------------------------
+    // 3. GET APPLICATION FILE RECORDS
+    // --------------------------------------------------
     const { data: files, error: filesError } = await supabase
       .from("application_files")
-      .select(
-        `
+      .select(`
         application_id,
         valid_id_url,
         valid_id_back_url,
@@ -60,139 +66,127 @@ const getApplications = async (req, res) => {
         authenticated_at,
         authentication_remarks,
         supporting_document_type
-      `,
-      )
+      `)
       .in("application_id", applicationIds);
 
     if (filesError) {
       throw filesError;
     }
 
-    // Get status history
-    const { data: statusHistory, error: statusHistoryError } = await supabase
-      .from("application_status_history")
-      .select("*")
-      .in("application_id", applicationIds)
-      .order("updated_at", { ascending: false });
+    // --------------------------------------------------
+    // 4. GET STATUS HISTORY
+    // --------------------------------------------------
+    const { data: statusHistory, error: statusHistoryError } =
+      await supabase
+        .from("application_status_history")
+        .select("*")
+        .in("application_id", applicationIds)
+        .order("updated_at", { ascending: false });
 
     if (statusHistoryError) {
       throw statusHistoryError;
     }
 
-    // Attach files + status to each application
-    const applicationsWithFiles = await Promise.all(
-      applications.map(async (application) => {
-        // Find latest status
-        const latestStatus = statusHistory?.find(
-          (history) => history.application_id === application.application_id,
-        );
+    // --------------------------------------------------
+    // 5. COMBINE APPLICATION + FILE + STATUS DATA
+    //
+    // IMPORTANT:
+    // Do NOT create signed Storage URLs here.
+    //
+    // This endpoint is used by the dashboard/list.
+    // Signed URLs are generated only when opening
+    // one application's detail page.
+    // --------------------------------------------------
+    const applicationsWithFiles = applications.map((application) => {
+      const latestStatus = statusHistory?.find(
+        (history) =>
+          history.application_id === application.application_id
+      );
 
-        const currentStatus =
-          latestStatus?.status || application.status || "Pending";
+      const currentStatus =
+        latestStatus?.status ||
+        application.status ||
+        "Pending";
 
-        const statusUpdatedAt =
-          latestStatus?.updated_at ||
-          application.updated_at ||
-          application.created_at ||
-          null;
+      const statusUpdatedAt =
+        latestStatus?.updated_at ||
+        application.updated_at ||
+        application.created_at ||
+        null;
 
-        // Find uploaded documents
-        const fileRecord = files?.find(
-          (file) => file.application_id === application.application_id,
-        );
+      const fileRecord = files?.find(
+        (file) =>
+          file.application_id === application.application_id
+      );
 
-        // If no files exist
-        if (!fileRecord) {
-          return {
-            ...application,
-
-            status: currentStatus,
-            status_updated_at: statusUpdatedAt,
-
-            documents: {
-              idFront: null,
-              idBack: null,
-              photo: null,
-              bc: null,
-              cedula: null,
-              signature: null,
-            },
-
-            document_files: null,
-          };
-        }
-
-        // CREATE SIGNED URLS
-        const [
-          validIdFrontUrl,
-          validIdBackUrl,
-          photoUrl,
-          birthCertificateUrl,
-          cedulaUrl,
-          signatureUrl,
-        ] = await Promise.all([
-          createSignedFileUrl(fileRecord.valid_id_url),
-
-          createSignedFileUrl(fileRecord.valid_id_back_url),
-
-          createSignedFileUrl(fileRecord.latest_photo_url),
-
-          createSignedFileUrl(fileRecord.birth_certificate_url),
-
-          createSignedFileUrl(fileRecord.community_tax_certificate_url),
-
-          createSignedFileUrl(fileRecord.signature_url),
-        ]);
-
-        // RETURN COMPLETE APPLICATION
+      // ----------------------------------------------
+      // NO FILE RECORD
+      // ----------------------------------------------
+      if (!fileRecord) {
         return {
           ...application,
 
-          // Current application status
           status: currentStatus,
 
-          // Date/time when the current status was updated
           status_updated_at: statusUpdatedAt,
 
-          // Used by the Applications and Applicants tables
           documents: {
-            idFront: validIdFrontUrl,
-            idBack: validIdBackUrl,
-            photo: photoUrl,
-            bc: birthCertificateUrl,
-            cedula: cedulaUrl,
-            signature: signatureUrl,
+            idFront: null,
+            idBack: null,
+            photo: null,
+            bc: null,
+            cedula: null,
+            signature: null,
           },
 
-          // Full document information
-          document_files: {
-            ...fileRecord,
-
-            valid_id_url: validIdFrontUrl,
-
-            valid_id_back_url: validIdBackUrl,
-
-            latest_photo_url: photoUrl,
-
-            birth_certificate_url: birthCertificateUrl,
-
-            community_tax_certificate_url: cedulaUrl,
-
-            signature_url: signatureUrl,
-          },
+          document_files: null,
         };
-      }),
-    );
+      }
 
-    // RESPONSE
-    res.status(200).json({
+      // ----------------------------------------------
+      // FILE RECORD EXISTS
+      //
+      // Return STORAGE PATHS only.
+      // The detail endpoint will generate signed URLs.
+      // ----------------------------------------------
+      return {
+        ...application,
+
+        status: currentStatus,
+
+        status_updated_at: statusUpdatedAt,
+
+        documents: {
+          idFront: fileRecord.valid_id_url || null,
+          idBack: fileRecord.valid_id_back_url || null,
+          photo: fileRecord.latest_photo_url || null,
+          bc: fileRecord.birth_certificate_url || null,
+          cedula:
+            fileRecord.community_tax_certificate_url || null,
+          signature: fileRecord.signature_url || null,
+        },
+
+        document_files: {
+          ...fileRecord,
+        },
+      };
+    });
+
+    // --------------------------------------------------
+    // 6. RETURN RESPONSE
+    // --------------------------------------------------
+    return res.status(200).json({
       success: true,
       applications: applicationsWithFiles,
     });
-  } catch (error) {
-    console.error("Error fetching applications:", error);
 
-    res.status(500).json({
+  } catch (error) {
+    console.error(
+      "Error fetching applications:",
+      error
+    );
+
+    return res.status(500).json({
       success: false,
       message: "Failed to retrieve applications.",
       error: error.message,
