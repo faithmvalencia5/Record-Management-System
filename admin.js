@@ -654,12 +654,8 @@ async function loadAdminUsers() {
               user.role
             ),
 
-          /*
-           * Current user_accounts table
-           * does not have an account-status
-           * column in the current implementation.
-           */
           status:
+            user.account_status ||
             'Active',
 
           lastActive:
@@ -2086,38 +2082,45 @@ function validatePasswordField(
 
 }
 
-
-function saveUser() {
+async function saveUser() {
 
   const fullName =
     document.getElementById(
       'um-fullname'
     ).value.trim();
 
-
   const username =
     document.getElementById(
       'um-username'
     ).value.trim();
 
+  const email =
+    document.getElementById(
+      'um-email'
+    ).value.trim();
 
   const password =
     document.getElementById(
       'um-password'
-    )?.value ||
-    '';
+    )?.value || '';
+
+  const role =
+    document.getElementById(
+      'um-role'
+    ).value;
+
+  const status =
+    document.getElementById(
+      'um-status'
+    ).value;
 
 
-  if (
-    !fullName ||
-    !username
-  ) {
+  if (!fullName || !username) {
 
     showToast(
       'Full Name and Username are required.',
       'error'
     );
-
 
     return;
 
@@ -2134,13 +2137,11 @@ function saveUser() {
       'error'
     );
 
-
     document
       .getElementById(
         'um-password'
       )
       ?.focus();
-
 
     return;
 
@@ -2159,29 +2160,15 @@ function saveUser() {
       'error'
     );
 
-
     document
       .getElementById(
         'um-password'
       )
       ?.focus();
 
-
     return;
 
   }
-
-
-  const role =
-    document.getElementById(
-      'um-role'
-    ).value;
-
-
-  const status =
-    document.getElementById(
-      'um-status'
-    ).value;
 
 
   const designation =
@@ -2195,115 +2182,173 @@ function saveUser() {
     );
 
 
-  if (editingUserKey) {
+  try {
 
-    const u =
-      ADMIN_USER_ACCOUNTS.find(
-        x =>
-          x.key ===
-          editingUserKey
-      );
+    let response;
 
 
-    if (u) {
+    /* =====================================================
+       EDIT EXISTING USER
+       ===================================================== */
 
-      u.fullName =
-        fullName;
+    if (editingUserKey) {
 
-
-      u.username =
-        username;
-
-
-      u.role =
-        role;
-
-
-      u.status =
-        status;
+      const user =
+        ADMIN_USER_ACCOUNTS.find(
+          u =>
+            u.key ===
+            editingUserKey
+        );
 
 
-      u.designation =
-        designation;
+      if (!user) {
+
+        showToast(
+          'User account could not be found.',
+          'error'
+        );
+
+        return;
+
+      }
 
 
-      u.email =
-        document.getElementById(
-          'um-email'
-        ).value.trim() ||
-        u.email;
+      response =
+        await fetch(
+          `${ADMIN_USERS_API}/${encodeURIComponent(user.id)}`,
+          {
+            method:
+              'PUT',
+
+            headers: {
+              'Content-Type':
+                'application/json',
+
+              Accept:
+                'application/json'
+            },
+
+            body:
+              JSON.stringify({
+                username,
+                email,
+                role,
+                account_status:
+                  status,
+                password:
+                  password ||
+                  undefined
+              })
+          }
+        );
+
+
+    /* =====================================================
+       CREATE NEW USER
+       ===================================================== */
+
+    } else {
+
+      response =
+        await fetch(
+          ADMIN_USERS_API,
+          {
+            method:
+              'POST',
+
+            headers: {
+              'Content-Type':
+                'application/json',
+
+              Accept:
+                'application/json'
+            },
+
+            body:
+              JSON.stringify({
+                username,
+                password,
+                email,
+                role,
+                account_status:
+                  status
+              })
+          }
+        );
 
     }
 
 
+    const result =
+      await response.json();
+
+
+    if (!response.ok ||
+        !result.success) {
+
+      throw new Error(
+        result.message ||
+        'Unable to save user account.'
+      );
+
+    }
+
+
+    /* =====================================================
+       SUCCESS
+       ===================================================== */
+
     appendAudit(
       CURRENT_USER?.displayName ||
         'Admin',
-      `Updated user: ${fullName} (role → ${role})`,
+
+      editingUserKey
+        ? `Updated user: ${fullName} (role → ${role})`
+        : `Created user: ${fullName} (${role})`,
+
       'Admin'
     );
 
 
     showToast(
-      `User ${fullName} updated successfully`,
+      editingUserKey
+        ? `User ${fullName} updated successfully.`
+        : `User ${fullName} created successfully.`,
+
       'success'
     );
 
-  } else {
 
-    ADMIN_USER_ACCOUNTS.push({
-
-      key:
-        'u' +
-        Date.now(),
-
-      fullName,
-
-      username,
-
-      designation,
-
-      role,
-
-      email:
-        document.getElementById(
-          'um-email'
-        ).value.trim(),
-
-      status,
-
-      lastActive:
-        'Never logged in'
-
-    });
+    closeUserModal();
 
 
-    appendAudit(
-      CURRENT_USER?.displayName ||
-        'Admin',
-      `Created user: ${fullName} (${role})`,
-      'Admin'
+    /*
+     * Reload directly from database
+     * instead of modifying the local array.
+     */
+    await loadAdminUsers();
+
+
+    renderAuditUserFilter();
+
+
+  } catch (error) {
+
+    console.error(
+      '[Admin Users] Save failed:',
+      error
     );
 
 
     showToast(
-      `User ${fullName} created successfully`,
-      'success'
+      error.message ||
+        'Unable to save user account.',
+      'error'
     );
 
   }
 
-
-  closeUserModal();
-
-
-  renderUserMgmtTable();
-
-
-  renderAuditUserFilter();
-
 }
-
 
 /*
  * Edit existing user.
@@ -2319,68 +2364,158 @@ function editUser(
 
 }
 
-
-/*
- * Toggle local UI account status.
- *
- * NOTE:
- * This still changes the local Admin UI only.
- * Database account mutation will be connected
- * in the next backend batch.
- */
-function toggleMgmtUserStatus(
+async function toggleMgmtUserStatus(
   key
 ) {
 
-  const u =
+  const user =
     ADMIN_USER_ACCOUNTS.find(
-      x =>
-        x.key ===
+      u =>
+        u.key ===
         key
     );
 
 
-  if (!u) {
+  if (!user) {
 
     return;
 
   }
 
 
-  u.status =
-    u.status === 'Active'
+  const newStatus =
+    user.status === 'Active'
       ? 'Inactive'
       : 'Active';
 
 
-  appendAudit(
-    CURRENT_USER?.displayName ||
-      'Admin',
-    `${
-      u.status === 'Inactive'
-        ? 'Deactivated'
-        : 'Reactivated'
-    } user: ${u.fullName}`,
-    'Admin'
-  );
+  const actionText =
+    newStatus === 'Inactive'
+      ? 'disable'
+      : 'enable';
 
 
-  showToast(
-    `${u.fullName} ${
-      u.status === 'Inactive'
-        ? 'deactivated'
-        : 'reactivated'
-    } (history preserved)`,
-    u.status === 'Inactive'
-      ? 'error'
-      : 'success'
-  );
+  openConfirmModal({
+
+    title:
+      `${newStatus === 'Inactive' ? 'Disable' : 'Enable'} this account?`,
+
+    desc:
+      `${user.fullName} will be marked as ${newStatus}.`,
+
+    alertTitle:
+      newStatus === 'Inactive'
+        ? 'The user will no longer be able to log in.'
+        : 'The user will be allowed to log in again.',
+
+    alertDesc:
+      'The account record and existing data will be preserved.',
+
+    confirmLabel:
+      newStatus === 'Inactive'
+        ? 'Disable Account'
+        : 'Enable Account',
+
+    danger:
+      newStatus === 'Inactive',
+
+    onConfirm:
+      async () => {
+
+        try {
+
+          const response =
+            await fetch(
+              `${ADMIN_USERS_API}/${encodeURIComponent(user.id)}/status`,
+              {
+                method:
+                  'PUT',
+
+                headers: {
+                  'Content-Type':
+                    'application/json',
+
+                  Accept:
+                    'application/json'
+                },
+
+                body:
+                  JSON.stringify({
+                    account_status:
+                      newStatus
+                  })
+              }
+            );
 
 
-  renderUserMgmtTable();
+          const result =
+            await response.json();
+
+
+          if (
+            !response.ok ||
+            !result.success
+          ) {
+
+            throw new Error(
+              result.message ||
+              `Unable to ${actionText} account.`
+            );
+
+          }
+
+
+          appendAudit(
+            CURRENT_USER?.displayName ||
+              'Admin',
+
+            `${
+              newStatus === 'Inactive'
+                ? 'Deactivated'
+                : 'Reactivated'
+            } user: ${user.fullName}`,
+
+            'Admin'
+          );
+
+
+          showToast(
+            `${user.fullName} ${
+              newStatus === 'Inactive'
+                ? 'deactivated'
+                : 'reactivated'
+            } successfully.`,
+
+            newStatus === 'Inactive'
+              ? 'error'
+              : 'success'
+          );
+
+
+          await loadAdminUsers();
+
+
+        } catch (error) {
+
+          console.error(
+            '[Admin Users] Status update failed:',
+            error
+          );
+
+
+          showToast(
+            error.message ||
+              'Unable to update account status.',
+            'error'
+          );
+
+        }
+
+      }
+
+  });
 
 }
-
 
 function openUserActions(
   key
@@ -2681,19 +2816,30 @@ function closeUserActionsModal() {
 
 }
 
-
-function resetUserCredentials() {
+async function resetUserCredentials() {
 
   const key =
     window._resetUserKey;
 
 
-  const u =
+  const user =
     ADMIN_USER_ACCOUNTS.find(
-      x =>
-        x.key ===
+      u =>
+        u.key ===
         key
     );
+
+
+  if (!user) {
+
+    showToast(
+      'User account could not be found.',
+      'error'
+    );
+
+    return;
+
+  }
 
 
   const input =
@@ -2716,7 +2862,6 @@ function resetUserCredentials() {
       'error'
     );
 
-
     return;
 
   }
@@ -2733,37 +2878,92 @@ function resetUserCredentials() {
       'error'
     );
 
-
     input?.focus();
-
 
     return;
 
   }
 
 
-  if (u) {
+  try {
+
+    const response =
+      await fetch(
+        `${ADMIN_USERS_API}/${encodeURIComponent(user.id)}/password`,
+        {
+          method:
+            'PUT',
+
+          headers: {
+            'Content-Type':
+              'application/json',
+
+            Accept:
+              'application/json'
+          },
+
+          body:
+            JSON.stringify({
+              password:
+                newPassword
+            })
+        }
+      );
+
+
+    const result =
+      await response.json();
+
+
+    if (
+      !response.ok ||
+      !result.success
+    ) {
+
+      throw new Error(
+        result.message ||
+        'Unable to reset password.'
+      );
+
+    }
+
 
     appendAudit(
       CURRENT_USER?.displayName ||
         'Admin',
-      `Reset credentials for: ${u.fullName}`,
+
+      `Reset credentials for: ${user.fullName}`,
+
       'Admin'
     );
 
 
     showToast(
-      `Credentials reset for ${u.fullName}. Password change forced on next login.`,
+      `Credentials reset successfully for ${user.fullName}.`,
       'success'
+    );
+
+
+    closeUserActionsModal();
+
+
+  } catch (error) {
+
+    console.error(
+      '[Admin Users] Password reset failed:',
+      error
+    );
+
+
+    showToast(
+      error.message ||
+        'Unable to reset password.',
+      'error'
     );
 
   }
 
-
-  closeUserActionsModal();
-
 }
-
 
 function exportUsers() {
 
