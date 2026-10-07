@@ -2,6 +2,10 @@ const express = require("express");
 const bcrypt = require("bcrypt");
 const supabase = require("../config/supabase");
 
+const {
+  createAuditLog,
+} = require("../controllers/auditLogController");
+
 const router = express.Router();
 
 
@@ -97,12 +101,32 @@ router.post("/login", async (req, res) => {
 
 
     if (!passwordMatch) {
+      await createAuditLog({
+        username: username.trim(),
+        action: "LOGIN_FAILED",
+        entityType: "USER",
+        details: "Failed login attempt due to invalid credentials.",
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+      });
+
       return res.status(401).json({
         success: false,
         message: "Invalid username or password.",
       });
     }
 
+    await createAuditLog({
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      action: "LOGIN",
+      entityType: "USER",
+      entityId: String(user.id),
+      details: "User logged into the system.",
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    });
 
     return res.json({
       success: true,
@@ -415,6 +439,16 @@ router.post("/users", async (req, res) => {
 
     }
 
+    await createAuditLog({
+      username: data.username,
+      role: data.role,
+      action: "USER_CREATED",
+      entityType: "USER",
+      entityId: String(data.id),
+      details: `Created user account: ${data.username}`,
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    });
 
     return res.status(201).json({
       success: true,
@@ -655,6 +689,16 @@ router.put(
 
       }
 
+      await createAuditLog({
+        username: data.username,
+        role: data.role,
+        action: "USER_UPDATED",
+        entityType: "USER",
+        entityId: String(data.id),
+        details: `Updated user account: ${data.username}`,
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+      });
 
       return res.json({
         success: true,
@@ -765,6 +809,16 @@ router.put(
 
       }
 
+      await createAuditLog({
+        username: data.username,
+        role: data.role,
+        action: "PASSWORD_RESET",
+        entityType: "USER",
+        entityId: String(data.id),
+        details: `Password reset for user: ${data.username}`,
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+      });
 
       return res.json({
         success: true,
@@ -862,6 +916,22 @@ router.put(
 
       }
 
+      await createAuditLog({
+        username: data.username,
+        role: data.role,
+        action:
+          data.account_status === "Active"
+            ? "USER_ACTIVATED"
+            : "USER_DEACTIVATED",
+        entityType: "USER",
+        entityId: String(data.id),
+        details:
+          data.account_status === "Active"
+            ? `Activated user account: ${data.username}`
+            : `Deactivated user account: ${data.username}`,
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+      });
 
       return res.json({
         success: true,

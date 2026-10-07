@@ -8,8 +8,25 @@
 const ADMIN_APPLICATIONS_API =
   'https://management-backend-3cij.onrender.com/api/applications';
 
+const ADMIN_USERS_API =
+  'https://management-backend-3cij.onrender.com/api/auth/users';
+
+const ADMIN_AUDIT_API =
+  'https://management-backend-3cij.onrender.com/api/audit-logs';
+
+const ADMIN_HEALTH_API =
+  'https://management-backend-3cij.onrender.com/api/test';
+
 let ADMIN_APPLICATIONS = [];
 
+let ADMIN_USER_ACCOUNTS = [];
+
+let AUDIT_LOG_DATA = [];
+
+
+/* =========================================================
+   LIVE APPLICATION DASHBOARD
+   ========================================================= */
 
 /**
  * Update Admin Dashboard metrics using live application data.
@@ -20,15 +37,11 @@ function updateAdminDashboardFromApplications(applications) {
     return;
   }
 
-  ADMIN_APPLICATIONS =
-    applications;
+  ADMIN_APPLICATIONS = applications;
 
-  updateAdminApplicationAnalytics(
-    applications
-  );
+  updateAdminApplicationAnalytics(applications);
 
-  const total =
-    applications.length;
+  const total = applications.length;
 
 
   /* -----------------------------------------
@@ -36,9 +49,7 @@ function updateAdminDashboardFromApplications(applications) {
      ----------------------------------------- */
 
   const citizens =
-    document.getElementById(
-      'kpi-citizens'
-    );
+    document.getElementById('kpi-citizens');
 
   if (citizens) {
 
@@ -53,9 +64,7 @@ function updateAdminDashboardFromApplications(applications) {
      ----------------------------------------- */
 
   const received =
-    document.getElementById(
-      'metric-received'
-    );
+    document.getElementById('metric-received');
 
   if (received) {
 
@@ -89,9 +98,7 @@ function updateAdminDashboardFromApplications(applications) {
     typeof syncApplicationsToAppDB === 'function'
   ) {
 
-    syncApplicationsToAppDB(
-      applications
-    );
+    syncApplicationsToAppDB(applications);
 
   }
 
@@ -557,13 +564,6 @@ function setOptionalMetric(
    ADMIN USER ACCOUNTS
    ========================================================= */
 
-let ADMIN_USER_ACCOUNTS = [];
-
-
-const ADMIN_USERS_API =
-  'https://management-backend-3cij.onrender.com/api/auth/users';
-
-
 /**
  * Load actual Staff / ID Maker / Admin accounts
  * from the database.
@@ -675,6 +675,8 @@ async function loadAdminUsers() {
 
     updateAdminUserDashboardMetrics();
 
+    renderAuditUserFilter();
+
 
     return ADMIN_USER_ACCOUNTS;
 
@@ -696,6 +698,8 @@ async function loadAdminUsers() {
     renderUserMgmtTable();
 
     updateAdminUserDashboardMetrics();
+
+    renderAuditUserFilter();
 
 
     return [];
@@ -845,10 +849,6 @@ function updateAdminUserDashboardMetrics() {
    ADMIN SYSTEM HEALTH
    ========================================================= */
 
-const ADMIN_HEALTH_API =
-  'https://management-backend-3cij.onrender.com/api/test';
-
-
 async function checkAdminSystemHealth() {
 
   const uptimeEl =
@@ -942,6 +942,603 @@ async function checkAdminSystemHealth() {
 
 
 /* =========================================================
+   LIVE AUDIT LOGS
+   ========================================================= */
+
+/**
+ * Convert a database audit-log record into the
+ * format already expected by the Admin UI.
+ */
+function normalizeAuditLog(
+  log
+) {
+
+  const createdAt =
+    log.created_at
+      ? new Date(
+          log.created_at
+        )
+      : null;
+
+
+  const formattedTime =
+    createdAt &&
+    !Number.isNaN(
+      createdAt.getTime()
+    )
+      ? createdAt.toLocaleString(
+          'en-US',
+          {
+            year:
+              'numeric',
+
+            month:
+              'short',
+
+            day:
+              '2-digit',
+
+            hour:
+              '2-digit',
+
+            minute:
+              '2-digit',
+
+            second:
+              '2-digit'
+          }
+        )
+      : '—';
+
+
+  return {
+
+    id:
+      log.id,
+
+    ts:
+      formattedTime,
+
+    user:
+      log.username ||
+      'System',
+
+    role:
+      log.role ||
+      'System',
+
+    action:
+      log.action ||
+      'Unknown action',
+
+    ip:
+      log.ip_address ||
+      '—',
+
+    device:
+      getAuditDeviceLabel(
+        log.user_agent
+      ),
+
+    details:
+      log.details ||
+      '—',
+
+    entityType:
+      log.entity_type ||
+      '—',
+
+    entityId:
+      log.entity_id ||
+      '—',
+
+    createdAt:
+      log.created_at ||
+      null,
+
+    _tsMs:
+      createdAt &&
+      !Number.isNaN(
+        createdAt.getTime()
+      )
+        ? createdAt.getTime()
+        : null
+
+  };
+
+}
+
+
+/**
+ * Convert browser user-agent text into a simple
+ * readable device label for the Admin table.
+ */
+function getAuditDeviceLabel(
+  userAgent
+) {
+
+  if (!userAgent) {
+
+    return '—';
+
+  }
+
+
+  const ua =
+    String(
+      userAgent
+    ).toLowerCase();
+
+
+  let device =
+    'Desktop';
+
+
+  if (
+    /iphone|ipad|ipod/.test(
+      ua
+    )
+  ) {
+
+    device =
+      'iOS';
+
+  } else if (
+    /android/.test(
+      ua
+    )
+  ) {
+
+    device =
+      'Android';
+
+  } else if (
+    /mobile/.test(
+      ua
+    )
+  ) {
+
+    device =
+      'Mobile';
+
+  }
+
+
+  let browser =
+    'Browser';
+
+
+  if (
+    ua.includes(
+      'edg/'
+    )
+  ) {
+
+    browser =
+      'Edge';
+
+  } else if (
+    ua.includes(
+      'chrome/'
+    )
+  ) {
+
+    browser =
+      'Chrome';
+
+  } else if (
+    ua.includes(
+      'firefox/'
+    )
+  ) {
+
+    browser =
+      'Firefox';
+
+  } else if (
+    ua.includes(
+      'safari/'
+    ) &&
+    !ua.includes(
+      'chrome/'
+    )
+  ) {
+
+    browser =
+      'Safari';
+
+  }
+
+
+  return `${device} · ${browser}`;
+
+}
+
+
+/**
+ * Load real audit logs from the backend.
+ */
+async function loadAdminAuditLogs() {
+
+  try {
+
+    console.log(
+      '[Admin Audit] Loading audit logs...'
+    );
+
+
+    const response =
+      await fetch(
+        `${ADMIN_AUDIT_API}?limit=500`,
+        {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json'
+          },
+          cache: 'no-store'
+        }
+      );
+
+
+    console.log(
+      '[Admin Audit] API status:',
+      response.status
+    );
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        'Audit logs API returned HTTP ' +
+        response.status
+      );
+
+    }
+
+
+    const result =
+      await response.json();
+
+
+    if (
+      !result.success ||
+      !Array.isArray(
+        result.logs
+      )
+    ) {
+
+      throw new Error(
+        result.message ||
+        'Invalid audit logs response.'
+      );
+
+    }
+
+
+    AUDIT_LOG_DATA =
+      result.logs.map(
+        normalizeAuditLog
+      );
+
+
+    console.log(
+      '[Admin Audit] Loaded:',
+      AUDIT_LOG_DATA.length,
+      'events'
+    );
+
+
+    renderAuditUserFilter();
+
+    renderAuditTable();
+
+    renderAuditSummaryFromLiveData();
+
+    updateSecurityAlertsKPI();
+
+
+    return AUDIT_LOG_DATA;
+
+  } catch (error) {
+
+    console.error(
+      '[Admin Audit] Failed to load audit logs:',
+      error
+    );
+
+
+    /*
+     * Do not show fake audit events when
+     * the database request fails.
+     */
+    AUDIT_LOG_DATA = [];
+
+
+    renderAuditUserFilter();
+
+    renderAuditTable();
+
+    renderAuditSummaryFromLiveData();
+
+    updateSecurityAlertsKPI();
+
+
+    return [];
+
+  }
+
+}
+
+
+/**
+ * Security & Audit Alerts KPI.
+ *
+ * Counts security-sensitive actions from the
+ * actual database audit trail.
+ */
+function updateSecurityAlertsKPI() {
+
+  const element =
+    document.getElementById(
+      'kpi-security-alerts'
+    );
+
+
+  if (!element) {
+
+    return;
+
+  }
+
+
+  const securityActions =
+    AUDIT_LOG_DATA.filter(
+      log =>
+        [
+          'LOGIN_FAILED',
+          'PASSWORD_RESET',
+          'USER_DEACTIVATED'
+        ].includes(
+          String(
+            log.action ||
+            ''
+          ).toUpperCase()
+        )
+    );
+
+
+  element.textContent =
+    securityActions.length.toLocaleString(
+      'en-US'
+    );
+
+
+  element.title =
+    'Security-sensitive audit events recorded in the system';
+
+}
+
+
+/**
+ * Render the dashboard Audit Summary using
+ * live audit records.
+ *
+ * This preserves the existing summary filter.
+ */
+function renderAuditSummaryFromLiveData() {
+
+  const tbody =
+    document.getElementById(
+      'audit-summary-tbody'
+    );
+
+
+  if (!tbody) {
+
+    return;
+
+  }
+
+
+  /*
+   * Show the most recent audit events.
+   */
+  const rows =
+    AUDIT_LOG_DATA
+      .slice(
+        0,
+        20
+      );
+
+
+  if (!rows.length) {
+
+    tbody.innerHTML =
+      '<tr>' +
+      '<td colspan="3" class="table-empty">' +
+      '<i class="fi fi-rr-shield-check"></i> ' +
+      'No audit activity recorded yet.' +
+      '</td>' +
+      '</tr>';
+
+
+    return;
+
+  }
+
+
+  tbody.innerHTML =
+    rows
+      .map(
+        log => {
+
+          const actionType =
+            determineAuditActionType(
+              log.action
+            );
+
+
+          const periods =
+            getAuditSummaryPeriods(
+              log
+            );
+
+
+          return `
+
+            <tr
+              data-period="${escHtml(periods.join(','))}"
+            >
+
+              <td data-label="Time">
+
+                <span class="cell-text">
+                  ${escHtml(log.ts)}
+                </span>
+
+              </td>
+
+
+              <td data-label="User">
+
+                <span class="cell-text">
+                  ${escHtml(log.user)}
+                </span>
+
+              </td>
+
+
+              <td data-label="Action">
+
+                <span class="cell-text">
+                  ${escHtml(log.action)}
+                </span>
+
+              </td>
+
+            </tr>
+
+          `;
+
+        }
+      )
+      .join('');
+
+
+  /*
+   * Reapply the currently selected summary range.
+   */
+  filterAuditLog(
+    readAuditSummaryRange(),
+    {
+      instant: true
+    }
+  );
+
+}
+
+
+/**
+ * Determine which Audit Summary periods an event
+ * belongs to.
+ */
+function getAuditSummaryPeriods(
+  log
+) {
+
+  const periods = [];
+
+  const timestamp =
+    log.createdAt ||
+    log.ts;
+
+
+  const eventTime =
+    new Date(
+      timestamp
+    );
+
+
+  if (
+    Number.isNaN(
+      eventTime.getTime()
+    )
+  ) {
+
+    return periods;
+
+  }
+
+
+  const now =
+    Date.now();
+
+
+  const diff =
+    now -
+    eventTime.getTime();
+
+
+  /*
+   * Last 24 hours.
+   */
+  if (
+    diff >= 0 &&
+    diff <=
+      24 * 60 * 60 * 1000
+  ) {
+
+    periods.push(
+      '24h'
+    );
+
+  }
+
+
+  /*
+   * Last 7 days.
+   */
+  if (
+    diff >= 0 &&
+    diff <=
+      7 * 24 * 60 * 60 * 1000
+  ) {
+
+    periods.push(
+      '7d'
+    );
+
+  }
+
+
+  /*
+   * The "5" range represents the
+   * five most recent sensitive actions.
+   */
+  const index =
+    AUDIT_LOG_DATA.indexOf(
+      log
+    );
+
+
+  if (
+    index >= 0 &&
+    index < 5
+  ) {
+
+    periods.push(
+      '5'
+    );
+
+  }
+
+
+  return periods;
+
+}
+
+
+/* =========================================================
    ADMIN PAGE INITIALIZATION
    ========================================================= */
 
@@ -960,6 +1557,12 @@ document.addEventListener(
      * Load actual user accounts.
      */
     loadAdminUsers();
+
+
+    /*
+     * Load actual audit logs.
+     */
+    loadAdminAuditLogs();
 
 
     /*
@@ -1324,6 +1927,7 @@ function updateUserRole(
 ) {
 
   if (
+    typeof DEMO_USERS === 'undefined' ||
     !DEMO_USERS[key]
   ) {
 
@@ -1809,46 +2413,95 @@ function openUserModal(
 
     if (u) {
 
-      document.getElementById(
-        'um-fullname'
-      ).value =
-        u.fullName;
+      const fullname =
+        document.getElementById(
+          'um-fullname'
+        );
+
+      if (fullname) {
+
+        fullname.value =
+          u.fullName;
+
+      }
 
 
-      document.getElementById(
-        'um-designation'
-      ).value =
-        u.designation;
+      const designation =
+        document.getElementById(
+          'um-designation'
+        );
+
+      if (designation) {
+
+        designation.value =
+          u.designation;
+
+      }
 
 
-      document.getElementById(
-        'um-username'
-      ).value =
-        u.username;
+      const username =
+        document.getElementById(
+          'um-username'
+        );
+
+      if (username) {
+
+        username.value =
+          u.username;
+
+      }
 
 
-      document.getElementById(
-        'um-email'
-      ).value =
-        u.email;
+      const email =
+        document.getElementById(
+          'um-email'
+        );
+
+      if (email) {
+
+        email.value =
+          u.email;
+
+      }
 
 
-      document.getElementById(
-        'um-role'
-      ).value =
-        u.role;
+      const role =
+        document.getElementById(
+          'um-role'
+        );
+
+      if (role) {
+
+        role.value =
+          u.role;
+
+      }
 
 
-      document.getElementById(
-        'um-status'
-      ).value =
-        u.status;
+      const status =
+        document.getElementById(
+          'um-status'
+        );
+
+      if (status) {
+
+        status.value =
+          u.status;
+
+      }
 
 
-      document.getElementById(
-        'um-password'
-      ).value =
-        '';
+      const password =
+        document.getElementById(
+          'um-password'
+        );
+
+      if (password) {
+
+        password.value =
+          '';
+
+      }
 
     }
 
@@ -2082,6 +2735,7 @@ function validatePasswordField(
 
 }
 
+
 async function saveUser() {
 
   const fullName =
@@ -2171,17 +2825,6 @@ async function saveUser() {
   }
 
 
-  const designation =
-    document.getElementById(
-      'um-designation'
-    ).value.trim() ||
-    (
-      role === 'ID Maker'
-        ? 'ID Card Producer'
-        : 'OSCA Staff'
-    );
-
-
   try {
 
     let response;
@@ -2213,6 +2856,28 @@ async function saveUser() {
       }
 
 
+      const body = {
+
+        username,
+
+        email,
+
+        role,
+
+        account_status:
+          status
+
+      };
+
+
+      if (password) {
+
+        body.password =
+          password;
+
+      }
+
+
       response =
         await fetch(
           `${ADMIN_USERS_API}/${encodeURIComponent(user.id)}`,
@@ -2229,16 +2894,9 @@ async function saveUser() {
             },
 
             body:
-              JSON.stringify({
-                username,
-                email,
-                role,
-                account_status:
-                  status,
-                password:
-                  password ||
-                  undefined
-              })
+              JSON.stringify(
+                body
+              )
           }
         );
 
@@ -2283,8 +2941,10 @@ async function saveUser() {
       await response.json();
 
 
-    if (!response.ok ||
-        !result.success) {
+    if (
+      !response.ok ||
+      !result.success
+    ) {
 
       throw new Error(
         result.message ||
@@ -2329,7 +2989,11 @@ async function saveUser() {
     await loadAdminUsers();
 
 
-    renderAuditUserFilter();
+    /*
+     * Reload audit records because the backend
+     * should have created a corresponding event.
+     */
+    await loadAdminAuditLogs();
 
 
   } catch (error) {
@@ -2350,6 +3014,7 @@ async function saveUser() {
 
 }
 
+
 /*
  * Edit existing user.
  */
@@ -2363,6 +3028,7 @@ function editUser(
   );
 
 }
+
 
 async function toggleMgmtUserStatus(
   key
@@ -2465,20 +3131,6 @@ async function toggleMgmtUserStatus(
           }
 
 
-          appendAudit(
-            CURRENT_USER?.displayName ||
-              'Admin',
-
-            `${
-              newStatus === 'Inactive'
-                ? 'Deactivated'
-                : 'Reactivated'
-            } user: ${user.fullName}`,
-
-            'Admin'
-          );
-
-
           showToast(
             `${user.fullName} ${
               newStatus === 'Inactive'
@@ -2493,6 +3145,8 @@ async function toggleMgmtUserStatus(
 
 
           await loadAdminUsers();
+
+          await loadAdminAuditLogs();
 
 
         } catch (error) {
@@ -2516,6 +3170,7 @@ async function toggleMgmtUserStatus(
   });
 
 }
+
 
 function openUserActions(
   key
@@ -2816,6 +3471,7 @@ function closeUserActionsModal() {
 
 }
 
+
 async function resetUserCredentials() {
 
   const key =
@@ -2928,16 +3584,6 @@ async function resetUserCredentials() {
     }
 
 
-    appendAudit(
-      CURRENT_USER?.displayName ||
-        'Admin',
-
-      `Reset credentials for: ${user.fullName}`,
-
-      'Admin'
-    );
-
-
     showToast(
       `Credentials reset successfully for ${user.fullName}.`,
       'success'
@@ -2945,6 +3591,13 @@ async function resetUserCredentials() {
 
 
     closeUserActionsModal();
+
+
+    /*
+     * Reload live audit records so PASSWORD_RESET
+     * appears immediately in the Admin dashboard.
+     */
+    await loadAdminAuditLogs();
 
 
   } catch (error) {
@@ -2964,6 +3617,7 @@ async function resetUserCredentials() {
   }
 
 }
+
 
 function exportUsers() {
 
@@ -2987,15 +3641,15 @@ function exportUsers() {
    MODULE C — AUDIT LOGS
    ========================================================= */
 
-const AUDIT_LOG_DATA = [];
-
-
 function determineAuditActionType(
   action
 ) {
 
   const a =
-    action.toLowerCase();
+    String(
+      action ||
+      ''
+    ).toLowerCase();
 
 
   if (
@@ -3075,7 +3729,8 @@ function determineAuditActionType(
 const escHtml =
   s =>
     String(
-      s
+      s ??
+      ''
     )
       .replace(
         /&/g,
@@ -3092,6 +3747,10 @@ const escHtml =
       .replace(
         /"/g,
         '&quot;'
+      )
+      .replace(
+        /'/g,
+        '&#039;'
       );
 
 
@@ -3435,7 +4094,9 @@ function auditEventMatches(
       ' ' +
       e.role +
       ' ' +
-      e.ip
+      e.ip +
+      ' ' +
+      e.details
     )
       .toLowerCase()
       .includes(
@@ -4085,7 +4746,9 @@ function exportAuditReport() {
 
     'IP Address',
 
-    'Device'
+    'Device',
+
+    'Details'
 
   ];
 
@@ -4099,7 +4762,8 @@ function exportAuditReport() {
           e.role,
           e.action,
           e.ip,
-          e.device
+          e.device,
+          e.details
         ]
           .map(
             csvCell
@@ -4112,14 +4776,6 @@ function exportAuditReport() {
     `audit-trail-${new Date().toISOString().slice(0, 10)}.csv`,
     header,
     data
-  );
-
-
-  appendAudit(
-    CURRENT_USER?.displayName ||
-      'Admin',
-    'Exported audit trail report (CSV)',
-    'Admin'
   );
 
 
