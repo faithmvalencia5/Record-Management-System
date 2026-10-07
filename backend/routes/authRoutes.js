@@ -4,6 +4,10 @@ const supabase = require("../config/supabase");
 
 const router = express.Router();
 
+/* =========================================================
+   LOGIN
+   ========================================================= */
+
 router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -17,12 +21,17 @@ router.post("/login", async (req, res) => {
 
     const { data: user, error } = await supabase
       .from("user_accounts")
-      .select("id, username, password_hash, role, email")
+      .select(
+        "id, username, password_hash, role, email"
+      )
       .eq("username", username.trim())
       .maybeSingle();
 
     if (error) {
-      console.error("Supabase login error:", error);
+      console.error(
+        "Supabase login error:",
+        error
+      );
 
       return res.status(500).json({
         success: false,
@@ -37,7 +46,11 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    const passwordMatch = await bcrypt.compare(password, user.password_hash);
+    const passwordMatch =
+      await bcrypt.compare(
+        password,
+        user.password_hash
+      );
 
     if (!passwordMatch) {
       return res.status(401).json({
@@ -55,14 +68,80 @@ router.post("/login", async (req, res) => {
         email: user.email,
       },
     });
+
   } catch (error) {
-    console.error("Login error:", error);
+
+    console.error(
+      "Login error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
-      message: "Something went wrong during login.",
+      message:
+        "Something went wrong during login.",
     });
   }
 });
+
+
+/* =========================================================
+   GET USER ACCOUNTS
+   Admin dashboard / User Management
+   ========================================================= */
+
+router.get("/users", async (req, res) => {
+
+  try {
+
+    const {
+      data: users,
+      error
+    } = await supabase
+      .from("user_accounts")
+      .select(`
+        id,
+        username,
+        role,
+        email
+      `)
+      .order("id", {
+        ascending: true
+      });
+
+    if (error) {
+
+      console.error(
+        "Supabase user accounts error:",
+        error
+      );
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to load user accounts."
+      });
+    }
+
+    return res.json({
+      success: true,
+      users: users || []
+    });
+
+  } catch (error) {
+
+    console.error(
+      "User accounts error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Something went wrong while loading user accounts."
+    });
+  }
+});
+
 
 module.exports = router;

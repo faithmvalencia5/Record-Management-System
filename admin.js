@@ -1,5 +1,6 @@
 // Admin portal logic
 
+
 /* =========================================================
    LIVE ADMIN DASHBOARD DATA
    ========================================================= */
@@ -9,56 +10,97 @@ const ADMIN_APPLICATIONS_API =
 
 let ADMIN_APPLICATIONS = [];
 
+
 /**
  * Update Admin Dashboard metrics using live application data.
  */
 function updateAdminDashboardFromApplications(applications) {
-  if (!Array.isArray(applications)) return;
 
-  ADMIN_APPLICATIONS = applications;
+  if (!Array.isArray(applications)) {
+    return;
+  }
 
-  const total = applications.length;
+  ADMIN_APPLICATIONS =
+    applications;
+
+  updateAdminApplicationAnalytics(
+    applications
+  );
+
+  const total =
+    applications.length;
+
 
   /* -----------------------------------------
      Total Registered Citizens
      ----------------------------------------- */
-  const citizens = document.getElementById('kpi-citizens');
+
+  const citizens =
+    document.getElementById(
+      'kpi-citizens'
+    );
 
   if (citizens) {
-    citizens.textContent = total.toLocaleString('en-US');
+
+    citizens.textContent =
+      total.toLocaleString('en-US');
+
   }
+
 
   /* -----------------------------------------
      Applications Received
      ----------------------------------------- */
-  const received = document.getElementById('metric-received');
+
+  const received =
+    document.getElementById(
+      'metric-received'
+    );
 
   if (received) {
-    received.textContent = total.toLocaleString('en-US');
+
+    received.textContent =
+      total.toLocaleString('en-US');
+
   }
+
 
   /* -----------------------------------------
      Update shared analytics object
      if app.js provides it
      ----------------------------------------- */
+
   if (
     typeof ANALYTICS_DATA !== 'undefined' &&
     ANALYTICS_DATA.Admin
   ) {
-    ANALYTICS_DATA.Admin.totalApplications = total;
+
+    ANALYTICS_DATA.Admin.totalApplications =
+      total;
+
   }
+
 
   /* -----------------------------------------
      Sync applications to shared application DB
      ----------------------------------------- */
-  if (typeof syncApplicationsToAppDB === 'function') {
-    syncApplicationsToAppDB(applications);
+
+  if (
+    typeof syncApplicationsToAppDB === 'function'
+  ) {
+
+    syncApplicationsToAppDB(
+      applications
+    );
+
   }
+
 
   console.log(
     '[Admin Dashboard] Live application data applied:',
     total
   );
+
 }
 
 
@@ -66,85 +108,840 @@ function updateAdminDashboardFromApplications(applications) {
  * Load applications directly from the backend.
  */
 async function loadAdminDashboardData() {
+
   try {
+
     console.log(
       '[Admin Dashboard] Loading applications from database...'
     );
 
-    const response = await fetch(
-      ADMIN_APPLICATIONS_API,
-      {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json'
+
+    const response =
+      await fetch(
+        ADMIN_APPLICATIONS_API,
+        {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json'
+          },
+          cache: 'no-store'
         }
-      }
-    );
+      );
+
 
     console.log(
       '[Admin Dashboard] API status:',
       response.status
     );
 
+
     if (!response.ok) {
+
       throw new Error(
         'Applications API returned HTTP ' +
         response.status
       );
+
     }
 
-    const result = await response.json();
+
+    const result =
+      await response.json();
+
 
     if (
       !result.success ||
-      !Array.isArray(result.applications)
+      !Array.isArray(
+        result.applications
+      )
     ) {
+
       throw new Error(
         result.message ||
         'Invalid applications response.'
       );
+
     }
 
-    const applications = result.applications;
+
+    const applications =
+      result.applications;
+
 
     console.log(
       '[Admin Dashboard] Applications loaded:',
       applications.length
     );
 
-    updateAdminDashboardFromApplications(applications);
+
+    updateAdminDashboardFromApplications(
+      applications
+    );
+
 
     return applications;
 
   } catch (error) {
+
     console.error(
       '[Admin Dashboard] Failed to load database data:',
       error
     );
 
+
     const citizens =
-      document.getElementById('kpi-citizens');
+      document.getElementById(
+        'kpi-citizens'
+      );
 
     if (citizens) {
-      citizens.textContent = '0';
+
+      citizens.textContent =
+        '0';
+
     }
+
 
     const received =
-      document.getElementById('metric-received');
+      document.getElementById(
+        'metric-received'
+      );
 
     if (received) {
-      received.textContent = '0';
+
+      received.textContent =
+        '0';
+
     }
 
-    if (typeof showToast === 'function') {
+
+    const dailyActions =
+      document.getElementById(
+        'metric-daily-actions'
+      );
+
+    if (dailyActions) {
+
+      dailyActions.textContent =
+        '0';
+
+    }
+
+
+    if (
+      typeof showToast === 'function'
+    ) {
+
       showToast(
         'Unable to load live dashboard data.',
         'error'
       );
+
     }
 
+
     return [];
+
   }
+
+}
+
+
+/* =========================================================
+   APPLICATION STATUS ANALYTICS
+   ========================================================= */
+
+const ADMIN_APPLICATION_STATUSES = [
+  'Pending',
+  'Under Review',
+  'In Process',
+  'Ready for Release',
+  'Completed',
+  'Rejected'
+];
+
+
+function getApplicationStatusCounts(
+  applications
+) {
+
+  const counts = {
+
+    'Pending': 0,
+
+    'Under Review': 0,
+
+    'In Process': 0,
+
+    'Ready for Release': 0,
+
+    'Completed': 0,
+
+    'Rejected': 0
+
+  };
+
+
+  if (!Array.isArray(applications)) {
+
+    return counts;
+
+  }
+
+
+  applications.forEach(
+    application => {
+
+      const status =
+        application.status ||
+        'Pending';
+
+
+      if (
+        Object.prototype.hasOwnProperty.call(
+          counts,
+          status
+        )
+      ) {
+
+        counts[status]++;
+
+      }
+
+    }
+  );
+
+
+  return counts;
+
+}
+
+
+function getTodayApplicationActions(
+  applications
+) {
+
+  if (!Array.isArray(applications)) {
+
+    return 0;
+
+  }
+
+
+  const today =
+    new Date();
+
+
+  const todayYear =
+    today.getFullYear();
+
+  const todayMonth =
+    today.getMonth();
+
+  const todayDate =
+    today.getDate();
+
+
+  return applications.filter(
+    application => {
+
+      const timestamp =
+        application.status_updated_at ||
+        application.created_at;
+
+
+      if (!timestamp) {
+
+        return false;
+
+      }
+
+
+      const date =
+        new Date(timestamp);
+
+
+      return (
+        date.getFullYear() ===
+          todayYear &&
+        date.getMonth() ===
+          todayMonth &&
+        date.getDate() ===
+          todayDate
+      );
+
+    }
+  ).length;
+
+}
+
+
+function updateAdminApplicationAnalytics(
+  applications
+) {
+
+  const counts =
+    getApplicationStatusCounts(
+      applications
+    );
+
+
+  console.log(
+    '[Admin Analytics] Status counts:',
+    counts
+  );
+
+
+  /* -----------------------------------------
+     Applications received
+     ----------------------------------------- */
+
+  const received =
+    document.getElementById(
+      'metric-received'
+    );
+
+
+  if (received) {
+
+    received.textContent =
+      applications.length.toLocaleString(
+        'en-US'
+      );
+
+  }
+
+
+  /* -----------------------------------------
+     Total daily application actions
+     ----------------------------------------- */
+
+  const dailyActions =
+    getTodayApplicationActions(
+      applications
+    );
+
+
+  const dailyActionsEl =
+    document.getElementById(
+      'metric-daily-actions'
+    );
+
+
+  if (dailyActionsEl) {
+
+    dailyActionsEl.textContent =
+      dailyActions.toLocaleString(
+        'en-US'
+      );
+
+  }
+
+
+  /* -----------------------------------------
+     Save counts globally
+     ----------------------------------------- */
+
+  window.ADMIN_STATUS_COUNTS =
+    counts;
+
+
+  /* -----------------------------------------
+     Update shared analytics
+     ----------------------------------------- */
+
+  if (
+    typeof ANALYTICS_DATA !==
+      'undefined' &&
+    ANALYTICS_DATA.Admin
+  ) {
+
+    ANALYTICS_DATA.Admin.totalApplications =
+      applications.length;
+
+
+    ANALYTICS_DATA.Admin.pending =
+      counts['Pending'];
+
+
+    ANALYTICS_DATA.Admin.underReview =
+      counts['Under Review'];
+
+
+    ANALYTICS_DATA.Admin.inProcess =
+      counts['In Process'];
+
+
+    ANALYTICS_DATA.Admin.readyForRelease =
+      counts['Ready for Release'];
+
+
+    ANALYTICS_DATA.Admin.completed =
+      counts['Completed'];
+
+
+    ANALYTICS_DATA.Admin.rejected =
+      counts['Rejected'];
+
+  }
+
+
+  /* -----------------------------------------
+     Optional status elements
+     ----------------------------------------- */
+
+  setOptionalMetric(
+    'admin-status-pending',
+    counts['Pending']
+  );
+
+
+  setOptionalMetric(
+    'admin-status-review',
+    counts['Under Review']
+  );
+
+
+  setOptionalMetric(
+    'admin-status-process',
+    counts['In Process']
+  );
+
+
+  setOptionalMetric(
+    'admin-status-ready',
+    counts['Ready for Release']
+  );
+
+
+  setOptionalMetric(
+    'admin-status-completed',
+    counts['Completed']
+  );
+
+
+  setOptionalMetric(
+    'admin-status-rejected',
+    counts['Rejected']
+  );
+
+}
+
+
+function setOptionalMetric(
+  elementId,
+  value
+) {
+
+  const element =
+    document.getElementById(
+      elementId
+    );
+
+
+  if (!element) {
+
+    return;
+
+  }
+
+
+  element.textContent =
+    Number(value || 0)
+      .toLocaleString('en-US');
+
+}
+
+
+/* =========================================================
+   ADMIN USER ACCOUNTS
+   ========================================================= */
+
+let ADMIN_USER_ACCOUNTS = [];
+
+
+const ADMIN_USERS_API =
+  'https://management-backend-3cij.onrender.com/api/auth/users';
+
+
+/**
+ * Load actual Staff / ID Maker / Admin accounts
+ * from the database.
+ */
+async function loadAdminUsers() {
+
+  try {
+
+    console.log(
+      '[Admin Users] Loading user accounts...'
+    );
+
+
+    const response =
+      await fetch(
+        ADMIN_USERS_API,
+        {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json'
+          },
+          cache: 'no-store'
+        }
+      );
+
+
+    console.log(
+      '[Admin Users] API status:',
+      response.status
+    );
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        'User accounts API returned HTTP ' +
+        response.status
+      );
+
+    }
+
+
+    const result =
+      await response.json();
+
+
+    if (
+      !result.success ||
+      !Array.isArray(
+        result.users
+      )
+    ) {
+
+      throw new Error(
+        result.message ||
+        'Invalid user accounts response.'
+      );
+
+    }
+
+
+    ADMIN_USER_ACCOUNTS =
+      result.users.map(
+        user => ({
+
+          key:
+            String(user.id),
+
+          id:
+            user.id,
+
+          fullName:
+            user.username,
+
+          username:
+            user.username,
+
+          email:
+            user.email ||
+            '—',
+
+          role:
+            user.role ||
+            'Staff',
+
+          designation:
+            getUserDesignation(
+              user.role
+            ),
+
+          /*
+           * Current user_accounts table
+           * does not have an account-status
+           * column in the current implementation.
+           */
+          status:
+            'Active',
+
+          lastActive:
+            '—'
+
+        })
+      );
+
+
+    console.log(
+      '[Admin Users] Loaded:',
+      ADMIN_USER_ACCOUNTS.length
+    );
+
+
+    renderUserMgmtTable();
+
+    updateAdminUserDashboardMetrics();
+
+
+    return ADMIN_USER_ACCOUNTS;
+
+  } catch (error) {
+
+    console.error(
+      '[Admin Users] Failed to load accounts:',
+      error
+    );
+
+
+    /*
+     * Do not show fake users if the
+     * database request fails.
+     */
+    ADMIN_USER_ACCOUNTS = [];
+
+
+    renderUserMgmtTable();
+
+    updateAdminUserDashboardMetrics();
+
+
+    return [];
+
+  }
+
+}
+
+
+function getUserDesignation(
+  role
+) {
+
+  switch (role) {
+
+    case 'Admin':
+
+      return 'System Administrator';
+
+
+    case 'ID Maker':
+
+      return 'ID Card Maker';
+
+
+    case 'Staff':
+
+      return 'OSCA Staff';
+
+
+    default:
+
+      return 'OSCA Personnel';
+
+  }
+
+}
+
+
+function updateAdminUserDashboardMetrics() {
+
+  /*
+   * The Admin KPI specifically describes:
+   * Staff & ID Maker accounts.
+   *
+   * Therefore Admin accounts are excluded.
+   */
+  const activeUsers =
+    ADMIN_USER_ACCOUNTS.filter(
+      user =>
+        user.status === 'Active' &&
+        (
+          user.role === 'Staff' ||
+          user.role === 'ID Maker'
+        )
+    ).length;
+
+
+  const activeUsersEl =
+    document.getElementById(
+      'kpi-active-users'
+    );
+
+
+  if (activeUsersEl) {
+
+    activeUsersEl.textContent =
+      activeUsers.toLocaleString(
+        'en-US'
+      );
+
+  }
+
+
+  /*
+   * User management page cards
+   */
+
+  const totalEl =
+    document.getElementById(
+      'users-total'
+    );
+
+
+  if (totalEl) {
+
+    totalEl.textContent =
+      ADMIN_USER_ACCOUNTS.length;
+
+  }
+
+
+  const activeEl =
+    document.getElementById(
+      'users-active'
+    );
+
+
+  if (activeEl) {
+
+    activeEl.textContent =
+      ADMIN_USER_ACCOUNTS.filter(
+        user =>
+          user.status === 'Active'
+      ).length;
+
+  }
+
+
+  const inactiveEl =
+    document.getElementById(
+      'users-inactive'
+    );
+
+
+  if (inactiveEl) {
+
+    inactiveEl.textContent =
+      ADMIN_USER_ACCOUNTS.filter(
+        user =>
+          user.status !== 'Active'
+      ).length;
+
+  }
+
+
+  const idMakerEl =
+    document.getElementById(
+      'users-idmaker'
+    );
+
+
+  if (idMakerEl) {
+
+    idMakerEl.textContent =
+      ADMIN_USER_ACCOUNTS.filter(
+        user =>
+          user.role === 'ID Maker'
+      ).length;
+
+  }
+
+}
+
+
+/* =========================================================
+   ADMIN SYSTEM HEALTH
+   ========================================================= */
+
+const ADMIN_HEALTH_API =
+  'https://management-backend-3cij.onrender.com/api/test';
+
+
+async function checkAdminSystemHealth() {
+
+  const uptimeEl =
+    document.getElementById(
+      'kpi-uptime'
+    );
+
+
+  try {
+
+    console.log(
+      '[Admin Health] Checking backend...'
+    );
+
+
+    const response =
+      await fetch(
+        ADMIN_HEALTH_API,
+        {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json'
+          },
+          cache: 'no-store'
+        }
+      );
+
+
+    if (!response.ok) {
+
+      throw new Error(
+        'Health endpoint returned HTTP ' +
+        response.status
+      );
+
+    }
+
+
+    const result =
+      await response.json();
+
+
+    if (
+      !result.success
+    ) {
+
+      throw new Error(
+        'Backend health check failed.'
+      );
+
+    }
+
+
+    if (uptimeEl) {
+
+      uptimeEl.textContent =
+        'Online';
+
+      uptimeEl.title =
+        'Backend API is operational';
+
+    }
+
+
+    console.log(
+      '[Admin Health] Backend operational.'
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      '[Admin Health] Backend unavailable:',
+      error
+    );
+
+
+    if (uptimeEl) {
+
+      uptimeEl.textContent =
+        'Offline';
+
+      uptimeEl.title =
+        'Backend API is unavailable';
+
+    }
+
+  }
+
 }
 
 
@@ -152,73 +949,152 @@ async function loadAdminDashboardData() {
    ADMIN PAGE INITIALIZATION
    ========================================================= */
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener(
+  'DOMContentLoaded',
+  () => {
 
-  /*
-   * Load actual application records from Supabase
-   * through the backend API.
-   */
-  loadAdminDashboardData();
+    /*
+     * Load actual application records
+     * from Supabase through the backend.
+     */
+    loadAdminDashboardData();
 
-  // Restore the persisted Audit Log Summary range before the first paint.
-  filterAuditLog(readAuditSummaryRange(), {
-    instant: true
-  });
 
-  setTimeout(() => {
-    renderUserMgmtTable();
-    renderAuditTable();
-    renderBackupHistory();
-    renderRestorePoints();
-    renderServiceStatus();
-  }, 100);
+    /*
+     * Load actual user accounts.
+     */
+    loadAdminUsers();
 
-  ['approval', 'rejection'].forEach(kind => {
-    const ta =
-      document.getElementById(
-        'tpl-sms-' + kind
-      );
 
-    if (ta) {
-      ta.addEventListener(
-        'input',
-        () =>
-          updateSmsCount(
-            'tpl-sms-' + kind,
-            'tpl-counter-' + kind
-          )
-      );
-    }
-  });
+    /*
+     * Check backend health.
+     */
+    checkAdminSystemHealth();
 
-  updateSmsCount(
-    'tpl-sms-approval',
-    'tpl-counter-approval'
-  );
 
-  updateSmsCount(
-    'tpl-sms-rejection',
-    'tpl-counter-rejection'
-  );
-
-  // Confirmation modal — dismiss on backdrop click / Escape
-  const confirmModalEl =
-    document.getElementById('confirm-modal');
-
-  if (confirmModalEl) {
-    confirmModalEl.addEventListener('click', (e) => {
-      if (e.target.id === 'confirm-modal') {
-        closeConfirmModal();
+    /*
+     * Existing audit summary filter.
+     */
+    filterAuditLog(
+      readAuditSummaryRange(),
+      {
+        instant: true
       }
-    });
-  }
+    );
 
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      closeConfirmModal();
+
+    /*
+     * Existing admin modules.
+     */
+    setTimeout(
+      () => {
+
+        renderUserMgmtTable();
+
+        renderAuditTable();
+
+        renderBackupHistory();
+
+        renderRestorePoints();
+
+        renderServiceStatus();
+
+      },
+      100
+    );
+
+
+    /*
+     * SMS template counters.
+     */
+    [
+      'approval',
+      'rejection'
+    ].forEach(
+      kind => {
+
+        const ta =
+          document.getElementById(
+            'tpl-sms-' + kind
+          );
+
+
+        if (ta) {
+
+          ta.addEventListener(
+            'input',
+            () =>
+              updateSmsCount(
+                'tpl-sms-' + kind,
+                'tpl-counter-' + kind
+              )
+          );
+
+        }
+
+      }
+    );
+
+
+    updateSmsCount(
+      'tpl-sms-approval',
+      'tpl-counter-approval'
+    );
+
+
+    updateSmsCount(
+      'tpl-sms-rejection',
+      'tpl-counter-rejection'
+    );
+
+
+    /*
+     * Confirmation modal.
+     */
+    const confirmModalEl =
+      document.getElementById(
+        'confirm-modal'
+      );
+
+
+    if (confirmModalEl) {
+
+      confirmModalEl.addEventListener(
+        'click',
+        e => {
+
+          if (
+            e.target.id ===
+            'confirm-modal'
+          ) {
+
+            closeConfirmModal();
+
+          }
+
+        }
+      );
+
     }
-  });
-});
+
+
+    document.addEventListener(
+      'keydown',
+      e => {
+
+        if (
+          e.key === 'Escape'
+        ) {
+
+          closeConfirmModal();
+
+        }
+
+      }
+    );
+
+  }
+);
 
 
 /* =========================================================
@@ -227,82 +1103,133 @@ document.addEventListener('DOMContentLoaded', () => {
 
 let confirmModalHandler = null;
 
-function openConfirmModal(opts = {}) {
+
+function openConfirmModal(
+  opts = {}
+) {
 
   const modal =
-    document.getElementById('confirm-modal');
+    document.getElementById(
+      'confirm-modal'
+    );
 
-  if (!modal) return;
 
-  const setText = (id, text) => {
-    const el =
-      document.getElementById(id);
+  if (!modal) {
 
-    if (el) {
-      el.textContent = text || '';
-    }
-  };
+    return;
+
+  }
+
+
+  const setText =
+    (
+      id,
+      text
+    ) => {
+
+      const el =
+        document.getElementById(
+          id
+        );
+
+
+      if (el) {
+
+        el.textContent =
+          text || '';
+
+      }
+
+    };
+
 
   setText(
     'cf-modal-title',
-    opts.title || 'Confirm action'
+    opts.title ||
+      'Confirm action'
   );
+
 
   setText(
     'cf-modal-desc',
-    opts.desc || ''
+    opts.desc ||
+      ''
   );
+
 
   setText(
     'cf-modal-alert-title',
-    opts.alertTitle || ''
+    opts.alertTitle ||
+      ''
   );
+
 
   setText(
     'cf-modal-alert-desc',
-    opts.alertDesc || ''
+    opts.alertDesc ||
+      ''
   );
+
 
   const btn =
     document.getElementById(
       'cf-modal-confirm'
     );
 
+
   if (btn) {
 
     btn.textContent =
-      opts.confirmLabel || 'Confirm';
+      opts.confirmLabel ||
+      'Confirm';
+
 
     const danger =
       opts.danger !== false;
+
 
     btn.classList.toggle(
       'btn--danger',
       danger
     );
 
+
     btn.classList.toggle(
       'btn--primary',
       !danger
     );
+
   }
 
-  confirmModalHandler =
-    typeof opts.onConfirm === 'function'
-      ? opts.onConfirm
-      : null;
 
-  modal.classList.add('show');
+  confirmModalHandler =
+    typeof opts.onConfirm ===
+      'function'
+        ? opts.onConfirm
+        : null;
+
+
+  modal.classList.add(
+    'show'
+  );
+
 }
 
 
 function closeConfirmModal() {
 
   document
-    .getElementById('confirm-modal')
-    ?.classList.remove('show');
+    .getElementById(
+      'confirm-modal'
+    )
+    ?.classList.remove(
+      'show'
+    );
 
-  confirmModalHandler = null;
+
+  confirmModalHandler =
+    null;
+
 }
 
 
@@ -311,11 +1238,16 @@ function runConfirmAction() {
   const handler =
     confirmModalHandler;
 
+
   closeConfirmModal();
 
+
   if (handler) {
+
     handler();
+
   }
+
 }
 
 
@@ -324,17 +1256,25 @@ function runConfirmAction() {
    ========================================================= */
 
 function quickAddUser() {
-  openUserModal('new');
+
+  openUserModal(
+    'new'
+  );
+
 }
 
 
 function quickBackup() {
+
   executeBackup();
+
 }
 
 
 function quickExportSecurityLogs() {
+
   exportAuditReport();
+
 }
 
 
@@ -345,11 +1285,14 @@ function inviteUser() {
     'success'
   );
 
+
   appendAudit(
-    CURRENT_USER?.displayName || 'Admin',
+    CURRENT_USER?.displayName ||
+      'Admin',
     'Invited new user',
     'Admin'
   );
+
 }
 
 
@@ -360,6 +1303,7 @@ function sendDemoNotification() {
     'success'
   );
 
+
   addNotifyLog(
     '—',
     'Gateway test notification',
@@ -367,30 +1311,48 @@ function sendDemoNotification() {
     'Delivered'
   );
 
+
   appendAudit(
-    CURRENT_USER?.displayName || 'Admin',
+    CURRENT_USER?.displayName ||
+      'Admin',
     'Tested SMS/Email gateway',
     'Admin'
   );
+
 }
 
 
-function updateUserRole(key, newRole) {
+function updateUserRole(
+  key,
+  newRole
+) {
 
-  if (!DEMO_USERS[key]) return;
+  if (
+    !DEMO_USERS[key]
+  ) {
 
-  DEMO_USERS[key].role = newRole;
+    return;
+
+  }
+
+
+  DEMO_USERS[key].role =
+    newRole;
+
 
   appendAudit(
-    CURRENT_USER?.displayName || 'Admin',
+    CURRENT_USER?.displayName ||
+      'Admin',
     `Changed ${DEMO_USERS[key].displayName} role to ${newRole}`,
     'Admin'
   );
+
 
   showToast(
     `Role updated: ${DEMO_USERS[key].displayName} → ${newRole}`,
     'success'
   );
+
 }
 
 
@@ -401,14 +1363,19 @@ function runSystemBackup() {
     'info'
   );
 
-  setTimeout(() => {
 
-    showToast(
-      'Backup completed successfully. Restore point verified.',
-      'success'
-    );
+  setTimeout(
+    () => {
 
-  }, 900);
+      showToast(
+        'Backup completed successfully. Restore point verified.',
+        'success'
+      );
+
+    },
+    900
+  );
+
 }
 
 
@@ -416,18 +1383,16 @@ function runSystemBackup() {
    MODULE B — USER MANAGEMENT
    ========================================================= */
 
-/*
-   Personnel accounts for Module B (RBAC)
- */
-
-const ADMIN_USER_ACCOUNTS = [];
-
-let editingUserKey = null;
+let editingUserKey =
+  null;
 
 
-function roleColorMap(role) {
+function roleColorMap(
+  role
+) {
 
   const colors = {
+
     Admin:
       'linear-gradient(135deg,#E0E9FF,#93B4FF)',
 
@@ -436,9 +1401,15 @@ function roleColorMap(role) {
 
     'ID Maker':
       'linear-gradient(135deg,#C4B5FD,#7140D8)'
+
   };
 
-  return colors[role] || colors.Staff;
+
+  return (
+    colors[role] ||
+    colors.Staff
+  );
+
 }
 
 
@@ -449,58 +1420,79 @@ function renderUserMgmtTable() {
       'user-mgmt-tbody'
     );
 
-  if (!tbody) return;
+
+  if (!tbody) {
+
+    return;
+
+  }
+
 
   const q =
     (
       document.getElementById(
         'user-search'
-      )?.value || ''
+      )?.value ||
+      ''
     ).toLowerCase();
+
 
   const roleF =
     document.getElementById(
       'user-role-filter'
-    )?.value || '';
+    )?.value ||
+    '';
+
 
   const statusF =
     document.getElementById(
       'user-status-filter'
-    )?.value || '';
+    )?.value ||
+    '';
+
 
   const filtered =
-    ADMIN_USER_ACCOUNTS.filter(u => {
+    ADMIN_USER_ACCOUNTS.filter(
+      u => {
 
-      const matchQ =
-        !q ||
-        (
-          u.fullName +
-          ' ' +
-          u.username +
-          ' ' +
-          u.role +
-          ' ' +
-          u.designation
-        )
-          .toLowerCase()
-          .includes(q);
+        const matchQ =
+          !q ||
+          (
+            u.fullName +
+            ' ' +
+            u.username +
+            ' ' +
+            u.role +
+            ' ' +
+            u.designation
+          )
+            .toLowerCase()
+            .includes(q);
 
-      const matchRole =
-        !roleF ||
-        u.role === roleF;
 
-      const matchStatus =
-        !statusF ||
-        u.status === statusF;
+        const matchRole =
+          !roleF ||
+          u.role === roleF;
 
-      return (
-        matchQ &&
-        matchRole &&
-        matchStatus
-      );
-    });
 
-  tbody.innerHTML = '';
+        const matchStatus =
+          !statusF ||
+          u.status === statusF;
+
+
+        return (
+          matchQ &&
+          matchRole &&
+          matchStatus
+        );
+
+      }
+    );
+
+
+  tbody.innerHTML =
+    '';
+
 
   if (!filtered.length) {
 
@@ -511,307 +1503,357 @@ function renderUserMgmtTable() {
       'No user accounts yet. They will appear here once connected to the live system.' +
       '</td>' +
       '</tr>';
+
   }
 
-  filtered.forEach(u => {
 
-    const initials =
-      u.fullName
-        .split(' ')
-        .map(w => w[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase();
+  filtered.forEach(
+    u => {
 
-    const isActive =
-      u.status === 'Active';
+      const initials =
+        u.fullName
+          .split(' ')
+          .map(
+            w => w[0]
+          )
+          .join('')
+          .slice(0, 2)
+          .toUpperCase();
 
-    const tr =
-      document.createElement('tr');
 
-    tr.innerHTML = `
-      <td data-label="User">
-        <div class="applicant-cell">
-          <div
-            class="applicant-avatar"
-            style="background:${roleColorMap(u.role)}"
-          >
-            ${initials}
+      const isActive =
+        u.status === 'Active';
+
+
+      const tr =
+        document.createElement(
+          'tr'
+        );
+
+
+      tr.innerHTML = `
+
+        <td data-label="User">
+
+          <div class="applicant-cell">
+
+            <div
+              class="applicant-avatar"
+              style="background:${roleColorMap(u.role)}"
+            >
+              ${initials}
+            </div>
+
+            <div class="applicant-info">
+
+              <span
+                class="applicant-name"
+                title="${escHtml(u.fullName)}"
+              >
+                ${escHtml(u.fullName)}
+              </span>
+
+              <span
+                class="applicant-id"
+                title="${escHtml(u.email)}"
+              >
+                ${escHtml(u.email)}
+              </span>
+
+            </div>
+
           </div>
 
-          <div class="applicant-info">
-            <span
-              class="applicant-name"
-              title="${u.fullName}"
-            >
-              ${u.fullName}
-            </span>
+        </td>
 
-            <span
-              class="applicant-id"
-              title="${u.email}"
-            >
-              ${u.email}
-            </span>
-          </div>
-        </div>
-      </td>
 
-      <td data-label="Username">
-        <span
-          class="cell-text"
-          title="${u.username}"
-        >
-          ${u.username}
-        </span>
-      </td>
+        <td data-label="Username">
 
-      <td data-label="Role">
-        <span class="badge ${
-          u.role === 'Admin'
-            ? 'badge-issued'
-            : u.role === 'Staff'
-              ? 'badge-active'
-              : 'badge-review'
-        }">
-          ${u.role}
-        </span>
-      </td>
-
-      <td data-label="Position">
-        <span
-          class="cell-text"
-          title="${u.designation}"
-        >
-          ${u.designation}
-        </span>
-      </td>
-
-      <td data-label="Status">
-        <span
-          class="badge status-pill ${
-            u.status === 'Active'
-              ? 'badge-active'
-              : 'badge-inactive'
-          }"
-        >
           <span
-            class="status-dot ${
-              isActive
-                ? 'dot-active'
-                : 'dot-inactive'
+            class="cell-text"
+            title="${escHtml(u.username)}"
+          >
+            ${escHtml(u.username)}
+          </span>
+
+        </td>
+
+
+        <td data-label="Role">
+
+          <span class="badge ${
+            u.role === 'Admin'
+              ? 'badge-issued'
+              : u.role === 'Staff'
+                ? 'badge-active'
+                : 'badge-review'
+          }">
+
+            ${escHtml(u.role)}
+
+          </span>
+
+        </td>
+
+
+        <td data-label="Position">
+
+          <span
+            class="cell-text"
+            title="${escHtml(u.designation)}"
+          >
+            ${escHtml(u.designation)}
+          </span>
+
+        </td>
+
+
+        <td data-label="Status">
+
+          <span
+            class="badge status-pill ${
+              u.status === 'Active'
+                ? 'badge-active'
+                : 'badge-inactive'
             }"
-          ></span>
+          >
 
-          ${u.status}
-        </span>
-      </td>
+            <span
+              class="status-dot ${
+                isActive
+                  ? 'dot-active'
+                  : 'dot-inactive'
+              }"
+            ></span>
 
-      <td data-label="Last Active">
-        <span
-          class="cell-text"
-          title="${u.lastActive}"
+            ${escHtml(u.status)}
+
+          </span>
+
+        </td>
+
+
+        <td data-label="Last Active">
+
+          <span
+            class="cell-text"
+            title="${escHtml(u.lastActive)}"
+          >
+            ${escHtml(u.lastActive)}
+          </span>
+
+        </td>
+
+
+        <td
+          style="text-align:right;white-space:nowrap"
         >
-          ${u.lastActive}
-        </span>
-      </td>
 
-      <td
-        style="text-align:right;white-space:nowrap"
-      >
-        <div class="row-actions">
+          <div class="row-actions">
 
-          <button
-            class="icon-btn"
-            title="Edit Account"
-            aria-label="Edit Account"
-            onclick="editUser('${u.key}')"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+            <button
+              class="icon-btn"
+              title="Edit Account"
+              aria-label="Edit Account"
+              onclick="editUser('${escHtml(u.key)}')"
             >
-              <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
-            </svg>
-          </button>
 
-          <button
-            class="icon-btn"
-            title="Reset Password"
-            aria-label="Reset Password"
-            onclick="openUserActions('${u.key}')"
-          >
-            <i class="fi fi-rr-rotate-left"></i>
-          </button>
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+              </svg>
 
-          <button
-            class="icon-btn ${
-              isActive
-                ? 'danger'
-                : 'success'
-            }"
-            title="${
-              isActive
-                ? 'Disable Account'
-                : 'Enable Account'
-            }"
-            aria-label="${
-              isActive
-                ? 'Disable'
-                : 'Enable'
-            } Account"
-            onclick="toggleMgmtUserStatus('${u.key}')"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+            </button>
+
+
+            <button
+              class="icon-btn"
+              title="Reset Password"
+              aria-label="Reset Password"
+              onclick="openUserActions('${escHtml(u.key)}')"
             >
-              <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
-              <line x1="12" y1="2" x2="12" y2="12"/>
-            </svg>
-          </button>
 
-        </div>
-      </td>
-    `;
+              <i class="fi fi-rr-rotate-left"></i>
 
-    tbody.appendChild(tr);
-  });
+            </button>
+
+
+            <button
+              class="icon-btn ${
+                isActive
+                  ? 'danger'
+                  : 'success'
+              }"
+              title="${
+                isActive
+                  ? 'Disable Account'
+                  : 'Enable Account'
+              }"
+              aria-label="${
+                isActive
+                  ? 'Disable'
+                  : 'Enable'
+              } Account"
+              onclick="toggleMgmtUserStatus('${escHtml(u.key)}')"
+            >
+
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                <line x1="12" y1="2" x2="12" y2="12"/>
+              </svg>
+
+            </button>
+
+          </div>
+
+        </td>
+
+      `;
+
+
+      tbody.appendChild(
+        tr
+      );
+
+    }
+  );
+
 
   const footer =
     document.getElementById(
       'user-mgmt-footer'
     );
 
+
   if (footer) {
+
     footer.textContent =
       `Showing ${filtered.length} of ${ADMIN_USER_ACCOUNTS.length} accounts`;
+
   }
 
-  const totalEl =
-    document.getElementById(
-      'users-total'
-    );
 
-  if (totalEl) {
-    totalEl.textContent =
-      ADMIN_USER_ACCOUNTS.length;
-  }
+  updateAdminUserDashboardMetrics();
 
-  const activeEl =
-    document.getElementById(
-      'users-active'
-    );
-
-  if (activeEl) {
-    activeEl.textContent =
-      ADMIN_USER_ACCOUNTS.filter(
-        u => u.status === 'Active'
-      ).length;
-  }
-
-  const inactiveEl =
-    document.getElementById(
-      'users-inactive'
-    );
-
-  if (inactiveEl) {
-    inactiveEl.textContent =
-      ADMIN_USER_ACCOUNTS.filter(
-        u => u.status !== 'Active'
-      ).length;
-  }
-
-  const idmEl =
-    document.getElementById(
-      'users-idmaker'
-    );
-
-  if (idmEl) {
-    idmEl.textContent =
-      ADMIN_USER_ACCOUNTS.filter(
-        u => u.role === 'ID Maker'
-      ).length;
-  }
 }
 
 
 function filterUsers() {
+
   renderUserMgmtTable();
+
 }
 
 
-function openUserModal(mode, key) {
+function openUserModal(
+  mode,
+  key
+) {
 
   editingUserKey =
     mode === 'edit'
       ? key
       : null;
 
+
   const title =
     document.getElementById(
       'user-modal-title'
     );
+
 
   const sub =
     document.getElementById(
       'user-modal-sub'
     );
 
-  title.textContent =
-    editingUserKey
-      ? 'Edit User'
-      : 'Add New User';
 
-  sub.textContent =
-    editingUserKey
-      ? 'Update OSCA personnel account'
-      : 'Register OSCA personnel';
+  if (title) {
+
+    title.textContent =
+      editingUserKey
+        ? 'Edit User'
+        : 'Add New User';
+
+  }
+
+
+  if (sub) {
+
+    sub.textContent =
+      editingUserKey
+        ? 'Update OSCA personnel account'
+        : 'Register OSCA personnel';
+
+  }
+
 
   if (editingUserKey) {
 
     const u =
       ADMIN_USER_ACCOUNTS.find(
-        x => x.key === key
+        x =>
+          x.key ===
+          key
       );
+
 
     if (u) {
 
       document.getElementById(
         'um-fullname'
-      ).value = u.fullName;
+      ).value =
+        u.fullName;
+
 
       document.getElementById(
         'um-designation'
-      ).value = u.designation;
+      ).value =
+        u.designation;
+
 
       document.getElementById(
         'um-username'
-      ).value = u.username;
+      ).value =
+        u.username;
+
 
       document.getElementById(
         'um-email'
-      ).value = u.email;
+      ).value =
+        u.email;
+
 
       document.getElementById(
         'um-role'
-      ).value = u.role;
+      ).value =
+        u.role;
+
 
       document.getElementById(
         'um-status'
-      ).value = u.status;
+      ).value =
+        u.status;
+
 
       document.getElementById(
         'um-password'
-      ).value = '';
+      ).value =
+        '';
+
     }
 
   } else {
@@ -822,38 +1864,80 @@ function openUserModal(mode, key) {
       'um-username',
       'um-email',
       'um-password'
-    ].forEach(id => {
+    ].forEach(
+      id => {
 
-      const el =
-        document.getElementById(id);
+        const el =
+          document.getElementById(
+            id
+          );
 
-      if (el) {
-        el.value = '';
+
+        if (el) {
+
+          el.value =
+            '';
+
+        }
+
       }
-    });
+    );
 
-    document.getElementById(
-      'um-role'
-    ).value = 'Staff';
 
-    document.getElementById(
-      'um-status'
-    ).value = 'Active';
+    const role =
+      document.getElementById(
+        'um-role'
+      );
+
+
+    if (role) {
+
+      role.value =
+        'Staff';
+
+    }
+
+
+    const status =
+      document.getElementById(
+        'um-status'
+      );
+
+
+    if (status) {
+
+      status.value =
+        'Active';
+
+    }
+
   }
+
 
   updateRolePermHint();
 
+
   document
-    .getElementById('user-modal')
-    .classList.add('show');
+    .getElementById(
+      'user-modal'
+    )
+    ?.classList.add(
+      'show'
+    );
+
 }
 
 
 function closeUserModal() {
 
   document
-    .getElementById('user-modal')
-    ?.classList.remove('show');
+    .getElementById(
+      'user-modal'
+    )
+    ?.classList.remove(
+      'show'
+    );
+
 }
 
 
@@ -862,21 +1946,33 @@ function updateRolePermHint() {
   const role =
     document.getElementById(
       'um-role'
-    )?.value || 'Staff';
+    )?.value ||
+    'Staff';
+
 
   const textEl =
     document.getElementById(
       'role-perm-hint-text'
     );
 
-  if (!textEl) return;
 
-  if (role === 'ID Maker') {
+  if (!textEl) {
+
+    return;
+
+  }
+
+
+  if (
+    role === 'ID Maker'
+  ) {
 
     textEl.textContent =
       'OSCA ID Maker accounts are locked to printing functionalities (print queue, status updates, and card production only). No application review or export access.';
 
-  } else if (role === 'Admin') {
+  } else if (
+    role === 'Admin'
+  ) {
 
     textEl.textContent =
       'Admin accounts receive full access: user management, audit logs, system configuration, backups, and all review capabilities.';
@@ -885,14 +1981,21 @@ function updateRolePermHint() {
 
     textEl.textContent =
       'OSCA Staff accounts receive application review access (approve/reject/export), applicant management, and ID issuance.';
+
   }
+
 }
 
 
-function isStrongPassword(password) {
+function isStrongPassword(
+  password
+) {
 
   const value =
-    String(password || '');
+    String(
+      password || ''
+    );
+
 
   return (
     value.length >= 8 &&
@@ -900,54 +2003,87 @@ function isStrongPassword(password) {
     /[0-9]/.test(value) &&
     /[^A-Za-z0-9]/.test(value)
   );
+
 }
 
 
 function validatePasswordField(
   inputId,
-  errorId = 'um-password-error'
+  errorId =
+    'um-password-error'
 ) {
 
   const input =
-    document.getElementById(inputId);
+    document.getElementById(
+      inputId
+    );
+
 
   const error =
-    document.getElementById(errorId);
+    document.getElementById(
+      errorId
+    );
 
-  if (!input) return false;
+
+  if (!input) {
+
+    return false;
+
+  }
+
 
   const password =
-    input.value || '';
+    input.value ||
+    '';
 
-  if (!isStrongPassword(password)) {
+
+  if (
+    !isStrongPassword(
+      password
+    )
+  ) {
 
     if (error) {
 
       error.textContent =
         'Password must be at least 8 characters and include at least one capital letter, one number, and one special character.';
 
+
       error.style.display =
         'block';
+
     }
+
 
     input.setCustomValidity(
       'Password must be at least 8 characters and include at least one capital letter, one number, and one special character.'
     );
 
+
     return false;
+
   }
+
 
   if (error) {
 
-    error.textContent = '';
+    error.textContent =
+      '';
+
 
     error.style.display =
       'none';
+
   }
 
-  input.setCustomValidity('');
+
+  input.setCustomValidity(
+    ''
+  );
+
 
   return true;
+
 }
 
 
@@ -958,43 +2094,64 @@ function saveUser() {
       'um-fullname'
     ).value.trim();
 
+
   const username =
     document.getElementById(
       'um-username'
     ).value.trim();
 
+
   const password =
     document.getElementById(
       'um-password'
-    )?.value || '';
+    )?.value ||
+    '';
 
-  if (!fullName || !username) {
+
+  if (
+    !fullName ||
+    !username
+  ) {
 
     showToast(
       'Full Name and Username are required.',
       'error'
     );
 
+
     return;
+
   }
 
-  if (!editingUserKey && !password) {
+
+  if (
+    !editingUserKey &&
+    !password
+  ) {
 
     showToast(
       'A strong password is required for new accounts.',
       'error'
     );
 
+
     document
-      .getElementById('um-password')
+      .getElementById(
+        'um-password'
+      )
       ?.focus();
 
+
     return;
+
   }
+
 
   if (
     password &&
-    !isStrongPassword(password)
+    !isStrongPassword(
+      password
+    )
   ) {
 
     showToast(
@@ -1002,22 +2159,30 @@ function saveUser() {
       'error'
     );
 
+
     document
-      .getElementById('um-password')
+      .getElementById(
+        'um-password'
+      )
       ?.focus();
 
+
     return;
+
   }
+
 
   const role =
     document.getElementById(
       'um-role'
     ).value;
 
+
   const status =
     document.getElementById(
       'um-status'
     ).value;
+
 
   const designation =
     document.getElementById(
@@ -1029,42 +2194,55 @@ function saveUser() {
         : 'OSCA Staff'
     );
 
+
   if (editingUserKey) {
 
     const u =
       ADMIN_USER_ACCOUNTS.find(
-        x => x.key === editingUserKey
+        x =>
+          x.key ===
+          editingUserKey
       );
+
 
     if (u) {
 
       u.fullName =
         fullName;
 
+
       u.username =
         username;
+
 
       u.role =
         role;
 
+
       u.status =
         status;
 
+
       u.designation =
         designation;
+
 
       u.email =
         document.getElementById(
           'um-email'
         ).value.trim() ||
         u.email;
+
     }
 
+
     appendAudit(
-      CURRENT_USER?.displayName || 'Admin',
+      CURRENT_USER?.displayName ||
+        'Admin',
       `Updated user: ${fullName} (role → ${role})`,
       'Admin'
     );
+
 
     showToast(
       `User ${fullName} updated successfully`,
@@ -1074,61 +2252,110 @@ function saveUser() {
   } else {
 
     ADMIN_USER_ACCOUNTS.push({
-      key: 'u' + Date.now(),
+
+      key:
+        'u' +
+        Date.now(),
+
       fullName,
+
       username,
+
       designation,
+
       role,
+
       email:
         document.getElementById(
           'um-email'
         ).value.trim(),
+
       status,
+
       lastActive:
         'Never logged in'
+
     });
 
+
     appendAudit(
-      CURRENT_USER?.displayName || 'Admin',
+      CURRENT_USER?.displayName ||
+        'Admin',
       `Created user: ${fullName} (${role})`,
       'Admin'
     );
+
 
     showToast(
       `User ${fullName} created successfully`,
       'success'
     );
+
   }
+
 
   closeUserModal();
 
+
   renderUserMgmtTable();
 
+
   renderAuditUserFilter();
+
 }
 
 
-function editUser(key) {
-  openUserModal('edit', key);
+/*
+ * Edit existing user.
+ */
+function editUser(
+  key
+) {
+
+  openUserModal(
+    'edit',
+    key
+  );
+
 }
 
 
-function toggleMgmtUserStatus(key) {
+/*
+ * Toggle local UI account status.
+ *
+ * NOTE:
+ * This still changes the local Admin UI only.
+ * Database account mutation will be connected
+ * in the next backend batch.
+ */
+function toggleMgmtUserStatus(
+  key
+) {
 
   const u =
     ADMIN_USER_ACCOUNTS.find(
-      x => x.key === key
+      x =>
+        x.key ===
+        key
     );
 
-  if (!u) return;
+
+  if (!u) {
+
+    return;
+
+  }
+
 
   u.status =
     u.status === 'Active'
       ? 'Inactive'
       : 'Active';
 
+
   appendAudit(
-    CURRENT_USER?.displayName || 'Admin',
+    CURRENT_USER?.displayName ||
+      'Admin',
     `${
       u.status === 'Inactive'
         ? 'Deactivated'
@@ -1136,6 +2363,7 @@ function toggleMgmtUserStatus(key) {
     } user: ${u.fullName}`,
     'Admin'
   );
+
 
   showToast(
     `${u.fullName} ${
@@ -1148,38 +2376,73 @@ function toggleMgmtUserStatus(key) {
       : 'success'
   );
 
+
   renderUserMgmtTable();
+
 }
 
 
-function openUserActions(key) {
+function openUserActions(
+  key
+) {
 
-  window._resetUserKey = key;
+  window._resetUserKey =
+    key;
+
 
   const u =
     ADMIN_USER_ACCOUNTS.find(
-      x => x.key === key
+      x =>
+        x.key ===
+        key
     );
 
-  document.getElementById(
-    'ua-modal-title'
-  ).textContent =
-    `Reset Credentials — ${
-      u ? u.fullName : ''
-    }`;
 
-  document.getElementById(
-    'ua-modal-desc'
-  ).textContent =
-    'Force a secure login credential update for this account.';
+  const title =
+    document.getElementById(
+      'ua-modal-title'
+    );
+
+
+  if (title) {
+
+    title.textContent =
+      `Reset Credentials — ${
+        u
+          ? u.fullName
+          : ''
+      }`;
+
+  }
+
+
+  const desc =
+    document.getElementById(
+      'ua-modal-desc'
+    );
+
+
+  if (desc) {
+
+    desc.textContent =
+      'Force a secure login credential update for this account.';
+
+  }
+
 
   setResetPassword(
     generateTempPassword()
   );
 
+
   document
-    .getElementById('user-actions-modal')
-    .classList.add('show');
+    .getElementById(
+      'user-actions-modal'
+    )
+    ?.classList.add(
+      'show'
+    );
+
 }
 
 
@@ -1192,56 +2455,94 @@ function generateTempPassword(
 ) {
 
   const sets = [
+
     'ABCDEFGHJKLMNPQRSTUVWXYZ',
+
     'abcdefghijkmnpqrstuvwxyz',
+
     '23456789',
+
     '@#$%&*!?+='
+
   ];
+
 
   const all =
     sets.join('');
 
-  const rand = (max) => {
 
-    if (
-      window.crypto &&
-      window.crypto.getRandomValues
-    ) {
+  const rand =
+    max => {
 
-      const buf =
-        new Uint32Array(1);
+      if (
+        window.crypto &&
+        window.crypto.getRandomValues
+      ) {
 
-      window.crypto.getRandomValues(
-        buf
+        const buf =
+          new Uint32Array(1);
+
+
+        window.crypto.getRandomValues(
+          buf
+        );
+
+
+        return (
+          buf[0] %
+          max
+        );
+
+      }
+
+
+      return Math.floor(
+        Math.random() *
+        max
       );
 
-      return buf[0] % max;
-    }
+    };
 
-    return Math.floor(
-      Math.random() * max
-    );
-  };
 
   const chars =
     sets.map(
-      s => s[rand(s.length)]
+      s =>
+        s[
+          rand(
+            s.length
+          )
+        ]
     );
 
-  while (chars.length < length) {
+
+  while (
+    chars.length <
+    length
+  ) {
+
     chars.push(
-      all[rand(all.length)]
+      all[
+        rand(
+          all.length
+        )
+      ]
     );
+
   }
 
+
   for (
-    let i = chars.length - 1;
+    let i =
+      chars.length - 1;
     i > 0;
     i--
   ) {
 
     const j =
-      rand(i + 1);
+      rand(
+        i + 1
+      );
+
 
     [
       chars[i],
@@ -1250,32 +2551,42 @@ function generateTempPassword(
       chars[j],
       chars[i]
     ];
+
   }
 
+
   return chars.join('');
+
 }
 
 
-function setResetPassword(value) {
+function setResetPassword(
+  value
+) {
 
   const input =
     document.getElementById(
       'ua-new-password'
     );
 
+
   if (input) {
 
     input.value =
       value;
 
+
     input.type =
       'password';
+
   }
+
 
   const icon =
     document.querySelector(
       '#ua-pw-reveal i'
     );
+
 
   if (icon) {
 
@@ -1283,10 +2594,13 @@ function setResetPassword(value) {
       'fi-rr-eye'
     );
 
+
     icon.classList.remove(
       'fi-rr-eye-crossed'
     );
+
   }
+
 }
 
 
@@ -1296,10 +2610,12 @@ function regenerateResetPassword() {
     generateTempPassword()
   );
 
+
   showToast(
     'New temporary password generated.',
     'info'
   );
+
 }
 
 
@@ -1310,20 +2626,30 @@ function toggleResetPwVisibility() {
       'ua-new-password'
     );
 
-  if (!input) return;
+
+  if (!input) {
+
+    return;
+
+  }
+
 
   const reveal =
-    input.type === 'password';
+    input.type ===
+    'password';
+
 
   input.type =
     reveal
       ? 'text'
       : 'password';
 
+
   const icon =
     document.querySelector(
       '#ua-pw-reveal i'
     );
+
 
   if (icon) {
 
@@ -1332,11 +2658,14 @@ function toggleResetPwVisibility() {
       !reveal
     );
 
+
     icon.classList.toggle(
       'fi-rr-eye-crossed',
       reveal
     );
+
   }
+
 }
 
 
@@ -1346,7 +2675,10 @@ function closeUserActionsModal() {
     .getElementById(
       'user-actions-modal'
     )
-    ?.classList.remove('show');
+    ?.classList.remove(
+      'show'
+    );
+
 }
 
 
@@ -1355,20 +2687,27 @@ function resetUserCredentials() {
   const key =
     window._resetUserKey;
 
+
   const u =
     ADMIN_USER_ACCOUNTS.find(
-      x => x.key === key
+      x =>
+        x.key ===
+        key
     );
+
 
   const input =
     document.getElementById(
       'ua-new-password'
     );
 
+
   const newPassword =
     (
-      input?.value || ''
+      input?.value ||
+      ''
     ).trim();
+
 
   if (!newPassword) {
 
@@ -1377,8 +2716,11 @@ function resetUserCredentials() {
       'error'
     );
 
+
     return;
+
   }
+
 
   if (
     !isStrongPassword(
@@ -1391,26 +2733,35 @@ function resetUserCredentials() {
       'error'
     );
 
+
     input?.focus();
 
+
     return;
+
   }
+
 
   if (u) {
 
     appendAudit(
-      CURRENT_USER?.displayName || 'Admin',
+      CURRENT_USER?.displayName ||
+        'Admin',
       `Reset credentials for: ${u.fullName}`,
       'Admin'
     );
+
 
     showToast(
       `Credentials reset for ${u.fullName}. Password change forced on next login.`,
       'success'
     );
+
   }
 
+
   closeUserActionsModal();
+
 }
 
 
@@ -1421,11 +2772,14 @@ function exportUsers() {
     'success'
   );
 
+
   appendAudit(
-    CURRENT_USER?.displayName || 'Admin',
+    CURRENT_USER?.displayName ||
+      'Admin',
     'Exported user accounts list (CSV)',
     'Admin'
   );
+
 }
 
 
@@ -1443,44 +2797,63 @@ function determineAuditActionType(
   const a =
     action.toLowerCase();
 
+
   if (
     a.includes('reject')
   ) {
+
     return 'reject';
+
   }
+
 
   if (
     a.includes('approve')
   ) {
+
     return 'approve';
+
   }
+
 
   if (
     a.includes('status') ||
     a.includes('print')
   ) {
+
     return 'status';
+
   }
+
 
   if (
     a.includes('export')
   ) {
+
     return 'export';
+
   }
+
 
   if (
     a.includes('login') ||
     a.includes('failed')
   ) {
+
     return 'login';
+
   }
+
 
   if (
     a.includes('backup') ||
     a.includes('restor')
   ) {
+
     return 'backup';
+
   }
+
 
   if (
     a.includes('user') ||
@@ -1488,31 +2861,38 @@ function determineAuditActionType(
     a.includes('password') ||
     a.includes('two-factor')
   ) {
+
     return 'user';
+
   }
 
+
   return 'other';
+
 }
 
 
-const escHtml = (s) =>
-  String(s)
-    .replace(
-      /&/g,
-      '&amp;'
+const escHtml =
+  s =>
+    String(
+      s
     )
-    .replace(
-      /</g,
-      '&lt;'
-    )
-    .replace(
-      />/g,
-      '&gt;'
-    )
-    .replace(
-      /"/g,
-      '&quot;'
-    );
+      .replace(
+        /&/g,
+        '&amp;'
+      )
+      .replace(
+        /</g,
+        '&lt;'
+      )
+      .replace(
+        />/g,
+        '&gt;'
+      )
+      .replace(
+        /"/g,
+        '&quot;'
+      );
 
 
 function renderAuditUserFilter() {
@@ -1522,36 +2902,60 @@ function renderAuditUserFilter() {
       'audit-user-filter'
     );
 
-  if (!sel) return;
+
+  if (!sel) {
+
+    return;
+
+  }
+
 
   const current =
     sel.value;
 
+
   const names = [];
 
-  ADMIN_USER_ACCOUNTS.forEach(u => {
 
-    if (
-      u.fullName &&
-      !names.includes(
-        u.fullName
-      )
-    ) {
-      names.push(
-        u.fullName
-      );
+  ADMIN_USER_ACCOUNTS.forEach(
+    u => {
+
+      if (
+        u.fullName &&
+        !names.includes(
+          u.fullName
+        )
+      ) {
+
+        names.push(
+          u.fullName
+        );
+
+      }
+
     }
-  });
+  );
 
-  AUDIT_LOG_DATA.forEach(e => {
 
-    if (
-      e.user &&
-      !names.includes(e.user)
-    ) {
-      names.push(e.user);
+  AUDIT_LOG_DATA.forEach(
+    e => {
+
+      if (
+        e.user &&
+        !names.includes(
+          e.user
+        )
+      ) {
+
+        names.push(
+          e.user
+        );
+
+      }
+
     }
-  });
+  );
+
 
   sel.innerHTML =
     '<option value="">All Users</option>' +
@@ -1562,10 +2966,14 @@ function renderAuditUserFilter() {
       )
       .join('');
 
+
   sel.value =
-    names.includes(current)
+    names.includes(
+      current
+    )
       ? current
       : '';
+
 }
 
 
@@ -1573,15 +2981,23 @@ function renderAuditTable() {
 
   renderAuditUserFilter();
 
+
   const tbody =
     document.getElementById(
       'audit-logs-tbody'
     );
 
-  if (!tbody) return;
+
+  if (!tbody) {
+
+    return;
+
+  }
+
 
   const f =
     readAuditFilterInputs();
+
 
   const filtered =
     AUDIT_LOG_DATA.filter(
@@ -1591,6 +3007,7 @@ function renderAuditTable() {
           f
         )
     );
+
 
   if (!filtered.length) {
 
@@ -1606,92 +3023,124 @@ function renderAuditTable() {
 
     tbody.innerHTML =
       filtered
-        .map(e => {
+        .map(
+          e => {
 
-          const roleBadge =
-            e.role === 'Admin'
-              ? 'badge-issued'
-              : e.role === 'ID Maker'
-                ? 'badge-review'
-                : e.role === 'System'
-                  ? 'badge-inactive'
-                  : 'badge-active';
+            const roleBadge =
+              e.role === 'Admin'
+                ? 'badge-issued'
+                : e.role === 'ID Maker'
+                  ? 'badge-review'
+                  : e.role === 'System'
+                    ? 'badge-inactive'
+                    : 'badge-active';
 
-          return `
-            <tr>
 
-              <td data-label="Time">
-                <span class="cell-text">
-                  ${e.ts}
-                </span>
-              </td>
+            return `
 
-              <td data-label="User">
-                <span class="cell-text">
-                  ${e.user}
-                </span>
-              </td>
+              <tr>
 
-              <td data-label="Role">
-                <span class="badge ${roleBadge}">
-                  ${e.role}
-                </span>
-              </td>
+                <td data-label="Time">
 
-              <td data-label="Action">
-                <span class="cell-text">
-                  ${e.action}
-                </span>
-              </td>
+                  <span class="cell-text">
+                    ${escHtml(e.ts)}
+                  </span>
 
-              <td data-label="IP Address">
-                <span
-                  class="cell-text"
-                  style="font-family:var(--font-data)"
-                >
-                  ${e.ip}
-                </span>
-              </td>
+                </td>
 
-              <td data-label="Device">
-                <span class="cell-text">
-                  ${e.device}
-                </span>
-              </td>
 
-            </tr>
-          `;
+                <td data-label="User">
 
-        })
+                  <span class="cell-text">
+                    ${escHtml(e.user)}
+                  </span>
+
+                </td>
+
+
+                <td data-label="Role">
+
+                  <span class="badge ${roleBadge}">
+                    ${escHtml(e.role)}
+                  </span>
+
+                </td>
+
+
+                <td data-label="Action">
+
+                  <span class="cell-text">
+                    ${escHtml(e.action)}
+                  </span>
+
+                </td>
+
+
+                <td data-label="IP Address">
+
+                  <span
+                    class="cell-text"
+                    style="font-family:var(--font-data)"
+                  >
+                    ${escHtml(e.ip)}
+                  </span>
+
+                </td>
+
+
+                <td data-label="Device">
+
+                  <span class="cell-text">
+                    ${escHtml(e.device)}
+                  </span>
+
+                </td>
+
+              </tr>
+
+            `;
+
+          }
+        )
         .join('');
+
   }
+
 
   const footer =
     document.getElementById(
       'audit-logs-footer'
     );
 
+
   if (footer) {
 
     footer.textContent =
       `Showing ${filtered.length} of ${AUDIT_LOG_DATA.length} events`;
+
   }
+
 
   const label =
     document.getElementById(
       'audit-count-label'
     );
 
+
   if (label) {
 
     label.textContent =
       `${filtered.length} of ${AUDIT_LOG_DATA.length} system events`;
+
   }
+
 }
 
 
 function filterAuditLogs() {
+
   renderAuditTable();
+
 }
 
 
@@ -1703,50 +3152,72 @@ function readAuditFilterInputs() {
       (
         document.getElementById(
           'audit-search'
-        )?.value || ''
+        )?.value ||
+        ''
       ).toLowerCase(),
+
 
     userF:
       document.getElementById(
         'audit-user-filter'
-      )?.value || '',
+      )?.value ||
+      '',
+
 
     actionF:
       document.getElementById(
         'audit-action-filter'
-      )?.value || '',
+      )?.value ||
+      '',
+
 
     from:
       document.getElementById(
         'audit-date-from'
-      )?.value || '',
+      )?.value ||
+      '',
+
 
     to:
       document.getElementById(
         'audit-date-to'
-      )?.value || ''
+      )?.value ||
+      ''
+
   };
+
 }
 
 
-function auditEventTime(e) {
+function auditEventTime(
+  e
+) {
 
   if (
-    e._tsMs === undefined
+    e._tsMs ===
+    undefined
   ) {
 
     const parsed =
       e.ts instanceof Date
         ? e.ts.getTime()
-        : Date.parse(e.ts);
+        : Date.parse(
+            e.ts
+          );
+
 
     e._tsMs =
-      Number.isNaN(parsed)
+      Number.isNaN(
+        parsed
+      )
         ? null
         : parsed;
+
   }
 
+
   return e._tsMs;
+
 }
 
 
@@ -1767,31 +3238,49 @@ function auditEventMatches(
       e.ip
     )
       .toLowerCase()
-      .includes(f.q);
+      .includes(
+        f.q
+      );
+
 
   const matchUser =
     !f.userF ||
-    e.user === f.userF;
+    e.user ===
+      f.userF;
+
 
   const matchAction =
     !f.actionF ||
     determineAuditActionType(
       e.action
-    ) === f.actionF;
+    ) ===
+      f.actionF;
 
-  let matchDate = true;
+
+  let matchDate =
+    true;
+
 
   const ts =
-    auditEventTime(e);
+    auditEventTime(
+      e
+    );
+
 
   if (
     f.from ||
     f.to
   ) {
 
-    if (ts === null) {
+    if (
+      ts ===
+      null
+    ) {
+
       return false;
+
     }
+
 
     if (f.from) {
 
@@ -1801,13 +3290,22 @@ function auditEventMatches(
           'T00:00:00'
         );
 
+
       if (
-        !Number.isNaN(fromMs) &&
-        ts < fromMs
+        !Number.isNaN(
+          fromMs
+        ) &&
+        ts <
+          fromMs
       ) {
-        matchDate = false;
+
+        matchDate =
+          false;
+
       }
+
     }
+
 
     if (
       matchDate &&
@@ -1820,14 +3318,24 @@ function auditEventMatches(
           'T23:59:59.999'
         );
 
+
       if (
-        !Number.isNaN(toMs) &&
-        ts > toMs
+        !Number.isNaN(
+          toMs
+        ) &&
+        ts >
+          toMs
       ) {
-        matchDate = false;
+
+        matchDate =
+          false;
+
       }
+
     }
+
   }
+
 
   return (
     matchQ &&
@@ -1835,6 +3343,7 @@ function auditEventMatches(
     matchAction &&
     matchDate
   );
+
 }
 
 
@@ -1852,18 +3361,24 @@ const AUDIT_SUMMARY_RANGES = {
 
   '7d':
     'Sensitive actions (last 7 days)'
+
 };
+
 
 const AUDIT_SUMMARY_DEFAULT_RANGE =
   '5';
 
+
 const AUDIT_SUMMARY_STORAGE_KEY =
   'osca.auditSummaryRange';
+
 
 const AUDIT_SUMMARY_FADE_MS =
   160;
 
-let auditSummaryTimer = null;
+
+let auditSummaryTimer =
+  null;
 
 
 function readAuditSummaryRange() {
@@ -1875,16 +3390,22 @@ function readAuditSummaryRange() {
         AUDIT_SUMMARY_STORAGE_KEY
       );
 
+
     return AUDIT_SUMMARY_RANGES[
       saved
     ]
       ? saved
       : AUDIT_SUMMARY_DEFAULT_RANGE;
 
-  } catch (_err) {
+
+  } catch (
+    _err
+  ) {
 
     return AUDIT_SUMMARY_DEFAULT_RANGE;
+
   }
+
 }
 
 
@@ -1899,9 +3420,15 @@ function persistAuditSummaryRange(
       period
     );
 
-  } catch (_err) {
+
+  } catch (
+    _err
+  ) {
+
     /* private mode */
+
   }
+
 }
 
 
@@ -1918,6 +3445,7 @@ function setAuditSummaryUpdating(
         '.log-card__body'
       );
 
+
   if (body) {
 
     body.classList.toggle(
@@ -1925,18 +3453,22 @@ function setAuditSummaryUpdating(
       updating
     );
 
+
     body.setAttribute(
       'aria-busy',
       updating
         ? 'true'
         : 'false'
     );
+
   }
+
 
   const filter =
     document.getElementById(
       'audit-summary-filter'
     );
+
 
   if (filter) {
 
@@ -1944,7 +3476,9 @@ function setAuditSummaryUpdating(
       'is-loading',
       updating
     );
+
   }
+
 }
 
 
@@ -1960,27 +3494,35 @@ function filterAuditLog(
       ? period
       : AUDIT_SUMMARY_DEFAULT_RANGE;
 
+
   const select =
     document.getElementById(
       'audit-summary-range'
     );
 
+
   if (
     select &&
-    select.value !== range
+    select.value !==
+      range
   ) {
+
     select.value =
       range;
+
   }
+
 
   const isFiltered =
     range !==
     AUDIT_SUMMARY_DEFAULT_RANGE;
 
+
   const filter =
     document.getElementById(
       'audit-summary-filter'
     );
+
 
   if (filter) {
 
@@ -1988,107 +3530,141 @@ function filterAuditLog(
       'is-filtered',
       isFiltered
     );
+
   }
+
 
   const reset =
     document.getElementById(
       'audit-summary-reset'
     );
 
+
   if (reset) {
 
     reset.hidden =
       !isFiltered;
+
   }
+
 
   persistAuditSummaryRange(
     range
   );
 
-  const apply = () => {
 
-    const rows =
-      document.querySelectorAll(
-        '#audit-summary-tbody tr'
+  const apply =
+    () => {
+
+      const rows =
+        document.querySelectorAll(
+          '#audit-summary-tbody tr'
+        );
+
+
+      rows.forEach(
+        r => {
+
+          const tags =
+            (
+              r.dataset.period ||
+              ''
+            ).split(',');
+
+
+          r.style.display =
+            (
+              !r.dataset.period ||
+              tags.includes(
+                range
+              )
+            )
+              ? ''
+              : 'none';
+
+        }
       );
 
-    rows.forEach(r => {
 
-      const tags =
-        (
-          r.dataset.period ||
-          ''
-        ).split(',');
+      const label =
+        document.getElementById(
+          'audit-summary-sub'
+        );
 
-      r.style.display =
-        (
-          !r.dataset.period ||
-          tags.includes(range)
-        )
-          ? ''
-          : 'none';
-    });
 
-    const label =
-      document.getElementById(
-        'audit-summary-sub'
-      );
+      if (label) {
 
-    if (label) {
-
-      const visible =
-        Array.from(rows)
-          .filter(
-            r =>
-              r.style.display !==
-              'none'
+        const visible =
+          Array.from(
+            rows
           )
-          .length;
+            .filter(
+              r =>
+                r.style.display !==
+                'none'
+            )
+            .length;
 
-      const total =
-        rows.length;
 
-      label.textContent =
-        AUDIT_SUMMARY_RANGES[
-          range
-        ];
+        const total =
+          rows.length;
 
-      if (
-        isFiltered &&
-        total &&
-        visible < total
-      ) {
 
-        label.textContent +=
-          ` · ${visible}/${total} shown`;
+        label.textContent =
+          AUDIT_SUMMARY_RANGES[
+            range
+          ];
+
+
+        if (
+          isFiltered &&
+          total &&
+          visible <
+            total
+        ) {
+
+          label.textContent +=
+            ` · ${visible}/${total} shown`;
+
+        }
+
       }
-    }
 
-    setAuditSummaryUpdating(
-      false
-    );
-  };
+
+      setAuditSummaryUpdating(
+        false
+      );
+
+    };
+
 
   clearTimeout(
     auditSummaryTimer
   );
 
-  if (options.instant) {
+
+  if (
+    options.instant
+  ) {
 
     apply();
 
     return;
+
   }
+
 
   setAuditSummaryUpdating(
     true
   );
+
 
   auditSummaryTimer =
     setTimeout(
       apply,
       AUDIT_SUMMARY_FADE_MS
     );
+
 }
 
 
@@ -2098,10 +3674,12 @@ function resetAuditLogFilter() {
     AUDIT_SUMMARY_DEFAULT_RANGE
   );
 
+
   showToast(
     'Audit summary filter reset to default',
     'info'
   );
+
 }
 
 
@@ -2118,19 +3696,28 @@ function exportAuditLog() {
         'none'
     );
 
+
   const data =
-    rows.map(r =>
-      Array.from(
-        r.querySelectorAll('td')
-      )
-        .slice(0, 3)
-        .map(td =>
-          csvCell(
-            td.textContent
+    rows.map(
+      r =>
+        Array.from(
+          r.querySelectorAll(
+            'td'
           )
         )
-        .join(',')
+          .slice(
+            0,
+            3
+          )
+          .map(
+            td =>
+              csvCell(
+                td.textContent
+              )
+          )
+          .join(',')
     );
+
 
   downloadCsvFile(
     `audit-summary-${new Date().toISOString().slice(0, 10)}.csv`,
@@ -2142,11 +3729,14 @@ function exportAuditLog() {
     data
   );
 
+
   appendAudit(
-    CURRENT_USER?.displayName || 'Admin',
+    CURRENT_USER?.displayName ||
+      'Admin',
     'Exported audit summary (CSV)',
     'Admin'
   );
+
 
   showToast(
     'Audit summary exported (' +
@@ -2154,6 +3744,7 @@ function exportAuditLog() {
       ' rows) — DPA-safe CSV',
     'success'
   );
+
 }
 
 
@@ -2165,17 +3756,28 @@ function resetAuditFilters() {
     'audit-action-filter',
     'audit-date-from',
     'audit-date-to'
-  ].forEach(id => {
+  ].forEach(
+    id => {
 
-    const el =
-      document.getElementById(id);
+      const el =
+        document.getElementById(
+          id
+        );
 
-    if (el) {
-      el.value = '';
+
+      if (el) {
+
+        el.value =
+          '';
+
+      }
+
     }
-  });
+  );
+
 
   renderAuditTable();
+
 }
 
 
@@ -2183,16 +3785,20 @@ function resetAuditFilters() {
    CSV HELPERS
    ========================================================= */
 
-function csvCell(v) {
+function csvCell(
+  v
+) {
 
   return String(
-    v ?? ''
+    v ??
+      ''
   )
     .replace(
       /,/g,
       ';'
     )
     .trim();
+
 }
 
 
@@ -2208,36 +3814,46 @@ function downloadCsvFile(
       ...rows
     ].join('\n');
 
+
   const blob =
     new Blob(
-      [csv],
+      [
+        csv
+      ],
       {
         type:
           'text/csv;charset=utf-8;'
       }
     );
 
+
   const url =
     URL.createObjectURL(
       blob
     );
+
 
   const link =
     document.createElement(
       'a'
     );
 
+
   link.href =
     url;
+
 
   link.download =
     filename;
 
+
   link.click();
+
 
   URL.revokeObjectURL(
     url
   );
+
 }
 
 
@@ -2245,6 +3861,7 @@ function exportAuditReport() {
 
   const f =
     readAuditFilterInputs();
+
 
   const filtered =
     AUDIT_LOG_DATA.filter(
@@ -2255,14 +3872,23 @@ function exportAuditReport() {
         )
     );
 
+
   const header = [
+
     'Time',
+
     'User',
+
     'Role',
+
     'Action',
+
     'IP Address',
+
     'Device'
+
   ];
+
 
   const data =
     filtered.map(
@@ -2275,9 +3901,12 @@ function exportAuditReport() {
           e.ip,
           e.device
         ]
-          .map(csvCell)
+          .map(
+            csvCell
+          )
           .join(',')
     );
+
 
   downloadCsvFile(
     `audit-trail-${new Date().toISOString().slice(0, 10)}.csv`,
@@ -2285,16 +3914,20 @@ function exportAuditReport() {
     data
   );
 
+
   appendAudit(
-    CURRENT_USER?.displayName || 'Admin',
+    CURRENT_USER?.displayName ||
+      'Admin',
     'Exported audit trail report (CSV)',
     'Admin'
   );
+
 
   showToast(
     `Audit trail exported (${filtered.length} rows) — DPA-safe CSV`,
     'success'
   );
+
 }
 
 
@@ -2312,9 +3945,17 @@ function renderServiceStatus() {
       'service-status-grid'
     );
 
-  if (!grid) return;
 
-  if (!SERVICE_STATUS.length) {
+  if (!grid) {
+
+    return;
+
+  }
+
+
+  if (
+    !SERVICE_STATUS.length
+  ) {
 
     grid.innerHTML =
       '<div class="table-empty" style="grid-column:1/-1">' +
@@ -2322,83 +3963,95 @@ function renderServiceStatus() {
       'No external service connections configured yet. Monitors will appear here once connected to the live system.' +
       '</div>';
 
+
     return;
+
   }
+
 
   grid.innerHTML =
     SERVICE_STATUS
-      .map(s => {
+      .map(
+        s => {
 
-        const ok =
-          s.status === 'ok';
+          const ok =
+            s.status ===
+            'ok';
 
-        const iconAttr =
-          s.action
-            ? ` onclick="${s.action}()" style="cursor:pointer" title="Send test notification"`
-            : '';
 
-        return `
-          <article class="admin-service-card">
+          const iconAttr =
+            s.action
+              ? ` onclick="${s.action}()" style="cursor:pointer" title="Send test notification"`
+              : '';
 
-            <div class="admin-service-card__head">
+
+          return `
+
+            <article class="admin-service-card">
+
+              <div class="admin-service-card__head">
+
+                <div
+                  class="admin-service-card__icon"
+                  ${iconAttr}
+                >
+                  <i class="fi ${s.icon}"></i>
+                </div>
+
+                <div>
+
+                  <div class="admin-service-card__name">
+                    ${escHtml(s.name)}
+                  </div>
+
+                  <div class="admin-service-card__desc">
+                    ${escHtml(s.desc)}
+                  </div>
+
+                </div>
+
+              </div>
 
               <div
-                class="admin-service-card__icon"
-                ${iconAttr}
-              >
-                <i class="fi ${s.icon}"></i>
-              </div>
-
-              <div>
-
-                <div class="admin-service-card__name">
-                  ${s.name}
-                </div>
-
-                <div class="admin-service-card__desc">
-                  ${s.desc}
-                </div>
-
-              </div>
-
-            </div>
-
-            <div
-              class="admin-service-card__status ${
-                ok
-                  ? 'ok'
-                  : 'warn'
-              }"
-            >
-
-              <i class="fi ${
-                ok
-                  ? 'fi-rr-check-circle'
-                  : 'fi-rr-exclamation'
-              }"></i>
-
-              ${
-                ok
-                  ? 'Operational'
-                  : 'Degraded'
-              }
-
-              <span
-                class="badge ${
+                class="admin-service-card__status ${
                   ok
-                    ? 'badge-approved'
-                    : 'badge-review'
+                    ? 'ok'
+                    : 'warn'
                 }"
               >
-                ${s.latency}
-              </span>
 
-            </div>
+                <i class="fi ${
+                  ok
+                    ? 'fi-rr-check-circle'
+                    : 'fi-rr-exclamation'
+                }"></i>
 
-          </article>
-        `;
-      })
+                ${
+                  ok
+                    ? 'Operational'
+                    : 'Degraded'
+                }
+
+                <span
+                  class="badge ${
+                    ok
+                      ? 'badge-approved'
+                      : 'badge-review'
+                  }"
+                >
+                  ${escHtml(s.latency)}
+                </span>
+
+              </div>
+
+            </article>
+
+          `;
+
+        }
+      )
       .join('');
+
 }
 
 
@@ -2414,22 +4067,27 @@ function saveSystemConfig() {
     )?.value ||
     '07:00';
 
+
   const close =
     document.getElementById(
       'cfg-close-time'
     )?.value ||
     '18:00';
 
+
   appendAudit(
-    CURRENT_USER?.displayName || 'Admin',
+    CURRENT_USER?.displayName ||
+      'Admin',
     `Updated system configuration (office hours ${open}–${close})`,
     'Admin'
   );
+
 
   showToast(
     'System configuration saved successfully.',
     'success'
   );
+
 }
 
 
@@ -2442,42 +4100,70 @@ const DEFAULT_SMS_TEMPLATES = {
   approval:
     'Dear {name}, your Senior Citizen ID application (ID: {id}) has been APPROVED. Please visit the OSCA office within 7 days to claim your ID card. - OSCA {barangay}',
 
+
   rejection:
     'Dear {name}, your Senior Citizen ID application (ID: {id}) requires additional documentation. Please visit OSCA office with the required papers. - OSCA {barangay}'
+
 };
 
 
-function countSmsSegments(text) {
+function countSmsSegments(
+  text
+) {
 
   const len =
-    (text || '').length;
+    (
+      text ||
+      ''
+    ).length;
 
-  if (len === 0) {
+
+  if (
+    len ===
+    0
+  ) {
 
     return {
+
       len: 0,
+
       segments: 0,
+
       capacity: 160
+
     };
+
   }
 
+
   const segments =
-    len <= 160
+    len <=
+      160
       ? 1
       : Math.ceil(
-          len / 153
+          len /
+          153
         );
 
+
   const capacity =
-    segments === 1
+    segments ===
+      1
       ? 160
-      : segments * 153;
+      : segments *
+        153;
+
 
   return {
+
     len,
+
     segments,
+
     capacity
+
   };
+
 }
 
 
@@ -2491,12 +4177,22 @@ function updateSmsCount(
       taId
     );
 
+
   const counter =
     document.getElementById(
       counterId
     );
 
-  if (!el || !counter) return;
+
+  if (
+    !el ||
+    !counter
+  ) {
+
+    return;
+
+  }
+
 
   const {
     len,
@@ -2507,13 +4203,16 @@ function updateSmsCount(
       el.value
     );
 
+
   counter.textContent =
     `${len}/${capacity} characters • ${segments} SMS`;
+
 
   counter.classList.toggle(
     'over',
     len > 160
   );
+
 }
 
 
@@ -2524,62 +4223,78 @@ function tplReset() {
       'tpl-sms-approval'
     );
 
+
   const rejection =
     document.getElementById(
       'tpl-sms-rejection'
     );
+
 
   const barangay =
     document.getElementById(
       'tpl-barangay-select'
     );
 
+
   if (approval) {
 
     approval.value =
       DEFAULT_SMS_TEMPLATES.approval;
+
   }
+
 
   if (rejection) {
 
     rejection.value =
       DEFAULT_SMS_TEMPLATES.rejection;
+
   }
+
 
   if (barangay) {
 
-    barangay.value = '';
+    barangay.value =
+      '';
+
   }
+
 
   updateSmsCount(
     'tpl-sms-approval',
     'tpl-counter-approval'
   );
 
+
   updateSmsCount(
     'tpl-sms-rejection',
     'tpl-counter-rejection'
   );
 
+
   showToast(
     'SMS templates reset to defaults',
     'info'
   );
+
 }
 
 
 function tplSave() {
 
   appendAudit(
-    CURRENT_USER?.displayName || 'Admin',
+    CURRENT_USER?.displayName ||
+      'Admin',
     'Updated SMS notification templates',
     'Admin'
   );
+
 
   showToast(
     'SMS templates saved successfully',
     'success'
   );
+
 }
 
 
@@ -2587,7 +4302,9 @@ function tplSave() {
    MODULE E — BACKUP & RECOVERY
    ========================================================= */
 
-let backupIsRunning = false;
+let backupIsRunning =
+  false;
+
 
 const BACKUP_HISTORY = [];
 
@@ -2599,9 +4316,17 @@ function renderBackupHistory() {
       'backup-history-tbody'
     );
 
-  if (!tbody) return;
 
-  if (!BACKUP_HISTORY.length) {
+  if (!tbody) {
+
+    return;
+
+  }
+
+
+  if (
+    !BACKUP_HISTORY.length
+  ) {
 
     tbody.innerHTML =
       '<tr>' +
@@ -2611,74 +4336,103 @@ function renderBackupHistory() {
       '</td>' +
       '</tr>';
 
+
     return;
+
   }
+
 
   tbody.innerHTML =
     BACKUP_HISTORY
-      .map(b => {
+      .map(
+        b => {
 
-        const typeBadge =
-          b.type.includes('Manual')
-            ? 'badge-review'
-            : b.type.includes('Weekly')
-              ? 'badge-issued'
-              : 'badge-active';
+          const typeBadge =
+            b.type.includes(
+              'Manual'
+            )
+              ? 'badge-review'
+              : b.type.includes(
+                  'Weekly'
+                )
+                ? 'badge-issued'
+                : 'badge-active';
 
-        return `
-          <tr>
 
-            <td data-label="Timestamp">
-              <span class="cell-text">
-                ${b.ts}
-              </span>
-            </td>
+          return `
 
-            <td data-label="Type">
-              <span class="badge ${typeBadge}">
-                ${b.type}
-              </span>
-            </td>
+            <tr>
 
-            <td data-label="Size">
-              <span
-                class="cell-text"
-                style="font-family:var(--font-data)"
-              >
-                ${b.size}
-              </span>
-            </td>
+              <td data-label="Timestamp">
 
-            <td data-label="Status">
-              <span class="badge badge-approved">
-                ${b.status}
-              </span>
-            </td>
+                <span class="cell-text">
+                  ${escHtml(b.ts)}
+                </span>
 
-            <td data-label="Location">
-              <span
-                class="cell-text"
-                style="font-family:var(--font-data)"
-              >
-                ${b.loc}
-              </span>
-            </td>
+              </td>
 
-            <td style="text-align:right">
 
-              <button
-                class="row-action always-visible"
-                onclick="restoreFromHistory('${b.ts}')"
-              >
-                Restore
-              </button>
+              <td data-label="Type">
 
-            </td>
+                <span class="badge ${typeBadge}">
+                  ${escHtml(b.type)}
+                </span>
 
-          </tr>
-        `;
-      })
+              </td>
+
+
+              <td data-label="Size">
+
+                <span
+                  class="cell-text"
+                  style="font-family:var(--font-data)"
+                >
+                  ${escHtml(b.size)}
+                </span>
+
+              </td>
+
+
+              <td data-label="Status">
+
+                <span class="badge badge-approved">
+                  ${escHtml(b.status)}
+                </span>
+
+              </td>
+
+
+              <td data-label="Location">
+
+                <span
+                  class="cell-text"
+                  style="font-family:var(--font-data)"
+                >
+                  ${escHtml(b.loc)}
+                </span>
+
+              </td>
+
+
+              <td style="text-align:right">
+
+                <button
+                  class="row-action always-visible"
+                  onclick="restoreFromHistory('${escHtml(b.ts)}')"
+                >
+                  Restore
+                </button>
+
+              </td>
+
+            </tr>
+
+          `;
+
+        }
+      )
       .join('');
+
 }
 
 
@@ -2689,210 +4443,306 @@ function renderRestorePoints() {
       'restore-point-select'
     );
 
-  if (!sel) return;
 
-  if (!BACKUP_HISTORY.length) {
+  if (!sel) {
+
+    return;
+
+  }
+
+
+  if (
+    !BACKUP_HISTORY.length
+  ) {
 
     sel.innerHTML =
       '<option value="">No restore points available</option>';
 
+
     return;
+
   }
+
 
   const current =
     sel.value;
+
 
   sel.innerHTML =
     BACKUP_HISTORY
       .map(
         b =>
-          `<option value="${b.ts}">${b.type} — ${b.ts}</option>`
+          `<option value="${escHtml(b.ts)}">${escHtml(b.type)} — ${escHtml(b.ts)}</option>`
       )
       .join('');
+
 
   if (
     BACKUP_HISTORY.some(
       b =>
-        b.ts === current
+        b.ts ===
+        current
     )
   ) {
 
     sel.value =
       current;
+
   }
+
 }
 
 
 function executeBackup() {
 
-  if (backupIsRunning) {
+  if (
+    backupIsRunning
+  ) {
+
     return;
+
   }
+
 
   openConfirmModal({
 
     title:
       'Run manual backup now?',
 
+
     desc:
       'Creates an encrypted point-in-time snapshot of the OSCA database.',
+
 
     alertTitle:
       'A new snapshot will be added to backup history',
 
+
     alertDesc:
       'Existing snapshots are kept. The backup button shows progress while the snapshot is created.',
+
 
     confirmLabel:
       'Run Backup',
 
+
     danger:
       false,
 
+
     onConfirm:
       runBackupNow
+
   });
+
 }
 
 
 function runBackupNow() {
 
-  if (backupIsRunning) {
+  if (
+    backupIsRunning
+  ) {
+
     return;
+
   }
 
-  backupIsRunning = true;
+
+  backupIsRunning =
+    true;
+
 
   const btn =
     document.getElementById(
       'btn-execute-backup'
     );
 
+
   if (btn) {
 
-    btn.disabled = true;
+    btn.disabled =
+      true;
 
-    btn.style.opacity = '.6';
+
+    btn.style.opacity =
+      '.6';
+
   }
+
 
   if (btn) {
 
     btn.innerHTML =
       '<i class="fi fi-rr-loader" style="margin-right:8px"></i> Creating point-in-time snapshot…';
+
   }
+
 
   showToast(
     'Manual encrypted backup started. You can keep working while it runs.',
     'info'
   );
 
-  setTimeout(() => {
 
-    const now =
-      new Date().toLocaleString(
-        'en-US',
-        {
-          month: 'short',
-          day: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        }
+  setTimeout(
+    () => {
+
+      const now =
+        new Date().toLocaleString(
+          'en-US',
+          {
+            month:
+              'short',
+
+            day:
+              '2-digit',
+
+            year:
+              'numeric',
+
+            hour:
+              '2-digit',
+
+            minute:
+              '2-digit'
+
+          }
+        );
+
+
+      BACKUP_HISTORY.unshift({
+
+        ts:
+          now,
+
+        type:
+          'Manual · Snapshot',
+
+        size:
+          '1.6 GB',
+
+        status:
+          'Success',
+
+        loc:
+          'gs://osca-backups/manual/latest'
+
+      });
+
+
+      renderBackupHistory();
+
+
+      renderRestorePoints();
+
+
+      const title =
+        document.getElementById(
+          'bk-last-title'
+        );
+
+
+      if (title) {
+
+        title.textContent =
+          `Last backup: ${now}`;
+
+      }
+
+
+      const kpi =
+        document.getElementById(
+          'kpi-backup'
+        );
+
+
+      if (kpi) {
+
+        kpi.textContent =
+          'Just now';
+
+      }
+
+
+      appendAudit(
+        CURRENT_USER?.displayName ||
+          'Admin',
+        'Executed immediate database backup',
+        'Admin'
       );
 
-    BACKUP_HISTORY.unshift({
-      ts: now,
-      type:
-        'Manual · Snapshot',
-      size:
-        '1.6 GB',
-      status:
-        'Success',
-      loc:
-        'gs://osca-backups/manual/latest'
-    });
 
-    renderBackupHistory();
-
-    renderRestorePoints();
-
-    const title =
-      document.getElementById(
-        'bk-last-title'
+      showToast(
+        'Backup completed successfully. Restore point verified.',
+        'success'
       );
 
-    if (title) {
 
-      title.textContent =
-        `Last backup: ${now}`;
-    }
+      if (btn) {
 
-    const kpi =
-      document.getElementById(
-        'kpi-backup'
-      );
+        btn.disabled =
+          false;
 
-    if (kpi) {
 
-      kpi.textContent =
-        'Just now';
-    }
+        btn.style.opacity =
+          '';
 
-    appendAudit(
-      CURRENT_USER?.displayName || 'Admin',
-      'Executed immediate database backup',
-      'Admin'
-    );
 
-    showToast(
-      'Backup completed successfully. Restore point verified.',
-      'success'
-    );
+        btn.textContent =
+          'Execute Immediate Database Backup';
 
-    if (btn) {
+      }
 
-      btn.disabled = false;
 
-      btn.style.opacity = '';
+      backupIsRunning =
+        false;
 
-      btn.textContent =
-        'Execute Immediate Database Backup';
-    }
+    },
+    1500
+  );
 
-    backupIsRunning = false;
-
-  }, 1500);
 }
 
 
-function restoreFromHistory(ts) {
+function restoreFromHistory(
+  ts
+) {
 
   openConfirmModal({
 
     title:
       'Restore database from this snapshot?',
 
+
     desc:
       `Snapshot: ${ts}`,
+
 
     alertTitle:
       'Caution: Restore will overwrite current database',
 
+
     alertDesc:
       'This operation is irreversible. A verification snapshot is taken before restoring.',
+
 
     confirmLabel:
       'Restore Database',
 
+
     danger:
       true,
+
 
     onConfirm:
       () =>
         runRestore(
           `snapshot: ${ts}`
         )
+
   });
+
 }
 
 
@@ -2903,6 +4753,7 @@ function initiateRestore() {
       'restore-point-select'
     );
 
+
   const point =
     (
       sel &&
@@ -2910,45 +4761,61 @@ function initiateRestore() {
     ) ||
     'Latest restore point';
 
+
   openConfirmModal({
 
     title:
       'Restore database from this point?',
 
+
     desc:
       `Selected restore point: ${point}`,
+
 
     alertTitle:
       'Caution: Restore will overwrite current database',
 
+
     alertDesc:
       'This operation is irreversible. A verification snapshot is taken before restoring.',
+
 
     confirmLabel:
       'Restore Database',
 
+
     danger:
       true,
 
+
     onConfirm:
       () =>
-        runRestore(point)
+        runRestore(
+          point
+        )
+
   });
+
 }
 
 
-function runRestore(point) {
+function runRestore(
+  point
+) {
 
   showToast(
     `Restoration from "${point}" started. Database will restart shortly (demo).`,
     'info'
   );
 
+
   appendAudit(
-    CURRENT_USER?.displayName || 'Admin',
+    CURRENT_USER?.displayName ||
+      'Admin',
     `Initiated database restoration from ${point}`,
     'Admin'
   );
+
 }
 
 
@@ -2959,9 +4826,12 @@ function verifyRestorePoint() {
     'success'
   );
 
+
   appendAudit(
-    CURRENT_USER?.displayName || 'Admin',
+    CURRENT_USER?.displayName ||
+      'Admin',
     'Verified database restore point',
     'Admin'
   );
+
 }
