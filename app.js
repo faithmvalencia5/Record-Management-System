@@ -1456,7 +1456,7 @@ function openForgotModal() {
   if (sentStep) sentStep.style.display = 'none';
   if (input)    input.value = '';
   if (err)      { err.textContent = ''; err.style.opacity = '0'; }
-  overlay.style.display = 'flex';
+  overlay.classList.add('fp-open');
   document.body.style.overflow = 'hidden';
   setTimeout(() => { if (input) input.focus(); }, 80);
   overlay.addEventListener('mousedown', _fpOverlayClick);
@@ -1466,7 +1466,7 @@ function openForgotModal() {
 function closeForgotModal() {
   const overlay = document.getElementById('forgot-modal-overlay');
   if (!overlay) return;
-  overlay.style.display = 'none';
+  overlay.classList.remove('fp-open');
   document.body.style.overflow = '';
   overlay.removeEventListener('mousedown', _fpOverlayClick);
   document.removeEventListener('keydown', _fpEscKey);
