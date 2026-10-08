@@ -2473,29 +2473,239 @@ async function updateTableStatus(
 let DI_CURRENT_APP_ID = null;
 let DI_MODE = 'idmaker'; // 'staff' | 'idmaker'
 
-function openDigitalIssuance(appId) {
+async function openDigitalIssuance(appId) {
   DI_MODE = 'idmaker';
-  _populateDigitalIssuance(appId);
+  await _populateDigitalIssuance(appId);
 }
 
-function openIssuancePreview(appId) {
+async function openIssuancePreview(appId) {
   DI_MODE = 'staff';
-  _populateDigitalIssuance(appId);
+  await _populateDigitalIssuance(appId);
 }
 
-function _populateDigitalIssuance(appId) {
-  const app = ID_MAKER_QUEUE.find(a => a.id === appId) || APP_DB[appId] || FULL_APPLICANTS.find(a => a.id === appId);
-  if (!app) { showToast('Applicant not found.', 'error'); return; }
+async function _populateDigitalIssuance(appId) {
+  let app =
+    ID_MAKER_QUEUE.find(
+      a => String(a.id) === String(appId)
+    ) ||
+    APP_DB[appId] ||
+    FULL_APPLICANTS.find(
+      a => String(a.id) === String(appId)
+    );
+
+  if (!app) {
+    showToast('Applicant not found.', 'error');
+    return;
+  }
+
   DI_CURRENT_APP_ID = appId;
 
-  const fullName = ((app.firstName || '') + ' ' + (app.middleName || '') + ' ' + (app.surname || app.name)).trim() || '—';
-  const dobFormatted = app.dob ? formatDateForForm(app.dob) : '________________';
-  const sexVal = app.gender === 'M' ? 'Male' : app.gender === 'F' ? 'Female' : (app.gender || '________________');
-  const controlNo = app.controlNo || ('CTL-' + (app.id || '').replace('SCB-', ''));
+  // Show the modal immediately.
+  const modal =
+    document.getElementById(
+      'digital-issuance-modal'
+    );
 
-  // Photo
-  const pPhoto = document.getElementById('di-preview-photo');
-  const pPhotoFb = document.getElementById('di-preview-photo-fallback');
+  if (modal) {
+    modal.classList.add('show');
+  }
+
+  // Show loading state for the image areas.
+  const pPhoto =
+    document.getElementById(
+      'di-preview-photo'
+    );
+
+  const pPhotoFb =
+    document.getElementById(
+      'di-preview-photo-fallback'
+    );
+
+  const pSig =
+    document.getElementById(
+      'di-preview-signature'
+    );
+
+  const pSigFb =
+    document.getElementById(
+      'di-preview-sign-fallback'
+    );
+
+  if (pPhoto) {
+    pPhoto.style.display = 'none';
+  }
+
+  if (pPhotoFb) {
+    pPhotoFb.style.display = 'block';
+    pPhotoFb.textContent = 'Loading...';
+  }
+
+  if (pSig) {
+    pSig.style.display = 'none';
+  }
+
+  if (pSigFb) {
+    pSigFb.style.display = 'block';
+    pSigFb.textContent = 'Loading...';
+  }
+
+  // ==================================================
+  // LOAD COMPLETE APPLICATION ONLY WHEN FORM IS OPENED
+  // ==================================================
+
+  try {
+    const response = await fetch(
+      'https://management-backend-3cij.onrender.com/api/applications/' +
+      encodeURIComponent(appId),
+      {
+        method: 'GET',
+        cache: 'no-store'
+      }
+    );
+
+    const result = await response.json();
+
+    if (response.ok && result.success) {
+      const liveApplication =
+        result.application || {};
+
+      const files =
+        result.applicationFiles || {};
+
+      app = {
+        ...app,
+
+        id:
+          liveApplication.application_id ||
+          app.id,
+
+        firstName:
+          liveApplication.first_name ||
+          app.firstName ||
+          '',
+
+        middleName:
+          liveApplication.middle_name ||
+          app.middleName ||
+          '',
+
+        surname:
+          liveApplication.surname ||
+          app.surname ||
+          '',
+
+        address:
+          liveApplication.house_street ||
+          app.address ||
+          '',
+
+        barangay:
+          liveApplication.barangay_district ||
+          app.barangay ||
+          '',
+
+        dob:
+          liveApplication.date_of_birth ||
+          app.dob ||
+          '',
+
+        gender:
+          liveApplication.sex ||
+          app.gender ||
+          '',
+
+        photo:
+          files.latest_photo_signed_url ||
+          '',
+
+        signature:
+          files.signature_signed_url ||
+          '',
+
+        documents: {
+          ...(app.documents || {}),
+
+          idFront:
+            files.valid_id_signed_url || '',
+
+          idBack:
+            files.valid_id_back_signed_url || '',
+
+          photo:
+            files.latest_photo_signed_url || '',
+
+          bc:
+            files.birth_certificate_signed_url || '',
+
+          cedula:
+            files.community_tax_certificate_signed_url || '',
+
+          signature:
+            files.signature_signed_url || ''
+        }
+      };
+
+      // Keep the locally opened record updated.
+      if (
+        typeof APP_DB !== 'undefined'
+      ) {
+        APP_DB[appId] = {
+          ...(APP_DB[appId] || {}),
+          ...app
+        };
+      }
+    }
+
+  } catch (error) {
+    console.error(
+      'Unable to load complete issuance data:',
+      error
+    );
+
+    // Continue using lightweight queue data.
+  }
+
+  // ==================================================
+  // PREPARE FORM DATA
+  // ==================================================
+
+  const fullName =
+    [
+      app.firstName || '',
+      app.middleName || '',
+      app.surname || app.name || ''
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .trim() || '—';
+
+  const dobFormatted =
+    app.dob
+      ? formatDateForForm(app.dob)
+      : '________________';
+
+  const sexVal =
+    app.gender === 'M'
+      ? 'Male'
+      : app.gender === 'F'
+        ? 'Female'
+        : (
+            app.gender ||
+            '________________'
+          );
+
+  const controlNo =
+    app.controlNo ||
+    (
+      'CTL-' +
+      String(
+        app.id || ''
+      ).replace('SCB-', '')
+    );
+
+  // ==================================================
+  // PHOTO
+  // ==================================================
 
   const photoSrc =
     app.photo ||
@@ -2503,10 +2713,14 @@ function _populateDigitalIssuance(appId) {
     '';
 
   if (pPhoto) {
-    pPhoto.src = photoSrc;
-    pPhoto.style.display = photoSrc ? 'block' : 'none';
+    pPhoto.onload = function () {
+      pPhoto.style.display = 'block';
 
-    // If the image URL fails, show the fallback
+      if (pPhotoFb) {
+        pPhotoFb.style.display = 'none';
+      }
+    };
+
     pPhoto.onerror = function () {
       pPhoto.style.display = 'none';
 
@@ -2518,29 +2732,100 @@ function _populateDigitalIssuance(appId) {
             .toUpperCase();
       }
     };
+
+    if (photoSrc) {
+      pPhoto.src = photoSrc;
+    } else {
+      pPhoto.style.display = 'none';
+
+      if (pPhotoFb) {
+        pPhotoFb.style.display = 'block';
+        pPhotoFb.textContent =
+          (app.name || '--')
+            .slice(0, 2)
+            .toUpperCase();
+      }
+    }
   }
 
-  if (pPhotoFb) {
-    pPhotoFb.style.display =
-      photoSrc ? 'none' : 'block';
+  // ==================================================
+  // FORM FIELDS
+  // ==================================================
 
-    pPhotoFb.textContent =
-      (app.name || '--')
-        .slice(0, 2)
-        .toUpperCase();
+  const nameEl =
+    document.getElementById(
+      'di-preview-name'
+    );
+
+  const addressEl =
+    document.getElementById(
+      'di-preview-address'
+    );
+
+  const dobEl =
+    document.getElementById(
+      'di-preview-dob'
+    );
+
+  const sexEl =
+    document.getElementById(
+      'di-preview-sex'
+    );
+
+  const dateIssuedEl =
+    document.getElementById(
+      'di-preview-date-issued'
+    );
+
+  const controlNoEl =
+    document.getElementById(
+      'di-preview-control-no'
+    );
+
+  if (nameEl) {
+    nameEl.textContent = fullName;
   }
 
-  // Small form lines
-  document.getElementById('di-preview-name').textContent = fullName;
-  document.getElementById('di-preview-address').textContent = app.address || '________________';
-  document.getElementById('di-preview-dob').textContent = dobFormatted;
-  document.getElementById('di-preview-sex').textContent = sexVal;
-  document.getElementById('di-preview-date-issued').textContent = new Date().toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
-  document.getElementById('di-preview-control-no').textContent = controlNo;
+  if (addressEl) {
+    addressEl.textContent =
+      app.address ||
+      '________________';
+  }
 
-  // Signature
-  const pSig = document.getElementById('di-preview-signature');
-  const pSigFb = document.getElementById('di-preview-sign-fallback');
+  if (dobEl) {
+    dobEl.textContent =
+      dobFormatted;
+  }
+
+  if (sexEl) {
+    sexEl.textContent =
+      sexVal;
+  }
+
+  if (dateIssuedEl) {
+    dateIssuedEl.textContent =
+      app.dateIssued
+        ? formatDateForForm(
+            app.dateIssued
+          )
+        : new Date().toLocaleDateString(
+            'en-PH',
+            {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            }
+          );
+  }
+
+  if (controlNoEl) {
+    controlNoEl.textContent =
+      controlNo;
+  }
+
+  // ==================================================
+  // SIGNATURE
+  // ==================================================
 
   const sigSrc =
     app.signature ||
@@ -2548,40 +2833,99 @@ function _populateDigitalIssuance(appId) {
     '';
 
   if (pSig) {
-    pSig.src = sigSrc;
-    pSig.style.display = sigSrc ? 'block' : 'none';
+    pSig.onload = function () {
+      pSig.style.display = 'block';
 
-    // If the image URL fails, show the fallback
+      if (pSigFb) {
+        pSigFb.style.display = 'none';
+      }
+    };
+
     pSig.onerror = function () {
       pSig.style.display = 'none';
 
       if (pSigFb) {
         pSigFb.style.display = 'block';
+        pSigFb.textContent =
+          'No signature image';
       }
     };
+
+    if (sigSrc) {
+      pSig.src = sigSrc;
+    } else {
+      pSig.style.display = 'none';
+
+      if (pSigFb) {
+        pSigFb.style.display = 'block';
+        pSigFb.textContent =
+          'No signature image';
+      }
+    }
   }
 
-  if (pSigFb) {
-    pSigFb.style.display =
-      sigSrc ? 'none' : 'block';
-  }
+  // ==================================================
+  // MODE-SPECIFIC UI
+  // ==================================================
 
-  // Mode-specific UI
-  var footer = document.getElementById('di-modal-footer');
-  var title = document.getElementById('di-modal-title');
-  var editableIds = ['di-preview-name', 'di-preview-address', 'di-preview-dob', 'di-preview-sex', 'di-preview-date-issued', 'di-preview-control-no'];
+  const footer =
+    document.getElementById(
+      'di-modal-footer'
+    );
+
+  const title =
+    document.getElementById(
+      'di-modal-title'
+    );
+
+  const editableIds = [
+    'di-preview-name',
+    'di-preview-address',
+    'di-preview-dob',
+    'di-preview-sex',
+    'di-preview-date-issued',
+    'di-preview-control-no'
+  ];
 
   if (DI_MODE === 'staff') {
-    if (footer) footer.style.display = '';
-    if (title) title.textContent = 'Generate Issuance Form';
-    editableIds.forEach(function (id) { var el = document.getElementById(id); if (el) el.contentEditable = 'true'; });
-  } else {
-    if (footer) footer.style.display = 'none';
-    if (title) title.textContent = 'Digital Issuance Form';
-    editableIds.forEach(function (id) { var el = document.getElementById(id); if (el) el.contentEditable = 'false'; });
-  }
+    if (footer) {
+      footer.style.display = '';
+    }
 
-  document.getElementById('digital-issuance-modal').classList.add('show');
+    if (title) {
+      title.textContent =
+        'Generate Issuance Form';
+    }
+
+    editableIds.forEach(function (id) {
+      const el =
+        document.getElementById(id);
+
+      if (el) {
+        el.contentEditable = 'true';
+      }
+    });
+
+  } else {
+
+    if (footer) {
+      footer.style.display = 'none';
+    }
+
+    if (title) {
+      title.textContent =
+        'Digital Issuance Form';
+    }
+
+    editableIds.forEach(function (id) {
+      const el =
+        document.getElementById(id);
+
+      if (el) {
+        el.contentEditable = 'false';
+      }
+    });
+  }
 }
 
 function closeDigitalIssuance() {
@@ -2899,87 +3243,162 @@ function syncApplicationsTableBadge(appId, newStatus) {
   updateStatusTabCounts();
 }
 
-function downloadDigitalIssuanceDocs() {
-  const name = document.getElementById('di-preview-name')?.textContent || '________________';
-  const address = document.getElementById('di-preview-address')?.textContent || '________________';
-  const dob = document.getElementById('di-preview-dob')?.textContent || '________________';
-  const sex = document.getElementById('di-preview-sex')?.textContent || '________________';
-  const dateIssued = document.getElementById('di-preview-date-issued')?.textContent || '________________';
-  const controlNo = document.getElementById('di-preview-control-no')?.textContent || '________________';
-  const appId = DI_CURRENT_APP_ID || '—';
+async function downloadDigitalIssuanceDocs() {
+  if (!DI_CURRENT_APP_ID) {
+    showToast(
+      'No applicant selected.',
+      'error'
+    );
 
-  const photoEl = document.getElementById('di-preview-photo');
-  const photoSrc = (photoEl && photoEl.style.display !== 'none') ? photoEl.src : '';
-  const sigEl = document.getElementById('di-preview-signature');
-  const sigSrc = (sigEl && sigEl.style.display !== 'none') ? sigEl.src : '';
+    return;
+  }
 
-  var photoHTML = photoSrc
-    ? '<p style="text-align:center;margin:0 0 10px"><img src="' + photoSrc + '" width="100" height="100" style="border:1px solid #222;display:block;margin:0 auto" alt="Photo"/></p>'
-    : '<p style="text-align:center;margin:0 0 10px"><span style="display:inline-block;width:100px;height:100px;border:1px solid #222;line-height:100px;font-size:22px;font-weight:700">--</span></p>';
+  const appId =
+    DI_CURRENT_APP_ID;
 
-  var sigHTML = sigSrc
-    ? '<img src="' + sigSrc + '" width="120" height="56" style="display:block;margin:0 auto 3px;border:1px solid #222" alt="Signature"/>'
-    : '';
+  const name =
+    document
+      .getElementById(
+        'di-preview-name'
+      )
+      ?.textContent
+      ?.trim() || '';
 
-  var fieldRow = function (label, value) {
-    return '<tr>' +
-      '<td style="font-size:12px;font-weight:700;white-space:nowrap;vertical-align:bottom;padding:0 6px 4px 0;width:1px">' + label + '</td>' +
-      '<td style="font-size:12px;border-bottom:1px solid #777;padding:0 0 3px 0;vertical-align:bottom">' + value + '</td>' +
-      '</tr>';
-  };
+  const address =
+    document
+      .getElementById(
+        'di-preview-address'
+      )
+      ?.textContent
+      ?.trim() || '';
 
-  var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC/html40">' +
-    '<head><meta charset="utf-8"/><title>Digital Issuance Form</title>' +
-    '<style>' +
-    '@page{size:portrait;margin:0.75in}' +
-    'body{margin:0;padding:0;font-family:Arial,sans-serif;font-size:12px;color:#111}' +
-    'table{border-collapse:collapse}' +
-    '</style></head><body>' +
-    '<table width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center">' +
-    '<table width="400" cellpadding="0" cellspacing="0" border="0" style="border:1.5px solid #222;background:#fff">' +
-    // Header
-    '<tr><td style="text-align:center;line-height:1.3;padding:12px 14px 8px;font-size:12px;font-weight:700">' +
-    'REPUBLIC OF THE PHILIPPINES<br/>' +
-    'OFFICE OF THE SENIOR CITIZEN AFFAIRS - OSCA<br/>' +
-    'MUNICIPALITY OF BAUAN' +
-    '</td></tr>' +
-    // Photo
-    '<tr><td style="padding:0 14px 10px;text-align:center">' + photoHTML + '</td></tr>' +
-    // Fields
-    '<tr><td style="padding:0 14px 8px">' +
-    '<table width="100%" cellpadding="0" cellspacing="0" border="0">' +
-    fieldRow('NAME:', name) +
-    fieldRow('ADDRESS:', address) +
-    fieldRow('DATE OF BIRTH:', dob) +
-    fieldRow('SEX:', sex) +
-    fieldRow('DATE ISSUED:', dateIssued) +
-    fieldRow('CONTROL NO.:', controlNo) +
-    '</table>' +
-    '</td></tr>' +
-    // Signature footer
-    '<tr><td style="padding:40px 14px 14px;text-align:right">' +
-    '<table cellpadding="0" cellspacing="0" border="0" align="right"><tr><td style="text-align:center">' +
-    '<table width="120" cellpadding="0" cellspacing="0" border="0" style="border:1.5px solid #222"><tr><td style="height:56px;text-align:center;vertical-align:middle">' + sigHTML + '</td></tr></table>' +
-    '<div style="font-size:11px;margin-top:3px">Signature</div>' +
-    '</td></tr></table>' +
-    '</td></tr>' +
-    '</table>' +
-    '</td></tr></table>' +
-    '</body></html>';
+  const dob =
+    document
+      .getElementById(
+        'di-preview-dob'
+      )
+      ?.textContent
+      ?.trim() || '';
 
-  var blob = new Blob(['\ufeff', html], { type: 'application/msword' });
-  var url = URL.createObjectURL(blob);
-  var a = document.createElement('a');
-  a.href = url;
-  a.download = 'Digital_Issuance_' + (appId.replace(/[^a-zA-Z0-9-]/g, '_')) + '.doc';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('Downloaded issuance form as .doc', 'success');
+  const sex =
+    document
+      .getElementById(
+        'di-preview-sex'
+      )
+      ?.textContent
+      ?.trim() || '';
+
+  const dateIssued =
+    document
+      .getElementById(
+        'di-preview-date-issued'
+      )
+      ?.textContent
+      ?.trim() || '';
+
+  const controlNo =
+    document
+      .getElementById(
+        'di-preview-control-no'
+      )
+      ?.textContent
+      ?.trim() || '';
+
+  try {
+    showToast(
+      'Preparing Word document...',
+      'info'
+    );
+
+    const response =
+      await fetch(
+        'https://management-backend-3cij.onrender.com/api/applications/' +
+        encodeURIComponent(appId) +
+        '/issuance-document',
+        {
+          method: 'POST',
+
+          headers: {
+            'Content-Type':
+              'application/json'
+          },
+
+          body: JSON.stringify({
+            name,
+            address,
+            dob,
+            sex,
+            dateIssued,
+            controlNo
+          })
+        }
+      );
+
+    if (!response.ok) {
+      let message =
+        'Failed to generate Word document.';
+
+      try {
+        const result =
+          await response.json();
+
+        message =
+          result.message ||
+          message;
+
+      } catch (_) {}
+
+      throw new Error(message);
+    }
+
+    const blob =
+      await response.blob();
+
+    const url =
+      URL.createObjectURL(blob);
+
+    const link =
+      document.createElement('a');
+
+    link.href = url;
+
+    link.download =
+      'Digital_Issuance_' +
+      String(appId)
+        .replace(
+          /[^a-zA-Z0-9-_]/g,
+          '_'
+        ) +
+      '.docx';
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    document.body.removeChild(link);
+
+    setTimeout(function () {
+      URL.revokeObjectURL(url);
+    }, 1000);
+
+    showToast(
+      'Word document downloaded successfully.',
+      'success'
+    );
+
+  } catch (error) {
+    console.error(
+      'Error downloading issuance document:',
+      error
+    );
+
+    showToast(
+      error.message ||
+      'Failed to download Word document.',
+      'error'
+    );
+  }
 }
-
-
 
 /* Rule-based validation */
 

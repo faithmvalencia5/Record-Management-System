@@ -151,9 +151,9 @@
               </div>
             </div>
             <div class="stat-card__body">
-              <div class="stat-card__label">Pending Export</div>
+              <div class="stat-card__label">Queued</div>
               <div class="stat-card__value">0</div>
-              <div class="stat-card__sub">Awaiting File Generation</div>
+              <div class="stat-card__sub">Waiting for Production</div>
             </div>
           </div>
           <div class="stat-card">
@@ -166,7 +166,7 @@
             <div class="stat-card__body">
               <div class="stat-card__label">In Production</div>
               <div class="stat-card__value">0</div>
-              <div class="stat-card__sub">Generating Documents</div>
+              <div class="stat-card__sub">Currently Being Processed</div>
             </div>
           </div>
           <div class="stat-card stat-card--success">
@@ -177,9 +177,9 @@
               </div>
             </div>
             <div class="stat-card__body">
-              <div class="stat-card__label">Exported</div>
+              <div class="stat-card__label">Printied</div>
               <div class="stat-card__value">0</div>
-              <div class="stat-card__sub">Files Created Today</div>
+              <div class="stat-card__sub">Successfully Printed</div>
             </div>
           </div>
           <div class="stat-card">
@@ -190,9 +190,9 @@
               </div>
             </div>
             <div class="stat-card__body">
-              <div class="stat-card__label">Ready for Release</div>
+              <div class="stat-card__label">In Transit</div>
               <div class="stat-card__value">0</div>
-              <div class="stat-card__sub">Available for Distribution</div>
+              <div class="stat-card__sub">Ready for Release</div>
             </div>
           </div>
           <div class="stat-card stat-card--danger">
@@ -203,9 +203,9 @@
               </div>
             </div>
             <div class="stat-card__body">
-              <div class="stat-card__label">Export Errors</div>
+              <div class="stat-card__label">Total Queue</div>
               <div class="stat-card__value">0</div>
-                <div class="stat-card__sub">Failed Exports &amp; Data Fix</div>
+                <div class="stat-card__sub">All Active Records</div>
             </div>
           </div>
         </div>
@@ -326,27 +326,9 @@
             </div>
           </div>
 
-          <!-- Bulk action bar — sits flush above table header -->
-          <div class="batch-export" id="batch-export-bar">
-            <label class="batch-export__select-all">
-              <input type="checkbox" id="select-all-queue" onchange="toggleSelectAllQueue(this.checked)" />
-              <span>Select All</span>
-            </label>
-            <span class="batch-export__count" id="batch-selected-count">0 selected</span>
-            <span class="batch-export__spacer"></span>
-            <button class="btn btn--ghost btn--sm" onclick="batchExport('word')"
-              id="btn-export-word" disabled>
-              <i class="fi fi-rr-doc-file" style="margin-right:5px"></i>Export to Word
-            </button>
-            <button class="btn btn--primary btn--sm" onclick="batchExport('pdf')" id="btn-export-pdf" disabled>
-              <i class="fi fi-rr-file-pdf" style="margin-right:5px"></i>Export to PDF
-            </button>
-          </div>
-
           <table class="data-table">
             <thead>
               <tr>
-                <th class="col-check"><input type="checkbox" disabled title="Select all above" /></th>
                 <th>Applicant Name</th>
                 <th>Control No.</th>
                 <th>Barangay</th>
@@ -365,216 +347,410 @@
       </div>
 
   <div class="module" id="mod-id-maker-analytics">
+
     <header class="page-header">
+
       <div class="page-header__left">
+
         <div class="page-header__eyebrow">
-          <h1 class="page-header__title">Queue Analytics</h1>
-          <span class="page-header__badge purple">Live</span>
+
+          <h1 class="page-header__title">
+            Queue Analytics
+          </h1>
+
+          <span class="page-header__badge purple">
+            Live
+          </span>
+
         </div>
-        <p class="page-header__sub">Badge production workflow metrics</p>
+
+        <p class="page-header__sub">
+          Current ID production workload and queue aging.
+        </p>
+
       </div>
+
     </header>
 
-    <div class="an-grid-main" style="gap:16px">
+    <div
+      class="an-grid-main"
+      style="gap:16px">
+
       <div class="an-card an-grid-wide-col">
-        <div class="an-card__header">
-          <div>
-            <div class="an-card__title">Production Queue Status</div>
-            <div class="an-card__sub">Current distribution across production stages</div>
-          </div>
-        </div>
-        <div class="an-card__body" style="flex-direction:row;align-items:center;justify-content:space-between;gap:24px;padding:16px 18px">
-          <div class="chart-wrap" style="height:160px;width:160px;flex-shrink:0"><canvas id="chart-idmaker-status"></canvas></div>
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px 16px;align-items:center;min-width:0">
-            <div style="display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.3">
-              <span style="width:10px;height:10px;border-radius:50%;background:#FDA4AF;flex-shrink:0"></span>
-              <span><strong style="font-size:13px">Awaiting</strong><br /><span style="color:var(--text-muted);font-size:12px" id="idm-awaiting-count">0</span></span>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.3">
-              <span style="width:10px;height:10px;border-radius:50%;background:#F43F5E;flex-shrink:0"></span>
-              <span><strong style="font-size:13px">In Production</strong><br /><span style="color:var(--text-muted);font-size:12px" id="idm-production-count">0</span></span>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.3">
-              <span style="width:10px;height:10px;border-radius:50%;background:#BE123C;flex-shrink:0"></span>
-              <span><strong style="font-size:13px">Exported</strong><br /><span style="color:var(--text-muted);font-size:12px" id="idm-completed-count">0</span></span>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.3">
-              <span style="width:10px;height:10px;border-radius:50%;background:#9F1239;flex-shrink:0"></span>
-              <span><strong style="font-size:13px">Ready for Release</strong><br /><span style="color:var(--text-muted);font-size:12px" id="idm-transit-count">0</span></span>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <div class="an-card">
         <div class="an-card__header">
-          <div>
-            <div class="an-card__title">Avg Crafting Time</div>
-            <div class="an-card__sub">Average processing duration per active batch</div>
-          </div>
-        </div>
-        <div class="an-card__body" style="flex-direction:column;align-items:center;justify-content:center;padding:16px 18px">
-          <div id="idm-avg-time-display" style="text-align:center">
-            <div style="font-size:36px;font-weight:800;font-family:var(--font-display);color:var(--primary);line-height:1">1.8</div>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">minutes avg</div>
-            <div style="margin-top:8px"><span class="badge badge-approved" style="font-size:10px">-0.3 min from last week</span></div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Production throughput charts: Daily Export + Peak Hours -->
-    <div class="an-charts-2col" style="margin-top:20px">
-      <div class="an-card">
-        <div class="an-card__header">
           <div>
-            <div class="an-card__title">Daily Files Exported</div>
-            <div class="an-card__sub">Files generated per shift this week</div>
-          </div>
-        </div>
-        <div class="an-card__body--nop" style="padding:0 20px 20px">
-          <div class="chart-wrap chart-wrap--analytics" style="height:240px;position:relative">
-            <canvas id="chart-idmaker-daily"></canvas>
-            <div class="chart-empty-state" id="empty-idmaker-daily" style="display:flex;flex-direction:column;align-items:center;justify-content:center;position:absolute;top:0;left:0;right:0;bottom:0;color:var(--text-muted);font-size:13px;text-align:center;padding:20px;pointer-events:none;background:rgba(255,255,255,0.85);border-radius:8px">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="margin-bottom:12px;opacity:0.4"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12"/></svg>
-              <span style="font-weight:600;color:var(--text-secondary);margin-bottom:4px">No Export Data</span>
-              <span style="font-size:12px">Live export data will appear here once connected</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="an-card">
-        <div class="an-card__header">
-          <div>
-            <div class="an-card__title">Peak Generation Hours</div>
-            <div class="an-card__sub">Files generated per hour across shifts</div>
-          </div>
-        </div>
-        <div class="an-card__body--nop" style="padding:0 20px 20px">
-          <div class="chart-wrap chart-wrap--analytics" style="height:240px;position:relative">
-            <canvas id="chart-idmaker-peak"></canvas>
-            <div class="chart-empty-state" id="empty-idmaker-peak" style="display:flex;flex-direction:column;align-items:center;justify-content:center;position:absolute;top:0;left:0;right:0;bottom:0;color:var(--text-muted);font-size:13px;text-align:center;padding:20px;pointer-events:none;background:rgba(255,255,255,0.85);border-radius:8px">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="margin-bottom:12px;opacity:0.4"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-              <span style="font-weight:600;color:var(--text-secondary);margin-bottom:4px">No Generation Data</span>
-              <span style="font-size:12px">Live generation-hour data will appear here once connected</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Analytics additions: insights & optimization -->
-    <div class="an-grid-main insights" style="margin-top:24px">
-      <div class="an-card an-card--metric">
-        <div class="an-card__header">
-          <div>
-            <div class="an-card__title">Queue Aging / SLA Tracker</div>
-            <div class="an-card__sub">Applications waiting beyond target SLA windows</div>
-          </div>
-        </div>
-        <div class="an-card__body" style="justify-content:center">
-          <div class="sla-tracker">
-            <div class="sla-big">
-              <div class="sla-big__value" id="sla-24h">0</div>
-              <div class="sla-big__label">waiting &gt; 24h</div>
+            <div class="an-card__title">
+              Production Queue Status
             </div>
-            <div class="sla-segmented-bar" role="img" aria-label="Queue aging distribution">
-              <span class="sla-segment sla-segment--on-time" id="sla-bar-on-time"></span>
-              <span class="sla-segment sla-segment--24h" id="sla-bar-24h"></span>
-              <span class="sla-segment sla-segment--48h" id="sla-bar-48h"></span>
-            </div>
-            <div class="sla-segment-legend">
-              <span><i class="sla-legend-dot sla-legend-dot--on-time"></i>On time</span>
-              <span><i class="sla-legend-dot sla-legend-dot--24h"></i>&gt;24h</span>
-              <span><i class="sla-legend-dot sla-legend-dot--48h"></i>&gt;48h breach</span>
-            </div>
-            <div class="sla-row">
-              <div class="sla-row__box sla-warn"><strong id="sla-48h">0</strong><span>over 48h</span></div>
-              <div class="sla-row__box sla-ok"><strong id="sla-on-time">0</strong><span>on time</span></div>
-              <div class="sla-row__box sla-total"><strong id="sla-total">0</strong><span>in queue</span></div>
-            </div>
-            <div class="sla-note"><i class="fi fi-rr-info" style="margin-right:5px"></i>Target: zero backlog growth beyond 48h for this shift.</div>
-          </div>
-        </div>
-      </div>
 
-      <div class="an-card">
-        <div class="an-card__header">
-          <div>
-            <div class="an-card__title">Error Reason Breakdown</div>
-            <div class="an-card__sub">Causes affecting file generation</div>
-          </div>
-        </div>
-        <div class="an-card__body" style="flex-direction:row;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;position:relative">
-          <div class="chart-wrap" style="height:150px;width:150px;flex-shrink:0;position:relative">
-            <canvas id="chart-idmaker-errors"></canvas>
-            <div class="chart-empty-state" id="empty-idmaker-errors" style="display:flex;flex-direction:column;align-items:center;justify-content:center;position:absolute;top:0;left:0;right:0;bottom:0;color:var(--text-muted);font-size:13px;text-align:center;padding:20px;pointer-events:none;background:rgba(255,255,255,0.85);border-radius:8px">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" style="margin-bottom:10px;opacity:0.4"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              <span style="font-weight:600;color:var(--text-secondary);margin-bottom:4px">No Error Data</span>
-              <span style="font-size:12px">Error breakdown will appear here once connected</span>
+            <div class="an-card__sub">
+              Current distribution across production stages
             </div>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:8px;flex:1;min-width:150px" id="error-breakdown-legend"></div>
-        </div>
-      </div>
 
-      <div class="an-card">
-        <div class="an-card__header">
-          <div>
-            <div class="an-card__title">Document Format Breakdown</div>
-            <div class="an-card__sub">Exported documents split by file format</div>
           </div>
+
         </div>
-        <div class="an-card__body" style="gap:12px">
-          <div style="display:flex;align-items:flex-end;gap:16px;margin-bottom:8px">
+
+
+        <div
+          class="an-card__body"
+          style="
+            flex-direction:row;
+            align-items:center;
+            justify-content:space-between;
+            gap:24px;
+            padding:16px 18px
+          ">
+
+          <div
+            class="chart-wrap"
+            style="
+              height:180px;
+              width:180px;
+              flex-shrink:0
+            ">
+
+            <canvas
+              id="chart-idmaker-status">
+            </canvas>
+
+          </div>
+
+
+          <div
+            style="
+              display:grid;
+              grid-template-columns:repeat(2,1fr);
+              gap:14px 20px;
+              min-width:0
+            ">
+
             <div>
-              <div style="font-size:42px;font-weight:800;font-family:var(--font-display);color:var(--text-primary);line-height:1" id="idm-doc-total">0</div>
-              <div style="font-size:12px;color:var(--text-muted);margin-top:4px">documents exported</div>
-            </div>
-            <div style="flex:1">
-              <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted);margin-bottom:4px">
-                <span style="width:8px;height:8px;border-radius:50%;background:#3B82F6"></span> Word (.docx)
-                <strong style="margin-left:auto;color:var(--text-primary)" id="idm-doc-word">0</strong>
-              </div>
-              <div style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-muted)">
-                <span style="width:8px;height:8px;border-radius:50%;background:#EF4444"></span> PDF (.pdf)
-                <strong style="margin-left:auto;color:var(--text-primary)" id="idm-doc-pdf">0</strong>
-              </div>
-            </div>
-          </div>
-          <div style="height:8px;background:var(--bg-alt);border-radius:var(--r-pill);overflow:hidden;display:flex">
-            <div id="idm-doc-bar-word" style="width:0%;background:#3B82F6"></div>
-            <div id="idm-doc-bar-pdf" style="width:0%;background:#EF4444"></div>
-          </div>
-          <p style="font-size:11px;color:var(--text-muted);margin:0;line-height:1.4">Word (.docx) for editable templates · PDF (.pdf) for final distribution</p>
-        </div>
-      </div>
 
-      <div class="an-card an-insights-wide">
-        <div class="an-card__header">
-          <div>
-            <div class="an-card__title">Processing Speed by Barangay</div>
-            <div class="an-card__sub">Average fulfillment time (minutes) to flag regional bottlenecks</div>
+              <strong>
+                Queued
+              </strong>
+
+              <br>
+
+              <span
+                id="idm-awaiting-count"
+                style="
+                  color:var(--text-muted);
+                  font-size:12px
+                ">
+                0
+              </span>
+
+            </div>
+
+
+            <div>
+
+              <strong>
+                In Production
+              </strong>
+
+              <br>
+
+              <span
+                id="idm-production-count"
+                style="
+                  color:var(--text-muted);
+                  font-size:12px
+                ">
+                0
+              </span>
+
+            </div>
+
+
+            <div>
+
+              <strong>
+                Printed
+              </strong>
+
+              <br>
+
+              <span
+                id="idm-completed-count"
+                style="
+                  color:var(--text-muted);
+                  font-size:12px
+                ">
+                0
+              </span>
+
+            </div>
+
+
+            <div>
+
+              <strong>
+                In Transit
+              </strong>
+
+              <br>
+
+              <span
+                id="idm-transit-count"
+                style="
+                  color:var(--text-muted);
+                  font-size:12px
+                ">
+                0
+              </span>
+
+            </div>
+
           </div>
+
         </div>
-        <div class="an-card__body--nop" style="padding:0 22px 22px">
-          <div class="chart-wrap chart-wrap--analytics" style="height:230px">
-            <canvas id="chart-idmaker-brgy-speed"></canvas>
-            <div class="chart-empty-state" id="empty-idmaker-brgy-speed">Live Barangay processing data will appear here.</div>
-          </div>
-        </div>
+
       </div>
 
       <div class="an-card">
+
         <div class="an-card__header">
+
           <div>
-            <div class="an-card__title">Export Volume by Barangay</div>
-            <div class="an-card__sub">Distribution of generated documents for this shift</div>
+
+            <div class="an-card__title">
+              Queue by Barangay
+            </div>
+
+            <div class="an-card__sub">
+              Top barangays by current production workload
+            </div>
+
           </div>
+
         </div>
-        <div class="an-card__body" style="padding:14px 18px" id="productivity-list"></div>
+
+
+        <div
+          class="an-card__body--nop"
+          style="
+            padding:0 20px 20px
+          ">
+
+          <div
+            class="chart-wrap chart-wrap--analytics"
+            style="
+              height:320px;
+              position:relative
+            ">
+
+            <canvas
+              id="chart-idmaker-barangay">
+            </canvas>
+
+
+            <div
+              class="chart-empty-state"
+              id="empty-idmaker-barangay"
+              style="
+                display:none;
+                flex-direction:column;
+                align-items:center;
+                justify-content:center;
+                position:absolute;
+                inset:0;
+                color:var(--text-muted);
+                font-size:13px;
+                text-align:center;
+                padding:20px;
+                pointer-events:none
+              ">
+
+              <span
+                style="
+                  font-weight:600;
+                  color:var(--text-secondary)
+                ">
+                No Queue Data
+              </span>
+
+              <span
+                style="
+                  font-size:12px;
+                  margin-top:4px
+                ">
+                Barangay workload will appear here
+                when applications enter the queue.
+              </span>
+
+            </div>
+
+          </div>
+
+        </div>
+
       </div>
+
+      <div
+        class="an-card an-card--metric">
+
+        <div class="an-card__header">
+
+          <div>
+
+            <div class="an-card__title">
+              Queue Aging / SLA
+            </div>
+
+            <div class="an-card__sub">
+              Active applications grouped by actual queue age
+            </div>
+
+          </div>
+
+        </div>
+
+
+        <div
+          class="an-card__body"
+          style="
+            justify-content:center
+          ">
+
+          <div class="sla-tracker">
+
+            <div class="sla-big">
+
+              <div
+                class="sla-big__value"
+                id="sla-24h">
+                0
+              </div>
+
+              <div
+                class="sla-big__label">
+                waiting &gt; 24h
+              </div>
+
+            </div>
+
+
+            <div
+              class="sla-segmented-bar"
+              role="img"
+              aria-label="Queue aging distribution">
+
+              <span
+                class="sla-segment sla-segment--on-time"
+                id="sla-bar-on-time">
+              </span>
+
+              <span
+                class="sla-segment sla-segment--24h"
+                id="sla-bar-24h">
+              </span>
+
+              <span
+                class="sla-segment sla-segment--48h"
+                id="sla-bar-48h">
+              </span>
+
+            </div>
+
+
+            <div class="sla-segment-legend">
+
+              <span>
+                <i
+                  class="sla-legend-dot sla-legend-dot--on-time">
+                </i>
+                ≤24h
+              </span>
+
+              <span>
+                <i
+                  class="sla-legend-dot sla-legend-dot--24h">
+                </i>
+                &gt;24h
+              </span>
+
+              <span>
+                <i
+                  class="sla-legend-dot sla-legend-dot--48h">
+                </i>
+                &gt;48h
+              </span>
+
+            </div>
+
+
+            <div class="sla-row">
+
+              <div
+                class="sla-row__box sla-warn">
+
+                <strong id="sla-48h">
+                  0
+                </strong>
+
+                <span>
+                  over 48h
+                </span>
+
+              </div>
+
+
+              <div
+                class="sla-row__box sla-ok">
+
+                <strong id="sla-on-time">
+                  0
+                </strong>
+
+                <span>
+                  on time
+                </span>
+
+              </div>
+
+
+              <div
+                class="sla-row__box sla-total">
+
+                <strong id="sla-total">
+                  0
+                </strong>
+
+                <span>
+                  active queue
+                </span>
+
+              </div>
+
+            </div>
+
+
+            <div class="sla-note">
+
+              <i
+                class="fi fi-rr-info"
+                style="margin-right:5px">
+              </i>
+
+              Queue age is calculated from the
+              record's actual sent time.
+
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
     </div>
+
   </div>
 
   </main>
@@ -775,7 +951,7 @@
         <div style="display:flex;align-items:center;gap:8px">
           <button class="btn btn--ghost" style="height:32px;font-size:12px;padding:0 12px"
             onclick="downloadDigitalIssuanceDocs()">
-            <i class="fi fi-rr-download" style="margin-right:5px"></i>Download as Docs
+            <i class="fi fi-rr-download" style="margin-right:5px"></i>Download Word (.docx)
           </button>
           <button class="modal__close" onclick="closeDigitalIssuance()">
             <svg viewBox="0 0 16 16" fill="currentColor">

@@ -1,5 +1,69 @@
 const supabase = require("../config/supabase");
 
+const {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  ImageRun,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  AlignmentType,
+  BorderStyle,
+} = require("docx");
+
+const getStorageFileBuffer = async (filePath) => {
+  if (!filePath) {
+    return null;
+  }
+
+  const {
+    data,
+    error,
+  } = await supabase.storage
+    .from("documents")
+    .download(filePath);
+
+  if (error || !data) {
+    console.error(
+      "Unable to download Storage file:",
+      filePath,
+      error
+    );
+
+    return null;
+  }
+
+  const arrayBuffer =
+    await data.arrayBuffer();
+
+  return Buffer.from(arrayBuffer);
+};
+
+const getDocxImageType = (filePath) => {
+  const extension =
+    String(filePath || "")
+      .split(".")
+      .pop()
+      .toLowerCase();
+
+  if (extension === "png") {
+    return "png";
+  }
+
+  if (extension === "gif") {
+    return "gif";
+  }
+
+  if (extension === "bmp") {
+    return "bmp";
+  }
+
+  return "jpg";
+};
+
 const createSignedFileUrl = async (filePath) => {
   if (!filePath) {
     return null;
@@ -16,6 +80,529 @@ const createSignedFileUrl = async (filePath) => {
   }
 
   return data?.signedUrl || null;
+};
+
+// DOWNLOAD DIGITAL ISSUANCE FORM AS REAL DOCX
+const downloadIssuanceDocument = async (
+  req,
+  res
+) => {
+  try {
+    const applicationId =
+      req.params.applicationId;
+
+    if (!applicationId) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Application ID is required.",
+      });
+    }
+
+    const {
+      name,
+      address,
+      dob,
+      sex,
+      dateIssued,
+      controlNo,
+    } = req.body || {};
+
+    // --------------------------------------------------
+    // GET APPLICATION + FILES
+    // --------------------------------------------------
+
+    const [
+      applicationResult,
+      filesResult,
+    ] = await Promise.all([
+      supabase
+        .from("applications")
+        .select("*")
+        .eq(
+          "application_id",
+          applicationId
+        )
+        .maybeSingle(),
+
+      supabase
+        .from("application_files")
+        .select(
+          "latest_photo_url, signature_url"
+        )
+        .eq(
+          "application_id",
+          applicationId
+        )
+        .maybeSingle(),
+    ]);
+
+    if (applicationResult.error) {
+      throw applicationResult.error;
+    }
+
+    if (filesResult.error) {
+      throw filesResult.error;
+    }
+
+    const application =
+      applicationResult.data;
+
+    const files =
+      filesResult.data;
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message:
+          "Application not found.",
+      });
+    }
+
+    // --------------------------------------------------
+    // USE EDITED FORM VALUES WHEN PROVIDED
+    // OTHERWISE USE DATABASE VALUES
+    // --------------------------------------------------
+
+    const finalName =
+      name ||
+      [
+        application.first_name,
+        application.middle_name,
+        application.surname,
+      ]
+        .filter(Boolean)
+        .join(" ") ||
+      "________________";
+
+    const finalAddress =
+      address ||
+      application.house_street ||
+      "________________";
+
+    const finalDob =
+      dob ||
+      application.date_of_birth ||
+      "________________";
+
+    const finalSex =
+      sex ||
+      application.sex ||
+      "________________";
+
+    const finalDateIssued =
+      dateIssued ||
+      new Date().toISOString().split("T")[0];
+
+    const finalControlNo =
+      controlNo ||
+      "________________";
+
+    // --------------------------------------------------
+    // DOWNLOAD IMAGES DIRECTLY FROM PRIVATE STORAGE
+    // --------------------------------------------------
+
+    const [
+      photoBuffer,
+      signatureBuffer,
+    ] = await Promise.all([
+      getStorageFileBuffer(
+        files?.latest_photo_url
+      ),
+
+      getStorageFileBuffer(
+        files?.signature_url
+      ),
+    ]);
+
+    // --------------------------------------------------
+    // IMAGE PARAGRAPHS
+    // --------------------------------------------------
+
+    const photoChildren = [];
+
+    if (photoBuffer) {
+      photoChildren.push(
+        new ImageRun({
+          data: photoBuffer,
+
+          transformation: {
+            width: 100,
+            height: 100,
+          },
+
+          type:
+            getDocxImageType(
+              files?.latest_photo_url
+            ),
+        })
+      );
+    } else {
+      photoChildren.push(
+        new TextRun({
+          text: "No photo available",
+          italics: true,
+        })
+      );
+    }
+
+    const signatureChildren = [];
+
+    if (signatureBuffer) {
+      signatureChildren.push(
+        new ImageRun({
+          data: signatureBuffer,
+
+          transformation: {
+            width: 120,
+            height: 56,
+          },
+
+          type:
+            getDocxImageType(
+              files?.signature_url
+            ),
+        })
+      );
+    } else {
+      signatureChildren.push(
+        new TextRun({
+          text: "No signature image",
+          italics: true,
+        })
+      );
+    }
+
+    // --------------------------------------------------
+    // FIELD HELPER
+    // --------------------------------------------------
+
+    const fieldRow = (
+      label,
+      value
+    ) =>
+      new TableRow({
+        children: [
+          new TableCell({
+            width: {
+              size: 1800,
+              type: WidthType.DXA,
+            },
+
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: label,
+                    bold: true,
+                  }),
+                ],
+              }),
+            ],
+          }),
+
+          new TableCell({
+            width: {
+              size: 5000,
+              type: WidthType.DXA,
+            },
+
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text:
+                      String(value || "")
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      });
+
+    // --------------------------------------------------
+    // FIELD TABLE
+    // --------------------------------------------------
+
+    const fieldTable =
+      new Table({
+        width: {
+          size: 6800,
+          type: WidthType.DXA,
+        },
+
+        rows: [
+          fieldRow(
+            "NAME:",
+            finalName
+          ),
+
+          fieldRow(
+            "ADDRESS:",
+            finalAddress
+          ),
+
+          fieldRow(
+            "DATE OF BIRTH:",
+            finalDob
+          ),
+
+          fieldRow(
+            "SEX:",
+            finalSex
+          ),
+
+          fieldRow(
+            "DATE ISSUED:",
+            finalDateIssued
+          ),
+
+          fieldRow(
+            "CONTROL NO.:",
+            finalControlNo
+          ),
+        ],
+      });
+
+    // --------------------------------------------------
+    // SIGNATURE TABLE
+    // --------------------------------------------------
+
+    const signatureTable =
+      new Table({
+        width: {
+          size: 2200,
+          type: WidthType.DXA,
+        },
+
+        rows: [
+          new TableRow({
+            children: [
+              new TableCell({
+                borders: {
+                  top: {
+                    style:
+                      BorderStyle.SINGLE,
+                    size: 6,
+                    color: "222222",
+                  },
+
+                  bottom: {
+                    style:
+                      BorderStyle.SINGLE,
+                    size: 6,
+                    color: "222222",
+                  },
+
+                  left: {
+                    style:
+                      BorderStyle.SINGLE,
+                    size: 6,
+                    color: "222222",
+                  },
+
+                  right: {
+                    style:
+                      BorderStyle.SINGLE,
+                    size: 6,
+                    color: "222222",
+                  },
+                },
+
+                children: [
+                  new Paragraph({
+                    alignment:
+                      AlignmentType.CENTER,
+
+                    children:
+                      signatureChildren,
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      });
+
+    // --------------------------------------------------
+    // CREATE DOCX
+    // --------------------------------------------------
+
+    const doc =
+      new Document({
+        sections: [
+          {
+            properties: {
+              page: {
+                margin: {
+                  top: 720,
+                  right: 720,
+                  bottom: 720,
+                  left: 720,
+                },
+              },
+            },
+
+            children: [
+              new Paragraph({
+                alignment:
+                  AlignmentType.CENTER,
+
+                children: [
+                  new TextRun({
+                    text:
+                      "REPUBLIC OF THE PHILIPPINES",
+                    bold: true,
+                    size: 22,
+                  }),
+                ],
+
+                spacing: {
+                  after: 40,
+                },
+              }),
+
+              new Paragraph({
+                alignment:
+                  AlignmentType.CENTER,
+
+                children: [
+                  new TextRun({
+                    text:
+                      "OFFICE OF THE SENIOR CITIZEN AFFAIRS - OSCA",
+                    bold: true,
+                    size: 22,
+                  }),
+                ],
+
+                spacing: {
+                  after: 40,
+                },
+              }),
+
+              new Paragraph({
+                alignment:
+                  AlignmentType.CENTER,
+
+                children: [
+                  new TextRun({
+                    text:
+                      "MUNICIPALITY OF BAUAN",
+                    bold: true,
+                    size: 22,
+                  }),
+                ],
+
+                spacing: {
+                  after: 240,
+                },
+              }),
+
+              new Paragraph({
+                alignment:
+                  AlignmentType.CENTER,
+
+                children:
+                  photoChildren,
+
+                spacing: {
+                  after: 240,
+                },
+              }),
+
+              fieldTable,
+
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "",
+                  }),
+                ],
+
+                spacing: {
+                  after: 400,
+                },
+              }),
+
+              new Paragraph({
+                alignment:
+                  AlignmentType.RIGHT,
+
+                children: [
+                  new TextRun({
+                    text:
+                      "Signature",
+                    size: 18,
+                  }),
+                ],
+
+                spacing: {
+                  after: 40,
+                },
+              }),
+
+              new Paragraph({
+                alignment:
+                  AlignmentType.RIGHT,
+
+                children: [
+                  signatureTable,
+                ],
+              }),
+            ],
+          },
+        ],
+      });
+
+    // --------------------------------------------------
+    // GENERATE BUFFER
+    // --------------------------------------------------
+
+    const buffer =
+      await Packer.toBuffer(doc);
+
+    const safeId =
+      String(applicationId)
+        .replace(
+          /[^a-zA-Z0-9-_]/g,
+          "_"
+        );
+
+    const filename =
+      `Digital_Issuance_${safeId}.docx`;
+
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    );
+
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${filename}"`
+    );
+
+    res.setHeader(
+      "Content-Length",
+      buffer.length
+    );
+
+    return res.end(buffer);
+
+  } catch (error) {
+    console.error(
+      "Error generating issuance DOCX:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Failed to generate issuance Word document.",
+      error:
+        error.message,
+    });
+  }
 };
 
 const getApplications = async (req, res) => {
@@ -756,4 +1343,5 @@ module.exports = {
   saveApplicationValidation,
   updateApplicationStatus,
   updateDocumentAuthentication,
+  downloadIssuanceDocument,
 };

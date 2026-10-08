@@ -77,8 +77,9 @@ async function loadIdMakerQueueFromDatabase(showMessage = false) {
     }
 
     console.log(
-      'ID Maker queue loaded from database:',
-      ID_MAKER_QUEUE
+      'ID Maker queue loaded:',
+      ID_MAKER_QUEUE.length,
+      'records'
     );
 
     // Re-render queue
@@ -170,27 +171,25 @@ function filterQueueChip(btn,status){
   applyQueueFilters();
 }
 
-function initIdMakerCharts(){
-  var mod = document.getElementById('mod-id-maker-analytics');
-  if(!mod || !mod.classList.contains('active')) return;
-  initIdMakerStatusChart();
-  initIdMakerDailyChart();
-  initIdMakerInsightCharts();
+function initIdMakerCharts() {
+  var mod =
+    document.getElementById(
+      'mod-id-maker-analytics'
+    );
+
+  if (
+    !mod ||
+    !mod.classList.contains(
+      'active'
+    )
+  ) {
+    return;
+  }
+
   updateIdMakerAnalytics();
 }
 
-function initIdMakerDailyChart(){
-  var ctx = mkCanvas('chart-idmaker-daily'); if(!ctx)return;
-  var dailyData = []; // TODO(integration): populate from live system
-  var labels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']; // default labels for axis skeleton
-  var empty = document.getElementById('empty-idmaker-daily'); if(empty) empty.style.display = dailyData.length ? 'none' : 'flex';
-  if(CHARTS['idmaker-daily']) CHARTS['idmaker-daily'].destroy();
-  CHARTS['idmaker-daily'] = new Chart(ctx,{
-    type:'bar',
-    data:{labels:labels,datasets:[{type:'bar',label:'Files Exported',data:dailyData,backgroundColor:'rgba(37,99,235,0.62)',borderRadius:6,borderSkipped:false,yAxisID:'y'},{type:'line',label:'Peak-hour index',data:[],borderColor:C.green,backgroundColor:'rgba(5,150,105,0.12)',fill:true,tension:.35,pointRadius:3,yAxisID:'y1'}]},
-    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:10,padding:12,font:{size:10}}},tooltip:{...TIP}},scales:{x:{grid:{display:false},ticks:{color:C.text,font:{size:11}},display:true},y:{beginAtZero:true,position:'left',grid:{color:C.grid,drawBorder:false},ticks:{color:C.text,font:{size:10},stepSize:1,precision:0},display:true,min:0,max:10},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},ticks:{color:C.green,font:{size:10},stepSize:1,precision:0},display:true,min:0,max:10}}}
-  });
-}
+
 
 function initIdMakerQueue(){
   const tbody = document.getElementById('id-maker-queue-tbody');
@@ -220,7 +219,6 @@ function initIdMakerQueue(){
       '</button>' +
       '<div class="qsd-menu">' + menuItems + '</div>';
     tr.innerHTML = [
-      '<td class="col-check"><input type="checkbox" class="queue-check" data-id="' + app.id + '" onchange="updateBatchSelection()"></td>',
       '<td data-label="Applicant">',
       '  <div class="applicant-cell">',
       '    <span class="applicant-avatar" style="background:linear-gradient(135deg,#7140D8,#5C51E0)">' + (app.name||'--').slice(0,2).toUpperCase() + '</span>',
@@ -255,18 +253,287 @@ async function refreshIdMakerQueue() {
 
 }
 
-function initIdMakerStatusChart(){
-  var ctx = mkCanvas('chart-idmaker-status'); if(!ctx)return;
-  var counts = { Queued:0, 'In Production':0, Printed:0, 'In Transit':0 };
-  ID_MAKER_QUEUE.forEach(function(a){ if(counts[a.printStatus]!==undefined) counts[a.printStatus]++; });
-  if(CHARTS['idmaker-status']) CHARTS['idmaker-status'].destroy();
-  CHARTS['idmaker-status'] = new Chart(ctx,{
-    type:'doughnut',
-    data:{
-      labels:['Awaiting','In Production','Exported','Ready for Release'],
-      datasets:[{data:[counts.Queued, counts['In Production'], counts.Printed, counts['In Transit']],backgroundColor:['#FDA4AF','#F43F5E','#BE123C','#9F1239'],borderColor:'#FFFFFF',borderWidth:2,hoverOffset:6}]
+function initIdMakerStatusChart() {
+  var ctx =
+    mkCanvas(
+      'chart-idmaker-status'
+    );
+
+  if (!ctx) return;
+
+  var counts = {
+    Queued: 0,
+    'In Production': 0,
+    Printed: 0,
+    'In Transit': 0
+  };
+
+  ID_MAKER_QUEUE.forEach(
+    function (app) {
+      if (
+        counts[app.printStatus] !==
+        undefined
+      ) {
+        counts[
+          app.printStatus
+        ]++;
+      }
+    }
+  );
+
+  if (
+    CHARTS['idmaker-status']
+  ) {
+    CHARTS[
+      'idmaker-status'
+    ].destroy();
+  }
+
+  CHARTS[
+    'idmaker-status'
+  ] = new Chart(ctx, {
+    type: 'doughnut',
+
+    data: {
+      labels: [
+        'Queued',
+        'In Production',
+        'Printed',
+        'In Transit'
+      ],
+
+      datasets: [
+        {
+          data: [
+            counts.Queued,
+            counts['In Production'],
+            counts.Printed,
+            counts['In Transit']
+          ],
+
+          backgroundColor: [
+            '#FDA4AF',
+            '#F43F5E',
+            '#BE123C',
+            '#9F1239'
+          ],
+
+          borderColor:
+            '#FFFFFF',
+
+          borderWidth: 2,
+
+          hoverOffset: 6
+        }
+      ]
     },
-    options:{responsive:true,maintainAspectRatio:false,cutout:'68%',plugins:{legend:{display:false},tooltip:{...TIP,callbacks:{label:c=>{var t=counts.Queued+counts['In Production']+counts.Printed+counts['In Transit']; var pct=t?Math.round(c.parsed/t*100):0; return ' '+c.label+': '+c.parsed+' ('+pct+'%)';}}}}}
+
+    options: {
+      responsive: true,
+
+      maintainAspectRatio: false,
+
+      cutout: '68%',
+
+      plugins: {
+        legend: {
+          display: false
+        },
+
+        tooltip: {
+          ...TIP,
+
+          callbacks: {
+            label: function (c) {
+              var total =
+                counts.Queued +
+                counts['In Production'] +
+                counts.Printed +
+                counts['In Transit'];
+
+              var pct =
+                total
+                  ? Math.round(
+                      c.parsed /
+                      total *
+                      100
+                    )
+                  : 0;
+
+              return (
+                ' ' +
+                c.label +
+                ': ' +
+                c.parsed +
+                ' (' +
+                pct +
+                '%)'
+              );
+            }
+          }
+        }
+      }
+    }
+  });
+
+  setText(
+    'idm-awaiting-count',
+    counts.Queued
+  );
+
+  setText(
+    'idm-production-count',
+    counts['In Production']
+  );
+
+  setText(
+    'idm-completed-count',
+    counts.Printed
+  );
+
+  setText(
+    'idm-transit-count',
+    counts['In Transit']
+  );
+}
+
+function initIdMakerBarangayChart() {
+  var ctx =
+    mkCanvas(
+      'chart-idmaker-barangay'
+    );
+
+  if (!ctx) return;
+
+  var barangayCounts = {};
+
+  ID_MAKER_QUEUE.forEach(
+    function (app) {
+      var barangay =
+        String(
+          app.barangay ||
+          'Unknown'
+        ).trim();
+
+      if (!barangay) {
+        barangay = 'Unknown';
+      }
+
+      barangayCounts[barangay] =
+        (
+          barangayCounts[
+            barangay
+          ] || 0
+        ) + 1;
+    }
+  );
+
+  var sorted =
+    Object.entries(
+      barangayCounts
+    )
+      .sort(
+        function (a, b) {
+          return b[1] - a[1];
+        }
+      )
+      .slice(0, 10);
+
+  var labels =
+    sorted.map(
+      function (item) {
+        return item[0];
+      }
+    );
+
+  var values =
+    sorted.map(
+      function (item) {
+        return item[1];
+      }
+    );
+
+  var empty =
+    document.getElementById(
+      'empty-idmaker-barangay'
+    );
+
+  if (empty) {
+    empty.style.display =
+      values.length
+        ? 'none'
+        : 'flex';
+  }
+
+  if (
+    CHARTS[
+      'idmaker-barangay'
+    ]
+  ) {
+    CHARTS[
+      'idmaker-barangay'
+    ].destroy();
+  }
+
+  CHARTS[
+    'idmaker-barangay'
+  ] = new Chart(ctx, {
+    type: 'bar',
+
+    data: {
+      labels,
+
+      datasets: [
+        {
+          label:
+            'Applications',
+
+          data: values,
+
+          backgroundColor:
+            'rgba(37,99,235,0.65)',
+
+          borderRadius: 6,
+
+          borderSkipped: false
+        }
+      ]
+    },
+
+    options: {
+      indexAxis: 'y',
+
+      responsive: true,
+
+      maintainAspectRatio:
+        false,
+
+      plugins: {
+        legend: {
+          display: false
+        },
+
+        tooltip: {
+          ...TIP
+        }
+      },
+
+      scales: {
+        x: {
+          beginAtZero: true,
+
+          ticks: {
+            precision: 0
+          }
+        },
+
+        y: {
+          grid: {
+            display: false
+          }
+        }
+      }
+    }
   });
 }
 
@@ -623,59 +890,6 @@ function filterQueueByStatusTag(btn, status){
   applyQueueFilters();
 }
 
-function toggleSelectAllQueue(checked){
-  document.querySelectorAll('#id-maker-queue-tbody tr').forEach(function(r){
-    if(r.style.display !== 'none'){
-      const cb = r.querySelector('.queue-check');
-      if(cb) cb.checked = checked;
-    }
-  });
-  updateBatchSelection();
-}
-
-function updateBatchSelection(){
-  const checks = Array.prototype.slice.call(document.querySelectorAll('#id-maker-queue-tbody .queue-check'));
-  const allQ = document.getElementById('select-all-queue');
-  if(allQ){
-    const visible = checks.filter(c => c.closest('tr').style.display !== 'none');
-    allQ.checked = visible.length > 0 && visible.every(c => c.checked);
-    allQ.indeterminate = !allQ.checked && visible.some(c => c.checked);
-  }
-  const selected = checks.filter(c => c.checked);
-  const countEl = document.getElementById('batch-selected-count');
-  if(countEl) countEl.textContent = selected.length + ' selected';
-  const hasSel = selected.length > 0;
-  const w = document.getElementById('btn-export-word');
-  const p = document.getElementById('btn-export-pdf');
-  if(w) w.disabled = !hasSel;
-  if(p) p.disabled = !hasSel;
-}
-
-function updateQueueCheckedDisabled(){
-  const checks = document.querySelectorAll('#id-maker-queue-tbody .queue-check');
-  checks.forEach(function(c){
-    const row = c.closest('tr');
-    if(row){
-      const hidden = row.style.display === 'none';
-      c.disabled = hidden;
-      if(hidden) c.checked = false;
-    }
-  });
-}
-
-function batchExport(format){
-  const checks = Array.prototype.slice.call(document.querySelectorAll('#id-maker-queue-tbody .queue-check:checked'));
-  const names = checks.map(c => {
-    const row = c.closest('tr');
-    return row ? (row.querySelector('.applicant-name')?.textContent || 'ID Card') : 'ID Card';
-  });
-  const label = format === 'word' ? 'Word (DOCX)' : 'PDF';
-  showToast('Exported ' + checks.length + ' file(s) to ' + label + ': ' + names.join(', '), 'success');
-  checks.forEach(c => { c.checked = false; });
-  document.getElementById('select-all-queue') && (document.getElementById('select-all-queue').checked = false);
-  updateBatchSelection();
-}
-
 function dismissSystemAlert(){
   const b = document.getElementById('system-alert-banner');
   if(b) b.style.display = 'none';
@@ -687,159 +901,243 @@ function updateAlertCounts(){
 }
 
 /* ── Queue Analytics additions: insights & optimization ── */
-function initIdMakerInsightCharts(){
-  initIdMakerPeakChart();
-  initIdMakerErrorBreakdownChart();
-  initIdMakerBrgySpeedChart();
+function initIdMakerInsightCharts() {
+  initIdMakerBarangayChart();
   initIdMakerSLA();
-  initIdMakerProductivity();
 }
 
-function initIdMakerPeakChart(){
-  var ctx = mkCanvas('chart-idmaker-peak'); if(!ctx)return;
-  var labels = ['6AM','8AM','10AM','12PM','2PM','4PM','6PM','8PM']; // default labels for axis skeleton
-  var data = []; // TODO(integration): populate from live system
-  var empty = document.getElementById('empty-idmaker-peak'); if(empty) empty.style.display = data.length ? 'none' : 'flex';
-  if(CHARTS['idmaker-peak']) CHARTS['idmaker-peak'].destroy();
-  CHARTS['idmaker-peak'] = new Chart(ctx,{
-    type:'bar',
-    data:{labels:labels,datasets:[{type:'bar',label:'Files Generated',data:data,backgroundColor:'rgba(37,99,235,0.58)',borderRadius:5,yAxisID:'y'},{type:'line',label:'Peak intensity',data:[],borderColor:C.amber,backgroundColor:'rgba(245,158,11,0.14)',fill:true,tension:.35,pointRadius:3,yAxisID:'y1'}]},
-    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},plugins:{legend:{display:true,position:'bottom',labels:{boxWidth:10,padding:12,font:{size:10}}},tooltip:{...TIP}},scales:{x:{grid:{display:false},ticks:{color:C.text,font:{size:10},maxRotation:0,autoSkip:true,maxTicksLimit:8},display:true},y:{beginAtZero:true,position:'left',grid:{color:C.grid,drawBorder:false},ticks:{color:C.text,font:{size:10},stepSize:1,precision:0},display:true,min:0,max:10},y1:{beginAtZero:true,position:'right',grid:{drawOnChartArea:false},ticks:{color:C.amber,font:{size:10},stepSize:1,precision:0},display:true,min:0,max:10}}}
-  });
-}
+function initIdMakerSLA() {
+  const now =
+    Date.now();
 
-function initIdMakerErrorBreakdownChart(){
-  var ctx = mkCanvas('chart-idmaker-errors'); if(!ctx)return;
-  var labels = ['Template Missing','Data Mismatch','Font Error','Timeout']; // default labels for axis skeleton
-  var data = [0,0,0,0]; // TODO(integration): populate errors from live system
-  var colors = ['#F43F5E','#F97316','#EAB308','#22C55E'];
-  var empty = document.getElementById('empty-idmaker-errors'); if(empty) empty.style.display = data.some(function(v){return v>0;}) ? 'none' : 'flex';
-  if(CHARTS['idmaker-errors']) CHARTS['idmaker-errors'].destroy();
-  CHARTS['idmaker-errors'] = new Chart(ctx,{
-    type:'doughnut',
-    data:{labels:labels,datasets:[{data:data,backgroundColor:colors,borderColor:'#FFFFFF',borderWidth:2,hoverOffset:4}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'66%',plugins:{legend:{display:false},tooltip:{...TIP,callbacks:{label:c=>{var t=data.reduce(function(a,b){return a+b;},0);var pct=t?Math.round(c.parsed/t*100):0;return ' '+c.label+': '+c.parsed+' ('+pct+'%)';}}}}}
-  });
-  const leg = document.getElementById('error-breakdown-legend');
-  if(leg){
-    leg.innerHTML = labels.map(function(l,i){
-      return '<div style="display:flex;align-items:center;gap:7px;font-size:12.5px">' +
-        '<span style="width:9px;height:9px;border-radius:50%;background:'+colors[i]+';flex-shrink:0"></span>' +
-        '<span style="color:var(--text-secondary)">'+l+'</span>' +
-        '<strong style="margin-left:auto">'+data[i]+'</strong></div>';
-    }).join('');
+  let onTime = 0;
+  let over24 = 0;
+  let over48 = 0;
+
+  const activeItems =
+    ID_MAKER_QUEUE.filter(
+      function (app) {
+        return (
+          app.printStatus ===
+            'Queued' ||
+          app.printStatus ===
+            'In Production'
+        );
+      }
+    );
+
+  activeItems.forEach(
+    function (app) {
+      if (!app.sentAt) {
+        onTime++;
+        return;
+      }
+
+      const sentTime =
+        new Date(
+          app.sentAt
+        ).getTime();
+
+      if (
+        Number.isNaN(
+          sentTime
+        )
+      ) {
+        onTime++;
+        return;
+      }
+
+      const hours =
+        (
+          now -
+          sentTime
+        ) /
+        (
+          1000 *
+          60 *
+          60
+        );
+
+      if (hours > 48) {
+        over48++;
+      } else if (hours > 24) {
+        over24++;
+      } else {
+        onTime++;
+      }
+    }
+  );
+
+  const total =
+    activeItems.length;
+
+  setText(
+    'sla-24h',
+    over24 + over48
+  );
+
+  setText(
+    'sla-48h',
+    over48
+  );
+
+  setText(
+    'sla-on-time',
+    onTime
+  );
+
+  setText(
+    'sla-total',
+    total
+  );
+
+  const denominator =
+    total || 1;
+
+  const onTimeBar =
+    document.getElementById(
+      'sla-bar-on-time'
+    );
+
+  const over24Bar =
+    document.getElementById(
+      'sla-bar-24h'
+    );
+
+  const over48Bar =
+    document.getElementById(
+      'sla-bar-48h'
+    );
+
+  if (onTimeBar) {
+    onTimeBar.style.width =
+      (
+        onTime /
+        denominator *
+        100
+      ) + '%';
+  }
+
+  if (over24Bar) {
+    over24Bar.style.width =
+      (
+        over24 /
+        denominator *
+        100
+      ) + '%';
+  }
+
+  if (over48Bar) {
+    over48Bar.style.width =
+      (
+        over48 /
+        denominator *
+        100
+      ) + '%';
   }
 }
 
-function initIdMakerBrgySpeedChart(){
-  var ctx = mkCanvas('chart-idmaker-brgy-speed'); if(!ctx)return;
-  var brgys = []; // TODO(integration): populate from live system
-  var mins = []; // TODO(integration): populate from live system
-  var empty = document.getElementById('empty-idmaker-brgy-speed'); if(empty) empty.style.display = brgys.length ? 'none' : 'flex';
-  if(CHARTS['idmaker-brgy']) CHARTS['idmaker-brgy'].destroy();
-  CHARTS['idmaker-brgy'] = new Chart(ctx,{
-    type:'bar',
-    data:{labels:brgys,datasets:[{label:'Avg Minutes',data:mins,backgroundColor:'rgba(37,99,235,0.7)',hoverBackgroundColor:C.primary,borderRadius:5}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{...TIP,callbacks:{label:c=>{return ' '+c.parsed.x+' min avg';}}}},scales:{x:{beginAtZero:true,grid:{color:C.grid,drawBorder:false},ticks:{color:C.text,font:{size:10}}},y:{grid:{display:false},ticks:{color:C.text,font:{size:11}}}}}
-  });
-}
+function updateIdMakerAnalytics() {
+  var mod =
+    document.getElementById(
+      'mod-id-maker-analytics'
+    );
 
-function initIdMakerSLA(){
-  const counts = { Queued:0, 'In Production':0, Printed:0, 'In Transit':0 };
-  ID_MAKER_QUEUE.forEach(a => { if(counts[a.printStatus] !== undefined) counts[a.printStatus]++; });
-  const total = ID_MAKER_QUEUE.length;
-  const onTime = counts.Printed + counts['In Transit'];
-  const over24 = counts.Queued;
-  const over48 = Math.max(0, Math.round(over24 * 0.5));
-  setText('sla-24h', over24);
-  setText('sla-48h', over48);
-  setText('sla-on-time', onTime);
-  setText('sla-total', total);
-  var denominator = total || 1;
-  var onTimeBar = document.getElementById('sla-bar-on-time');
-  var over24Bar = document.getElementById('sla-bar-24h');
-  var over48Bar = document.getElementById('sla-bar-48h');
-  if(onTimeBar) onTimeBar.style.width = (onTime / denominator * 100) + '%';
-  if(over24Bar) over24Bar.style.width = (Math.max(0, over24 - over48) / denominator * 100) + '%';
-  if(over48Bar) over48Bar.style.width = (over48 / denominator * 100) + '%';
-}
-
-function initIdMakerProductivity(){
-  const list = document.getElementById('productivity-list');
-  if(!list) return;
-  const rows = []; // TODO(integration): populate from live system
-  if(!rows.length){
-    list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text-muted);font-size:13px">No productivity data yet. Data will appear once connected to the live system.</div>';
+  if (
+    !mod ||
+    !mod.classList.contains(
+      'active'
+    )
+  ) {
     return;
   }
-  const total = rows.reduce(function(a,r){ return a + r.count; }, 0);
-  list.innerHTML = rows.map(function(r){
-    return '<div style="display:flex;align-items:center;gap:10px;padding:8px 6px">' +
-      '<span style="width:30px;height:30px;border-radius:8px;background:var(--bg-alt);color:var(--text-muted);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0" title="Location"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>' +
-      '<div style="flex:1;min-width:0">' +
-        '<div style="font-size:12.5px;font-weight:600;color:var(--text-primary)">'+r.name+'</div>' +
-        '<div style="height:5px;background:var(--bg-alt);border-radius:var(--r-pill);margin-top:4px;overflow:hidden">' +
-          '<div style="height:100%;width:'+r.pct+'%;background:linear-gradient(90deg,#BE123C,#F43F5E);border-radius:var(--r-pill)"></div>' +
-        '</div>' +
-      '</div>' +
-      '<strong style="font-family:var(--font-data);font-size:13px;color:var(--text-primary)">'+r.count+' files</strong>' +
-    '</div>';
-  }).join('') +
-    '<div style="margin-top:10px;padding:10px 12px;background:var(--bg-alt);border-radius:8px;font-size:12px;color:var(--text-muted);line-height:1.5">' +
-      '<strong style="color:var(--text-primary)">Total Shift Output:</strong> '+total+' files generated' +
-    '</div>';
-}
-
-
-function updateIdMakerAnalytics(){
-  var mod = document.getElementById('mod-id-maker-analytics');
-  if(!mod || !mod.classList.contains('active')) return;
-
-  var counts = { Queued:0, 'In Production':0, Printed:0, 'In Transit':0 };
-  ID_MAKER_QUEUE.forEach(function(a){ if(counts[a.printStatus]!==undefined) counts[a.printStatus]++; });
-
-  var awaiting = document.getElementById('idm-awaiting-count');
-  var production = document.getElementById('idm-production-count');
-  var completed = document.getElementById('idm-completed-count');
-  var transit = document.getElementById('idm-transit-count');
-
-  if(awaiting) awaiting.textContent = counts.Queued.toLocaleString();
-  if(production) production.textContent = counts['In Production'].toLocaleString();
-  if(completed) completed.textContent = counts.Printed.toLocaleString();
-  if(transit) transit.textContent = counts['In Transit'].toLocaleString();
 
   initIdMakerStatusChart();
-  initIdMakerDailyChart();
+
+  initIdMakerBarangayChart();
+
   initIdMakerSLA();
-  initIdMakerDocFormat();
 }
 
-function initIdMakerDocFormat(){
-  var total = 0, wordCount = 0, pdfCount = 0;
-  // TODO(integration): populate from live system export history
-  setText('idm-doc-total', total);
-  setText('idm-doc-word', wordCount);
-  setText('idm-doc-pdf', pdfCount);
-  var wordPct = total ? Math.round(wordCount / total * 100) : 0;
-  var pdfPct = total ? 100 - wordPct : 0;
-  var barWord = document.getElementById('idm-doc-bar-word');
-  var barPdf = document.getElementById('idm-doc-bar-pdf');
-  if(barWord) barWord.style.width = wordPct + '%';
-  if(barPdf) barPdf.style.width = pdfPct + '%';
-}
+function updateIdMakerKPIs() {
+  const counts = {
+    Queued: 0,
+    'In Production': 0,
+    Printed: 0,
+    'In Transit': 0
+  };
 
-function updateIdMakerKPIs(){
-  const counts = { Queued:0, 'In Production':0, Printed:0, 'In Transit':0 };
-  ID_MAKER_QUEUE.forEach(a => { if(counts[a.printStatus] !== undefined) counts[a.printStatus]++; });
-  const cards = document.querySelectorAll('#mod-id-maker-dashboard .stat-card');
-  if(cards[0]) cards[0].querySelector('.stat-card__value').textContent = counts.Queued;
-  if(cards[1]) cards[1].querySelector('.stat-card__value').textContent = counts['In Production'];
-  if(cards[2]) cards[2].querySelector('.stat-card__value').textContent = counts.Printed;
-  if(cards[3])   cards[3].querySelector('.stat-card__value').textContent = counts['In Transit'];
+  ID_MAKER_QUEUE.forEach(
+    function (app) {
+      if (
+        counts[app.printStatus] !==
+        undefined
+      ) {
+        counts[app.printStatus]++;
+      }
+    }
+  );
+
+  const cards =
+    document.querySelectorAll(
+      '#mod-id-maker-dashboard .stat-card'
+    );
+
+  if (cards[0]) {
+    cards[0]
+      .querySelector(
+        '.stat-card__value'
+      )
+      .textContent =
+      counts.Queued;
+  }
+
+  if (cards[1]) {
+    cards[1]
+      .querySelector(
+        '.stat-card__value'
+      )
+      .textContent =
+      counts['In Production'];
+  }
+
+  if (cards[2]) {
+    cards[2]
+      .querySelector(
+        '.stat-card__value'
+      )
+      .textContent =
+      counts.Printed;
+  }
+
+  if (cards[3]) {
+    cards[3]
+      .querySelector(
+        '.stat-card__value'
+      )
+      .textContent =
+      counts['In Transit'];
+  }
+
+  if (cards[4]) {
+    cards[4]
+      .querySelector(
+        '.stat-card__value'
+      )
+      .textContent =
+      ID_MAKER_QUEUE.length;
+  }
+
   updateFilterCounts();
   updateQueueTagCounts();
   updateAlertCounts();
-  if(typeof updateIdMakerAnalytics === 'function') updateIdMakerAnalytics();
+
+  if (
+    typeof updateIdMakerAnalytics ===
+    'function'
+  ) {
+    updateIdMakerAnalytics();
+  }
 }
 
 document.addEventListener('click',function(e){
