@@ -49,19 +49,23 @@ const getDocxImageType = (filePath) => {
       .pop()
       .toLowerCase();
 
-  if (extension === "png") {
-    return "png";
-  }
+  switch (extension) {
+    case "png":
+      return "png";
 
-  if (extension === "gif") {
-    return "gif";
-  }
+    case "gif":
+      return "gif";
 
-  if (extension === "bmp") {
-    return "bmp";
-  }
+    case "bmp":
+      return "bmp";
 
-  return "jpg";
+    case "jpg":
+    case "jpeg":
+      return "jpg";
+
+    default:
+      return "jpg";
+  }
 };
 
 const createSignedFileUrl = async (filePath) => {
@@ -531,8 +535,7 @@ const downloadIssuanceDocument = async (
 
                 children: [
                   new TextRun({
-                    text:
-                      "Signature",
+                    text: "Signature",
                     size: 18,
                   }),
                 ],
@@ -542,14 +545,7 @@ const downloadIssuanceDocument = async (
                 },
               }),
 
-              new Paragraph({
-                alignment:
-                  AlignmentType.RIGHT,
-
-                children: [
-                  signatureTable,
-                ],
-              }),
+              signatureTable,
             ],
           },
         ],
