@@ -86,20 +86,18 @@ const createSignedFileUrl = async (filePath) => {
   return data?.signedUrl || null;
 };
 
+// ============================================================
 // DOWNLOAD DIGITAL ISSUANCE FORM AS REAL DOCX
-const downloadIssuanceDocument = async (
-  req,
-  res
-) => {
+// ============================================================
+
+const downloadIssuanceDocument = async (req, res) => {
   try {
-    const applicationId =
-      req.params.applicationId;
+    const applicationId = req.params.applicationId;
 
     if (!applicationId) {
       return res.status(400).json({
         success: false,
-        message:
-          "Application ID is required.",
+        message: "Application ID is required.",
       });
     }
 
@@ -112,9 +110,9 @@ const downloadIssuanceDocument = async (
       controlNo,
     } = req.body || {};
 
-    // --------------------------------------------------
+    // --------------------------------------------------------
     // GET APPLICATION + FILES
-    // --------------------------------------------------
+    // --------------------------------------------------------
 
     const [
       applicationResult,
@@ -123,21 +121,13 @@ const downloadIssuanceDocument = async (
       supabase
         .from("applications")
         .select("*")
-        .eq(
-          "application_id",
-          applicationId
-        )
+        .eq("application_id", applicationId)
         .maybeSingle(),
 
       supabase
         .from("application_files")
-        .select(
-          "latest_photo_url, signature_url"
-        )
-        .eq(
-          "application_id",
-          applicationId
-        )
+        .select("latest_photo_url, signature_url")
+        .eq("application_id", applicationId)
         .maybeSingle(),
     ]);
 
@@ -149,24 +139,19 @@ const downloadIssuanceDocument = async (
       throw filesResult.error;
     }
 
-    const application =
-      applicationResult.data;
-
-    const files =
-      filesResult.data;
+    const application = applicationResult.data;
+    const files = filesResult.data;
 
     if (!application) {
       return res.status(404).json({
         success: false,
-        message:
-          "Application not found.",
+        message: "Application not found.",
       });
     }
 
-    // --------------------------------------------------
-    // USE EDITED FORM VALUES WHEN PROVIDED
-    // OTHERWISE USE DATABASE VALUES
-    // --------------------------------------------------
+    // --------------------------------------------------------
+    // FINAL FORM VALUES
+    // --------------------------------------------------------
 
     const finalName =
       name ||
@@ -202,9 +187,7 @@ const downloadIssuanceDocument = async (
       controlNo ||
       "________________";
 
-    // --------------------------------------------------
-    // DOWNLOAD IMAGES DIRECTLY FROM PRIVATE STORAGE
-    // --------------------------------------------------
+    // DOWNLOAD ORIGINAL IMAGES FROM SUPABASE STORAGE
 
     const [
       photoBuffer,
@@ -213,15 +196,12 @@ const downloadIssuanceDocument = async (
       getStorageFileBuffer(
         files?.latest_photo_url
       ),
-
       getStorageFileBuffer(
         files?.signature_url
       ),
     ]);
 
-    // --------------------------------------------------
-    // IMAGE PARAGRAPHS
-    // --------------------------------------------------
+    // PHOTO
 
     const photoChildren = [];
 
@@ -235,10 +215,9 @@ const downloadIssuanceDocument = async (
             height: 100,
           },
 
-          type:
-            getDocxImageType(
-              files?.latest_photo_url
-            ),
+          type: getDocxImageType(
+            files?.latest_photo_url
+          ),
         })
       );
     } else {
@@ -246,9 +225,12 @@ const downloadIssuanceDocument = async (
         new TextRun({
           text: "No photo available",
           italics: true,
+          size: 20,
         })
       );
     }
+
+    // SIGNATURE
 
     const signatureChildren = [];
 
@@ -262,10 +244,9 @@ const downloadIssuanceDocument = async (
             height: 56,
           },
 
-          type:
-            getDocxImageType(
-              files?.signature_url
-            ),
+          type: getDocxImageType(
+            files?.signature_url
+          ),
         })
       );
     } else {
@@ -273,20 +254,17 @@ const downloadIssuanceDocument = async (
         new TextRun({
           text: "No signature image",
           italics: true,
+          size: 20,
         })
       );
     }
 
-    // --------------------------------------------------
-    // FIELD HELPER
-    // --------------------------------------------------
+    // FIELD ROW HELPER
 
-    const fieldRow = (
-      label,
-      value
-    ) =>
-      new TableRow({
+    const fieldRow = (label, value) => {
+      return new TableRow({
         children: [
+
           new TableCell({
             width: {
               size: 1800,
@@ -299,6 +277,7 @@ const downloadIssuanceDocument = async (
                   new TextRun({
                     text: label,
                     bold: true,
+                    size: 20,
                   }),
                 ],
               }),
@@ -315,77 +294,90 @@ const downloadIssuanceDocument = async (
               new Paragraph({
                 children: [
                   new TextRun({
-                    text:
-                      String(value || "")
+                    text: String(
+                      value || ""
+                    ),
+                    size: 20,
                   }),
                 ],
               }),
             ],
           }),
+
         ],
       });
+    };
 
-    // --------------------------------------------------
-    // FIELD TABLE
-    // --------------------------------------------------
+    // APPLICANT INFORMATION TABLE
 
-    const fieldTable =
-      new Table({
-        width: {
-          size: 6800,
-          type: WidthType.DXA,
-        },
+    const fieldTable = new Table({
 
-        rows: [
-          fieldRow(
-            "NAME:",
-            finalName
-          ),
+      width: {
+        size: 6800,
+        type: WidthType.DXA,
+      },
 
-          fieldRow(
-            "ADDRESS:",
-            finalAddress
-          ),
+      alignment:
+        AlignmentType.CENTER,
 
-          fieldRow(
-            "DATE OF BIRTH:",
-            finalDob
-          ),
+      rows: [
 
-          fieldRow(
-            "SEX:",
-            finalSex
-          ),
+        fieldRow(
+          "NAME:",
+          finalName
+        ),
 
-          fieldRow(
-            "DATE ISSUED:",
-            finalDateIssued
-          ),
+        fieldRow(
+          "ADDRESS:",
+          finalAddress
+        ),
 
-          fieldRow(
-            "CONTROL NO.:",
-            finalControlNo
-          ),
-        ],
-      });
+        fieldRow(
+          "DATE OF BIRTH:",
+          finalDob
+        ),
+
+        fieldRow(
+          "SEX:",
+          finalSex
+        ),
+
+        fieldRow(
+          "DATE ISSUED:",
+          finalDateIssued
+        ),
+
+        fieldRow(
+          "CONTROL NO.:",
+          finalControlNo
+        ),
+
+      ],
+    });
 
     // SIGNATURE TABLE
 
     const signatureTable =
       new Table({
-        alignment:
-          AlignmentType.CENTER,
 
         width: {
           size: 2200,
           type: WidthType.DXA,
         },
 
+        alignment:
+          AlignmentType.CENTER,
+
         rows: [
+
           new TableRow({
+
             children: [
+
               new TableCell({
+
                 borders: {
+
                   top: {
                     style:
                       BorderStyle.SINGLE,
@@ -413,98 +405,145 @@ const downloadIssuanceDocument = async (
                     size: 6,
                     color: "222222",
                   },
+
                 },
 
                 children: [
+
                   new Paragraph({
+
                     alignment:
                       AlignmentType.CENTER,
 
                     children:
                       signatureChildren,
+
                   }),
+
                 ],
+
               }),
+
             ],
+
           }),
+
         ],
+
       });
 
-    // --------------------------------------------------
-    // CREATE DOCX
-    // --------------------------------------------------
+    // CREATE DOCUMENT
 
     const doc =
       new Document({
+
         sections: [
+
           {
+
             properties: {
+
               page: {
+
                 margin: {
+
                   top: 720,
                   right: 720,
                   bottom: 720,
                   left: 720,
+
                 },
+
               },
+
             },
 
             children: [
+
+              // HEADER 1
               new Paragraph({
+
                 alignment:
                   AlignmentType.CENTER,
 
                 children: [
+
                   new TextRun({
+
                     text:
                       "REPUBLIC OF THE PHILIPPINES",
+
                     bold: true,
+
                     size: 22,
+
                   }),
+
                 ],
 
                 spacing: {
                   after: 40,
                 },
+
               }),
 
+              // HEADER 2
               new Paragraph({
+
                 alignment:
                   AlignmentType.CENTER,
 
                 children: [
+
                   new TextRun({
+
                     text:
                       "OFFICE OF THE SENIOR CITIZEN AFFAIRS - OSCA",
+
                     bold: true,
+
                     size: 22,
+
                   }),
+
                 ],
 
                 spacing: {
                   after: 40,
                 },
+
               }),
 
+              // HEADER 3
               new Paragraph({
+
                 alignment:
                   AlignmentType.CENTER,
 
                 children: [
+
                   new TextRun({
+
                     text:
                       "MUNICIPALITY OF BAUAN",
+
                     bold: true,
+
                     size: 22,
+
                   }),
+
                 ],
 
                 spacing: {
-                  after: 240,
+                  after: 180,
                 },
+
               }),
 
+              // PHOTO
               new Paragraph({
+
                 alignment:
                   AlignmentType.CENTER,
 
@@ -512,81 +551,63 @@ const downloadIssuanceDocument = async (
                   photoChildren,
 
                 spacing: {
-                  after: 240,
+                  after: 180,
                 },
+
               }),
 
+              // APPLICANT INFORMATION
               fieldTable,
 
+              // SMALL GAP
               new Paragraph({
-                children: [
-                  new TextRun({
-                    text: "",
-                  }),
-                ],
 
-                spacing: {
-                  after: 400,
-                },
-              }),
-
-              new Paragraph({
-                alignment:
-                  AlignmentType.RIGHT,
-
-                children: [
-                  new TextRun({
-                    text: "Signature",
-                    size: 18,
-                  }),
-                ],
-
-                spacing: {
-                  after: 40,
-                },
-              }),
-
-              fieldTable,
-
-
-              new Paragraph({
-                children: [
-                  new TextRun({
-                    text: "",
-                  }),
-                ],
+                children: [],
 
                 spacing: {
                   after: 180,
                 },
+
               }),
 
+              // SIGNATURE IMAGE
               signatureTable,
 
+              // SIGNATURE LABEL
               new Paragraph({
+
                 alignment:
                   AlignmentType.CENTER,
 
                 children: [
+
                   new TextRun({
-                    text: "Signature",
+
+                    text:
+                      "Signature",
+
                     size: 18,
+
                   }),
+
                 ],
 
                 spacing: {
                   before: 40,
                   after: 0,
                 },
+
               }),
+
             ],
+
           },
+
         ],
+
       });
 
-    // --------------------------------------------------
-    // GENERATE BUFFER
-    // --------------------------------------------------
+    // GENERATE DOCX
 
     const buffer =
       await Packer.toBuffer(doc);
@@ -619,18 +640,24 @@ const downloadIssuanceDocument = async (
     return res.end(buffer);
 
   } catch (error) {
+
     console.error(
       "Error generating issuance DOCX:",
       error
     );
 
     return res.status(500).json({
+
       success: false,
+
       message:
         "Failed to generate issuance Word document.",
+
       error:
         error.message,
+
     });
+
   }
 };
 
