@@ -369,12 +369,13 @@ const downloadIssuanceDocument = async (
         ],
       });
 
-    // --------------------------------------------------
     // SIGNATURE TABLE
-    // --------------------------------------------------
 
     const signatureTable =
       new Table({
+        alignment:
+          AlignmentType.CENTER,
+
         width: {
           size: 2200,
           type: WidthType.DXA,
@@ -545,7 +546,39 @@ const downloadIssuanceDocument = async (
                 },
               }),
 
+              fieldTable,
+
+
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "",
+                  }),
+                ],
+
+                spacing: {
+                  after: 180,
+                },
+              }),
+
               signatureTable,
+
+              new Paragraph({
+                alignment:
+                  AlignmentType.CENTER,
+
+                children: [
+                  new TextRun({
+                    text: "Signature",
+                    size: 18,
+                  }),
+                ],
+
+                spacing: {
+                  before: 40,
+                  after: 0,
+                },
+              }),
             ],
           },
         ],
