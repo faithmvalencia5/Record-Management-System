@@ -1,10 +1,20 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 const supabase = require("../config/supabase");
 
 const {
   createAuditLog,
 } = require("../controllers/auditLogController");
+const express = require("express");
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+const supabase = require("../config/supabase");
+
+const {
+  authenticateToken,
+  requireAdmin,
+} = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
@@ -128,6 +138,19 @@ router.post("/login", async (req, res) => {
       userAgent: req.get("user-agent"),
     });
 
+    const token = jwt.sign(
+      {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        email: user.email,
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "8h",
+      }
+    );
+
     return res.json({
       success: true,
 
@@ -164,7 +187,7 @@ router.post("/login", async (req, res) => {
    GET /api/auth/users
    ========================================================= */
 
-router.get("/users", async (req, res) => {
+router.get("/users", authenticateToken, requireAdmin, async (req, res) => {
 
   try {
 
@@ -241,7 +264,7 @@ router.get("/users", async (req, res) => {
    POST /api/auth/users
    ========================================================= */
 
-router.post("/users", async (req, res) => {
+router.post("/users", authenticateToken, requireAdmin, async (req, res) => {
 
   try {
 
@@ -480,9 +503,7 @@ router.post("/users", async (req, res) => {
    PUT /api/auth/users/:id
    ========================================================= */
 
-router.put(
-  "/users/:id",
-  async (req, res) => {
+router.put("/users/:id", authenticateToken, requireAdmin, async (req, res) => {
 
     try {
 
@@ -732,9 +753,7 @@ router.put(
    PUT /api/auth/users/:id/password
    ========================================================= */
 
-router.put(
-  "/users/:id/password",
-  async (req, res) => {
+router.put("/users/:id/password", authenticateToken, requireAdmin, async (req, res) => {
 
     try {
 
@@ -850,9 +869,7 @@ router.put(
    PUT /api/auth/users/:id/status
    ========================================================= */
 
-router.put(
-  "/users/:id/status",
-  async (req, res) => {
+router.put("/users/:id/status", authenticateToken, requireAdmin, async (req, res) => {
 
     try {
 

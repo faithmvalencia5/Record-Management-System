@@ -4,8 +4,18 @@ const {
   getAuditLogs,
 } = require("../controllers/auditLogController");
 
+const {
+  authenticateToken,
+  requireAdmin,
+} = require("../middleware/authMiddleware");
+
 const router = express.Router();
 
-router.get("/", getAuditLogs);
+router.get(
+  "/",
+  authenticateToken,
+  requireAdmin,
+  getAuditLogs
+);
 
 module.exports = router;
