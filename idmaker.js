@@ -1069,6 +1069,7 @@ function initIdMakerSLA() {
 }
 
 function updateIdMakerAnalytics() {
+
   var mod =
     document.getElementById(
       'mod-id-maker-analytics'
@@ -1088,6 +1089,385 @@ function updateIdMakerAnalytics() {
   initIdMakerBarangayChart();
 
   initIdMakerSLA();
+
+  updateIdMakerAnalyticsInsights();
+}
+
+function updateIdMakerAnalyticsInsights() {
+
+  const statusInsight =
+    document.getElementById(
+      'idmaker-status-insight-text'
+    );
+
+  const barangayInsight =
+    document.getElementById(
+      'idmaker-barangay-insight-text'
+    );
+
+  const slaInsight =
+    document.getElementById(
+      'idmaker-sla-insight-text'
+    );
+
+
+  if (
+    !statusInsight ||
+    !barangayInsight ||
+    !slaInsight
+  ) {
+    return;
+  }
+
+
+  /* =====================================================
+     BASIC QUEUE DATA
+     ===================================================== */
+
+  const counts = {
+    Queued: 0,
+    'In Production': 0,
+    Printed: 0,
+    'In Transit': 0
+  };
+
+
+  ID_MAKER_QUEUE.forEach(
+    function(app) {
+
+      if (
+        counts[app.printStatus] !==
+        undefined
+      ) {
+
+        counts[app.printStatus]++;
+
+      }
+
+    }
+  );
+
+
+  const total =
+    ID_MAKER_QUEUE.length;
+
+
+  /* =====================================================
+     NO DATA
+     ===================================================== */
+
+  if (!total) {
+
+    statusInsight.textContent =
+      'There are currently no applications in the production queue.';
+
+    barangayInsight.textContent =
+      'Barangay workload data will appear when applications enter the queue.';
+
+    slaInsight.textContent =
+      'There are currently no active applications to evaluate for queue aging.';
+
+    return;
+  }
+
+
+  /* =====================================================
+     INSIGHT 1 — PRODUCTION STATUS
+     ===================================================== */
+
+  const queuedPct =
+    Math.round(
+      (
+        counts.Queued /
+        total
+      ) * 100
+    );
+
+
+  const productionPct =
+    Math.round(
+      (
+        counts['In Production'] /
+        total
+      ) * 100
+    );
+
+
+  const printedPct =
+    Math.round(
+      (
+        counts.Printed /
+        total
+      ) * 100
+    );
+
+
+  const transitPct =
+    Math.round(
+      (
+        counts['In Transit'] /
+        total
+      ) * 100
+    );
+
+
+  if (queuedPct >= 70) {
+
+    statusInsight.textContent =
+      counts.Queued +
+      ' of ' +
+      total +
+      ' applications (' +
+      queuedPct +
+      '%) are still queued, indicating that the largest workload is waiting to enter production.';
+
+  } else if (
+    productionPct >= 30
+  ) {
+
+    statusInsight.textContent =
+      counts['In Production'] +
+      ' applications (' +
+      productionPct +
+      '%) are currently in production, indicating a relatively high active processing workload.';
+
+  } else if (
+    (printedPct + transitPct) >= 25
+  ) {
+
+    statusInsight.textContent =
+      counts.Printed +
+      ' printed and ' +
+      counts['In Transit'] +
+      ' in-transit applications show that ' +
+      (printedPct + transitPct) +
+      '% of the queue has progressed beyond active production.';
+
+  } else {
+
+    statusInsight.textContent =
+      'The queue is distributed across production stages, with ' +
+      counts.Queued +
+      ' queued, ' +
+      counts['In Production'] +
+      ' in production, ' +
+      counts.Printed +
+      ' printed, and ' +
+      counts['In Transit'] +
+      ' in transit.';
+
+  }
+
+
+  /* =====================================================
+     INSIGHT 2 — BARANGAY
+     ===================================================== */
+
+  const barangayCounts = {};
+
+
+  ID_MAKER_QUEUE.forEach(
+    function(app) {
+
+      const barangay =
+        String(
+          app.barangay ||
+          'Unknown'
+        ).trim() ||
+        'Unknown';
+
+
+      barangayCounts[barangay] =
+        (
+          barangayCounts[barangay] ||
+          0
+        ) + 1;
+
+    }
+  );
+
+
+  const barangayRanking =
+    Object.entries(
+      barangayCounts
+    ).sort(
+      function(a, b) {
+        return b[1] - a[1];
+      }
+    );
+
+
+  if (
+    barangayRanking.length
+  ) {
+
+    const top =
+      barangayRanking[0];
+
+    const topName =
+      top[0];
+
+    const topCount =
+      top[1];
+
+    const topPct =
+      Math.round(
+        (
+          topCount /
+          total
+        ) * 100
+      );
+
+
+    barangayInsight.textContent =
+      topName +
+      ' has the highest current workload with ' +
+      topCount +
+      ' applications (' +
+      topPct +
+      '% of the queue), making it the barangay with the largest production demand.';
+
+  } else {
+
+    barangayInsight.textContent =
+      'No barangay workload data is currently available.';
+
+  }
+
+
+  /* =====================================================
+     INSIGHT 3 — SLA / QUEUE AGING
+     ===================================================== */
+
+  const now =
+    Date.now();
+
+
+  let onTime = 0;
+  let over24 = 0;
+  let over48 = 0;
+
+
+  const activeItems =
+    ID_MAKER_QUEUE.filter(
+      function(app) {
+
+        return (
+          app.printStatus ===
+            'Queued' ||
+
+          app.printStatus ===
+            'In Production'
+        );
+
+      }
+    );
+
+
+  activeItems.forEach(
+    function(app) {
+
+      if (!app.sentAt) {
+
+        onTime++;
+
+        return;
+      }
+
+
+      const sentTime =
+        new Date(
+          app.sentAt
+        ).getTime();
+
+
+      if (
+        Number.isNaN(
+          sentTime
+        )
+      ) {
+
+        onTime++;
+
+        return;
+      }
+
+
+      const hours =
+        (
+          now -
+          sentTime
+        ) /
+        (
+          1000 *
+          60 *
+          60
+        );
+
+
+      if (
+        hours > 48
+      ) {
+
+        over48++;
+
+      } else if (
+        hours > 24
+      ) {
+
+        over24++;
+
+      } else {
+
+        onTime++;
+
+      }
+
+    }
+  );
+
+
+  const activeTotal =
+    activeItems.length;
+
+
+  const delayed =
+    over24 +
+    over48;
+
+
+  if (!activeTotal) {
+
+    slaInsight.textContent =
+      'There are currently no queued or in-production applications requiring SLA monitoring.';
+
+  } else if (
+    over48 > 0
+  ) {
+
+    slaInsight.textContent =
+      over48 +
+      ' active applications have exceeded 48 hours, indicating records that should receive immediate processing attention.';
+
+  } else if (
+    over24 > 0
+  ) {
+
+    slaInsight.textContent =
+      delayed +
+      ' of ' +
+      activeTotal +
+      ' active applications have been waiting more than 24 hours, indicating that older records should be prioritized.';
+
+  } else {
+
+    slaInsight.textContent =
+      'All ' +
+      activeTotal +
+      ' active applications are currently within the 24-hour queue threshold.';
+
+  }
+
 }
 
 function updateIdMakerKPIs() {

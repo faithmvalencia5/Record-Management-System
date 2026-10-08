@@ -359,9 +359,11 @@
 
     <div
       class="an-grid-main"
-      style="gap:16px">
+      style="gap:16px;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+    ">
 
-      <div class="an-card an-grid-wide-col">
+      <div class="an-card">
 
         <div class="an-card__header">
 
@@ -573,6 +575,30 @@
 
           </div>
 
+          <div
+            class="analytics-insight"
+            id="idmaker-barangay-insight">
+
+            <div class="analytics-insight__icon">
+              <i class="fi fi-rr-lightbulb-on"></i>
+            </div>
+
+            <div class="analytics-insight__content">
+
+              <div class="analytics-insight__label">
+                Insight
+              </div>
+
+              <div
+                class="analytics-insight__text"
+                id="idmaker-barangay-insight-text">
+                Analyzing barangay workload...
+              </div>
+
+            </div>
+
+          </div>
+
         </div>
 
       </div>
@@ -730,6 +756,54 @@
 
           </div>
 
+        </div>
+
+        <div
+          class="analytics-insight"
+          id="idmaker-sla-insight">
+
+          <div class="analytics-insight__icon">
+            <i class="fi fi-rr-lightbulb-on"></i>
+          </div>
+
+          <div class="analytics-insight__content">
+
+            <div class="analytics-insight__label">
+              Insight
+            </div>
+
+            <div
+              class="analytics-insight__text"
+              id="idmaker-sla-insight-text">
+              Analyzing queue aging...
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <div
+      class="analytics-insight"
+      id="idmaker-status-insight">
+
+      <div class="analytics-insight__icon">
+        <i class="fi fi-rr-lightbulb-on"></i>
+      </div>
+
+      <div class="analytics-insight__content">
+
+        <div class="analytics-insight__label">
+          Insight
+        </div>
+
+        <div
+          class="analytics-insight__text"
+          id="idmaker-status-insight-text">
+          Analyzing production status...
         </div>
 
       </div>
