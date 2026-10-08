@@ -1474,64 +1474,234 @@ function hideForgotPanel() {
 
 function restoreSession() {
   const raw = readAuthSession();
-  const loggedOut = new URLSearchParams(location.search).get('loggedout') === '1';
+
+  const loggedOut =
+    new URLSearchParams(
+      location.search
+    ).get('loggedout') === '1';
+
+  // =====================================================
+  // NO SESSION
+  // =====================================================
+
   if (!raw) {
+
     if (PAGE === 'login') {
-      // When the user just signed out, land them straight on the Login page
-      // and flash a privacy note; a fresh visitor simply sees the login form.
+
       showLoginPage();
-      if (loggedOut) { applyLoginFlash('Session ended for data privacy protection', 'info'); }
+
+      if (loggedOut) {
+        applyLoginFlash(
+          'Session ended for data privacy protection',
+          'info'
+        );
+      }
+
       return;
     }
-    // Portal accessed without a session — require a login.
+
+    // Protected page without login
     location.href = 'login.html';
     return;
   }
+
+
+  // =====================================================
+  // READ SESSION
+  // =====================================================
+
+  let parsed;
+
   try {
-    const parsed = JSON.parse(raw);
-    if (!parsed?.username || !parsed?.role) {
-      clearAuthSession();
-      if (PAGE === 'login') { showLoginPage(); return; }
-      location.href = 'login.html';
-      return;
-    }
+    parsed = JSON.parse(raw);
+  } catch (error) {
 
-    const normalizedRole = normalizeRole(parsed.role);
-    CURRENT_USER = { username: parsed.username, role: normalizedRole, displayName: parsed.displayName || 'Staff Account' };
-    setRole(normalizedRole, true);
-    applySessionContext();
-
-    if (PAGE === 'login') {
-      // Already authenticated — skip the login screen and go straight to the portal.
-      location.href = portalFileForRole(CURRENT_ROLE);
-      return;
-    }
-
-    const currentPage = (location.pathname.split('/').pop() || '').toLowerCase();
-    const expectedPortal = portalFileForRole(CURRENT_ROLE);
-    const pageMatchesRole = (
-      (PAGE === 'admin' && CURRENT_ROLE === 'Admin') ||
-      (PAGE === 'staff' && CURRENT_ROLE === 'Staff') ||
-      (PAGE === 'idmaker' && CURRENT_ROLE === 'ID Maker')
+    console.error(
+      'Invalid authentication session:',
+      error
     );
 
-    if (!pageMatchesRole) {
-      clearAuthSession();
-      location.href = 'login.html';
+    clearAuthSession();
+    location.href = 'login.html';
+    return;
+  }
+
+
+  // =====================================================
+  // BASIC SESSION VALIDATION
+  // =====================================================
+
+  if (
+    !parsed ||
+    !parsed.username ||
+    !parsed.role
+  ) {
+
+    console.error(
+      'Authentication session is missing required fields.'
+    );
+
+    clearAuthSession();
+
+    if (PAGE === 'login') {
+      showLoginPage();
       return;
     }
 
-    if (currentPage && currentPage !== expectedPortal.toLowerCase()) {
-      location.href = expectedPortal;
-      return;
+    location.href = 'login.html';
+    return;
+  }
+
+
+  // =====================================================
+  // NORMALIZE ROLE
+  // =====================================================
+
+  const normalizedRole =
+    normalizeRole(parsed.role);
+
+
+  console.log(
+    'Restoring authenticated session:',
+    {
+      username: parsed.username,
+      storedRole: parsed.role,
+      normalizedRole: normalizedRole,
+      currentPage: PAGE
     }
+  );
+
+
+  // =====================================================
+  // RESTORE USER
+  // =====================================================
+
+  CURRENT_USER = {
+    id: parsed.id || null,
+
+    username:
+      parsed.username,
+
+    role:
+      normalizedRole,
+
+    email:
+      parsed.email || '',
+
+    displayName:
+      parsed.displayName ||
+      parsed.username,
+
+    token:
+      parsed.token || ''
+  };
+
+
+  // =====================================================
+  // APPLY ROLE
+  // =====================================================
+
+  try {
+
+    setRole(
+      normalizedRole,
+      true
+    );
+
+    applySessionContext();
+
+  } catch (error) {
+
+    // IMPORTANT:
+    // Do NOT destroy a valid login session just
+    // because a portal UI function has an error.
+
+    console.error(
+      'Portal UI initialization error while restoring session:',
+      error
+    );
+
+  }
+
+
+  // =====================================================
+  // LOGIN PAGE
+  // =====================================================
+
+  if (PAGE === 'login') {
+
+    location.href =
+      portalFileForRole(
+        normalizedRole
+      );
+
+    return;
+  }
+
+
+  // =====================================================
+  // CHECK WHETHER THIS PAGE MATCHES THE ROLE
+  // =====================================================
+
+  const pageMatchesRole =
+    (
+      PAGE === 'admin' &&
+      normalizedRole === 'Admin'
+    ) ||
+    (
+      PAGE === 'staff' &&
+      normalizedRole === 'Staff'
+    ) ||
+    (
+      PAGE === 'idmaker' &&
+      normalizedRole === 'ID Maker'
+    );
+
+
+  if (!pageMatchesRole) {
+
+    const expectedPortal =
+      portalFileForRole(
+        normalizedRole
+      );
+
+    console.warn(
+      'Current page does not match authenticated role.',
+      {
+        currentPage: PAGE,
+        role: normalizedRole,
+        expectedPortal: expectedPortal
+      }
+    );
+
+    location.href =
+      expectedPortal;
+
+    return;
+  }
+
+
+  // =====================================================
+  // SHOW PORTAL
+  // =====================================================
+
+  try {
 
     showPortalPage();
-    navigate(CURRENT_ROLE === 'ID Maker' ? 'id-maker-dashboard' : 'dashboard');
-  } catch (_err) {
-    clearAuthSession();
-    if (PAGE === 'login') { showLoginPage(); return; }
-    location.href = 'login.html';
+
+    navigate(
+      normalizedRole === 'ID Maker'
+        ? 'id-maker-dashboard'
+        : 'dashboard'
+    );
+
+  } catch (error) {
+
+    console.error(
+      'Portal navigation error:',
+      error
+    );
+
   }
 }
 

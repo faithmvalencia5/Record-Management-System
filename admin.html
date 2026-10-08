@@ -93,21 +93,6 @@
           </button>
         </div>
 
-        <!-- ADDED: Quick role switcher (RBAC demo) -->
-        <div id="role-switcher" style="display:none;padding:6px 10px 10px">
-          <div
-            style="font-family:var(--font-data);font-size:9px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--text-placeholder);padding:6px 2px">
-            Quick Role Switch</div>
-          <select class="filter-select" style="width:100%" id="role-switch-select" onchange="setRole(this.value)">
-            <option value="Admin" selected>Admin</option>
-            <option value="Staff">Staff</option>
-            <option value="ID Maker">ID Maker</option>
-          </select>
-          <div style="font-size:11.5px;color:var(--text-muted);margin-top:8px;line-height:1.4">
-            Roles affect access to: approval, printing, user management, exports.
-          </div>
-        </div>
-
         <button class="sidebar__logout-btn" onclick="requestLogout()">
           <i class="fi fi-rr-sign-out-alt" style="font-size:14px;color:var(--text-muted)"></i>
           Sign Out
