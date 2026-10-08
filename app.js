@@ -808,29 +808,10 @@ function filterApplicantsByBarangay(barangay) {
 }
 
 function filterApplicantsByStatus(status) {
-  const selectedStatus =
-    String(status || '').trim().toLowerCase();
+  APPLICANTS_FILTER_STATE.status =
+    status || '';
 
-  document
-    .querySelectorAll('#applicants-tbody tr[data-app-id]')
-    .forEach(row => {
-      const rowStatus =
-        String(
-          row.dataset.status ||
-          row.querySelector('[data-label="Status"] .badge')?.textContent ||
-          ''
-        )
-          .trim()
-          .toLowerCase();
-
-      const matches =
-        !selectedStatus ||
-        selectedStatus === 'all statuses' ||
-        rowStatus === selectedStatus;
-
-      row.style.display =
-        matches ? '' : 'none';
-    });
+  applyApplicantsFilters();
 }
 
 function filterRecentSubmissions() {
