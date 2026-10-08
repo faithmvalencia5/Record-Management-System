@@ -701,10 +701,117 @@ document.addEventListener('click', (e) => {
   if (!e.target.closest('.status-select')) closeAllStatusMenus();
 });
 
-function filterApplicants(q) {
-  document.querySelectorAll('#applicants-tbody tr').forEach(r => {
-    r.style.display = r.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+/* =========================================================
+   APPLICANTS FILTER STATE
+   Search + Barangay + Status work together.
+========================================================= */
+
+const APPLICANTS_FILTER_STATE = {
+  search: '',
+  barangay: '',
+  status: ''
+};
+
+function applyApplicantsFilters() {
+  const rows = document.querySelectorAll(
+    '#applicants-tbody tr[data-app-id]'
+  );
+
+  const search =
+    APPLICANTS_FILTER_STATE.search
+      .trim()
+      .toLowerCase();
+
+  const barangay =
+    APPLICANTS_FILTER_STATE.barangay
+      .trim()
+      .toLowerCase();
+
+  const status =
+    APPLICANTS_FILTER_STATE.status
+      .trim()
+      .toLowerCase();
+
+  let visible = 0;
+
+  rows.forEach(row => {
+    const rowText =
+      row.textContent
+        .trim()
+        .toLowerCase();
+
+    const rowBarangay =
+      row.children[2]
+        ?.textContent
+        ?.trim()
+        .toLowerCase() || '';
+
+    const statusElement =
+      row.querySelector(
+        '.status-select__label'
+      );
+
+    const rowStatus =
+      statusElement
+        ?.textContent
+        ?.trim()
+        .toLowerCase() || '';
+
+    const matchesSearch =
+      !search ||
+      rowText.includes(search);
+
+    const matchesBarangay =
+      !barangay ||
+      rowBarangay === barangay;
+
+    const matchesStatus =
+      !status ||
+      rowStatus === status;
+
+    const show =
+      matchesSearch &&
+      matchesBarangay &&
+      matchesStatus;
+
+    row.style.display =
+      show ? '' : 'none';
+
+    if (show) {
+      visible++;
+    }
   });
+
+  const footer =
+    document.querySelector(
+      '#mod-applicants .table-footer__info'
+    );
+
+  if (footer) {
+    footer.textContent =
+      `Showing ${visible.toLocaleString()} of ${FULL_APPLICANTS.length.toLocaleString()} applicants`;
+  }
+}
+
+function filterApplicants(query) {
+  APPLICANTS_FILTER_STATE.search =
+    query || '';
+
+  applyApplicantsFilters();
+}
+
+function filterApplicantsByBarangay(barangay) {
+  APPLICANTS_FILTER_STATE.barangay =
+    barangay || '';
+
+  applyApplicantsFilters();
+}
+
+function filterApplicantsByStatus(status) {
+  APPLICANTS_FILTER_STATE.status =
+    status || '';
+
+  applyApplicantsFilters();
 }
 
 function filterRecentSubmissions() {
@@ -5680,60 +5787,22 @@ function resetInactivityTimer() {
   document.addEventListener(evt, resetInactivityTimer, { passive: true });
 });
 
-/* APPLICANTS BARANGAY FILTER */
-function filterApplicantsByBarangay(barangay) {
-  document.querySelectorAll('#applicants-tbody tr').forEach(r => {
-    if (!barangay) { r.style.display = ''; return; }
-    const rowBarangay = r.children[2]?.textContent?.trim() || '';
-    r.style.display = rowBarangay === barangay ? '' : 'none';
-  });
+/* =========================================================
+   APPLICATIONS MODULE — ACTIVE APPLICATIONS ONLY
+   Excludes Completed and Rejected.
+========================================================= */
+
+function isActiveApplication(app) {
+  const status = String(app.status || 'Pending')
+    .trim()
+    .toLowerCase();
+
+  return (
+    status !== 'completed' &&
+    status !== 'rejected'
+  );
 }
 
-function filterApplicantsByStatus(status) {
-  document.querySelectorAll('#applicants-tbody tr').forEach(r => {
-
-    if (!status || status === 'All Status') {
-      r.style.display = '';
-      return;
-    }
-
-    const statusElement =
-      r.querySelector('.status-select__label, .badge');
-
-    const rowStatus =
-      statusElement
-        ? statusElement.textContent.trim().toLowerCase()
-        : '';
-
-    const selectedStatus =
-      status.trim().toLowerCase();
-
-    let matches = false;
-
-    if (selectedStatus === 'verified') {
-      matches = rowStatus === 'verified';
-    }
-
-    else if (selectedStatus === 'unverified') {
-      matches =
-        rowStatus === 'unverified' ||
-        rowStatus === 'pending' ||
-        rowStatus === 'under review';
-    }
-
-    else if (selectedStatus === 'id issued') {
-      matches =
-        rowStatus === 'id issued' ||
-        rowStatus === 'issued' ||
-        rowStatus === 'completed';
-    }
-
-    r.style.display =
-      matches ? '' : 'none';
-  });
-}
-
-/* Init */
 /* ── Applications table dynamic renderer (frontend demo data) ── */
 const APPL_AVATAR_GRADIENTS = [
   'linear-gradient(135deg,#FDE68A,#D97706)',
@@ -5853,7 +5922,7 @@ function buildStatusSelect(appId, status) {
 function updateStatusTabCounts() {
   const tbody = document.getElementById('applications-tbody');
   if (!tbody) return;
-  const counts = { all: 0, pending: 0, unverified: 0, review: 0, verified: 0, process: 0, release: 0, issued: 0, completed: 0, rejected: 0 };
+  const counts = { all: 0, pending: 0, review: 0, process: 0, release: 0, completed: 0, rejected: 0 };
   const labelToKey = {
     'Pending': 'pending',
     'Under Review': 'review',
@@ -5943,9 +6012,10 @@ function saveApplicant() {
 function renderApplicantsTable() {
   const tbody = document.getElementById('applicants-tbody');
   if (!tbody) return;
+  const activeApplications = FULL_APPLICANTS.filter(isActiveApplication);
   const totalEl = document.getElementById('applicants-total');
-  if (totalEl) totalEl.textContent = fmt(FULL_APPLICANTS.length) + ' Total';
-  const rows = FULL_APPLICANTS.map(a => {
+  if (totalEl) totalEl.textContent = fmt(activeApplications.length) + ' Total';
+  const rows = activeApplications.map(a => {
     const badgeClass = a.status === 'Verified' ? 'badge-approved' : a.status === 'ID Issued' ? 'badge-issued' : a.status === 'Rejected' ? 'badge-rejected' : 'badge-pending';
     return '<tr onclick="openApplicationDetail(\'' + a.id + '\')" style="cursor:pointer">' +
       '<td data-label="Name"><span class="cell-text applicant-name-cell">' + (a.name || '—') + '</span></td>' +
@@ -5961,7 +6031,7 @@ function renderApplicantsTable() {
   }).join('');
   tbody.innerHTML = rows || '<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--text-muted)">No applicants yet.</td></tr>';
   const footerInfo = document.querySelector('#mod-applicants .table-footer__info');
-  if (footerInfo) footerInfo.textContent = 'Showing ' + FULL_APPLICANTS.length + ' of ' + fmt(FULL_APPLICANTS.length) + ' applicants';
+  if (footerInfo) footerInfo.textContent = 'Showing ' + activeApplications.length + ' of ' + fmt(activeApplications.length) + ' applicants';
 }
 
 function renderApplicationsTable() {
@@ -5981,7 +6051,13 @@ function renderApplicationsTable() {
     if (urgentDesc) urgentDesc.textContent = urgentCount > 0 ? 'These applications have been pending for more than 5 days and need immediate attention.' : '';
   }
   
-  const rows = FULL_APPLICANTS.map((a, i) => {
+  const activeApplications =
+    FULL_APPLICANTS.filter(
+      isActiveApplication
+    );
+
+  const rows =
+    activeApplications.map((a, i) => {
     const grad = APPL_AVATAR_GRADIENTS[i % APPL_AVATAR_GRADIENTS.length];
     return '<tr data-app-id="' + a.id + '">' +
       '<td style="width:40px"><input type="checkbox" class="row-check" data-app-id="' + a.id + '" aria-label="Select ' + (a.name || '') + '" onchange="updateBatchState()" /></td>' +
