@@ -814,10 +814,10 @@ function filterApplicantsByStatus(status) {
   document
     .querySelectorAll('#applicants-tbody tr[data-app-id]')
     .forEach(row => {
-
       const rowStatus =
         String(
           row.dataset.status ||
+          row.querySelector('[data-label="Status"] .badge')?.textContent ||
           ''
         )
           .trim()
@@ -2833,7 +2833,6 @@ async function updateTableStatus(
     );
 
     // Keep the current Applicants filter after saving.
-    // Do NOT reload/rebuild all 4,251 rows.
     const applicantsStatusFilter =
       document.querySelector(
         '#mod-applicants .filter-select:nth-of-type(2)'
