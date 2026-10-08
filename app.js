@@ -2743,6 +2743,30 @@ async function updateTableStatus(
       );
     }
 
+    // Re-render Applicants table and preserve the active status filter
+    if (
+      typeof renderApplicantsTable === 'function'
+    ) {
+      renderApplicantsTable();
+
+      const applicantsFilters =
+        document.querySelectorAll(
+          '#mod-applicants .filter-select'
+        );
+
+      const statusFilter =
+        applicantsFilters[1];
+
+      if (
+        statusFilter &&
+        statusFilter.value
+      ) {
+        filterApplicantsByStatus(
+          statusFilter.value
+        );
+      }
+    }
+
     // Use the status confirmed by the database
 
     const savedStatus =
