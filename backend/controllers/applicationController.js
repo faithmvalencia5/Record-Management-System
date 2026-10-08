@@ -313,7 +313,7 @@ const downloadIssuanceDocument = async (req, res) => {
     const fieldTable = new Table({
 
       width: {
-        size: 6800,
+        size: 5200,
         type: WidthType.DXA,
       },
 
@@ -440,7 +440,7 @@ const downloadIssuanceDocument = async (req, res) => {
           AlignmentType.CENTER,
 
         width: {
-          size: 7600,
+          size: 6000,
           type: WidthType.DXA,
         },
 
@@ -500,10 +500,10 @@ const downloadIssuanceDocument = async (req, res) => {
 
                 margins: {
 
-                  top: 220,
-                  bottom: 220,
-                  left: 220,
-                  right: 220,
+                  top: 180,
+                  bottom: 180,
+                  left: 180,
+                  right: 180,
 
                 },
 
