@@ -809,20 +809,94 @@ const downloadIssuanceDocument = async (req, res) => {
   }
 };
 
+// ============================================================
+// FETCH ALL ROWS FROM SUPABASE IN BATCHES
+// Prevents the default 1,000-row response limit.
+// ============================================================
+
+const SUPABASE_PAGE_SIZE = 1000;
+
+const fetchAllRows = async (
+  tableName,
+  selectColumns = "*",
+  orderColumn = null
+) => {
+  const allRows = [];
+
+  let from = 0;
+
+  while (true) {
+    let query = supabase
+      .from(tableName)
+      .select(selectColumns);
+
+    if (orderColumn) {
+      query = query.order(orderColumn, {
+        ascending: false,
+      });
+    }
+
+    const {
+      data,
+      error,
+    } = await query.range(
+      from,
+      from + SUPABASE_PAGE_SIZE - 1
+    );
+
+    if (error) {
+      throw error;
+    }
+
+    if (data && data.length > 0) {
+      allRows.push(...data);
+    }
+
+    if (
+      !data ||
+      data.length < SUPABASE_PAGE_SIZE
+    ) {
+      break;
+    }
+
+    from += SUPABASE_PAGE_SIZE;
+  }
+
+  return allRows;
+};
+
+// ============================================================
+// SPLIT ARRAY INTO SMALLER BATCHES
+// ============================================================
+
+const chunkArray = (
+  array,
+  size = 500
+) => {
+  const chunks = [];
+
+  for (
+    let i = 0;
+    i < array.length;
+    i += size
+  ) {
+    chunks.push(
+      array.slice(i, i + size)
+    );
+  }
+
+  return chunks;
+};
+
 const getApplications = async (req, res) => {
   try {
-    // --------------------------------------------------
     // 1. GET APPLICATIONS
-    // --------------------------------------------------
-    const { data: applications, error: applicationsError } =
-      await supabase
-        .from("applications")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-    if (applicationsError) {
-      throw applicationsError;
-    }
+    const applications =
+    await fetchAllRows(
+      "applications",
+      "*",
+      "created_at"
+    );
 
     if (!applications || applications.length === 0) {
       return res.status(200).json({
@@ -841,41 +915,73 @@ const getApplications = async (req, res) => {
     // --------------------------------------------------
     // 3. GET APPLICATION FILE RECORDS
     // --------------------------------------------------
-    const { data: files, error: filesError } = await supabase
-      .from("application_files")
-      .select(`
-        application_id,
-        valid_id_url,
-        valid_id_back_url,
-        latest_photo_url,
-        birth_certificate_url,
-        community_tax_certificate_url,
-        signature_url,
-        authentication_status,
-        authentication_method,
-        authenticated_by,
-        authenticated_at,
-        authentication_remarks,
-        supporting_document_type
-      `)
-      .in("application_id", applicationIds);
+    const applicationIdChunks =
+      chunkArray(applicationIds, 500);
 
-    if (filesError) {
-      throw filesError;
+    let files = [];
+
+    for (const idChunk of applicationIdChunks) {
+      const {
+        data,
+        error,
+      } = await supabase
+        .from("application_files")
+        .select(`
+          application_id,
+          valid_id_url,
+          valid_id_back_url,
+          latest_photo_url,
+          birth_certificate_url,
+          community_tax_certificate_url,
+          signature_url,
+          authentication_status,
+          authentication_method,
+          authenticated_by,
+          authenticated_at,
+          authentication_remarks,
+          supporting_document_type
+        `)
+        .in(
+          "application_id",
+          idChunk
+        );
+
+      if (error) {
+        throw error;
+      }
+
+      if (data) {
+        files.push(...data);
+      }
     }
 
     // --------------------------------------------------
     // 4. GET STATUS HISTORY
     // --------------------------------------------------
-    const { data: statusHistory, error: statusHistoryError } =
-      await supabase
+    let statusHistory = [];
+
+    for (const idChunk of applicationIdChunks) {
+      const {
+        data,
+        error,
+      } = await supabase
         .from("application_status_history")
         .select("*")
-        .in("application_id", applicationIds)
-        .order("updated_at", { ascending: false });
+        .in(
+          "application_id",
+          idChunk
+        )
+        .order("updated_at", {
+          ascending: false,
+        });
 
-    if (statusHistoryError) {
-      throw statusHistoryError;
+      if (error) {
+        throw error;
+      }
+
+      if (data) {
+        statusHistory.push(...data);
+      }
     }
 
     // --------------------------------------------------

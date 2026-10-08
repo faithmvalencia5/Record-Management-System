@@ -3091,83 +3091,65 @@ function renderLiveApplications(applications) {
 }
 
 function updateApplicantSummaryCards(applications) {
+  if (!Array.isArray(applications)) return;
 
-  if (!Array.isArray(applications)) {
-    return;
-  }
+  const totalRegistered = applications.filter(application => {
+    const status = String(application.status || '').trim().toLowerCase();
+    return status === 'completed';
+  }).length;
 
-  const total = applications.length;
+  const pending = applications.filter(application => {
+    const status = String(application.status || '').trim().toLowerCase();
+    return status === 'pending';
+  }).length;
 
-  let verified = 0;
-  let unverified = 0;
-  let idsIssued = 0;
+  const underReview = applications.filter(application => {
+    const status = String(application.status || '').trim().toLowerCase();
+    return status === 'under review';
+  }).length;
 
-  applications.forEach(application => {
+  const inProcess = applications.filter(application => {
+    const status = String(application.status || '').trim().toLowerCase();
+    return status === 'in process';
+  }).length;
 
-    const status = String(
-      application.status || ''
-    ).trim().toLowerCase();
+  const readyForRelease = applications.filter(application => {
+    const status = String(application.status || '').trim().toLowerCase();
+    return status === 'ready for release';
+  }).length;
 
-    if (status === 'verified') {
-      verified++;
-    }
+  const rejected = applications.filter(application => {
+    const status = String(application.status || '').trim().toLowerCase();
+    return status === 'rejected';
+  }).length;
 
-    if (
-      status === 'unverified' ||
-      status === 'pending' ||
-      status === 'under review'
-    ) {
-      unverified++;
-    }
-
-    if (
-      status === 'id issued' ||
-      status === 'issued' ||
-      status === 'completed'
-    ) {
-      idsIssued++;
-    }
-
-  });
-
-  const totalEl =
-    document.getElementById(
-      'applicants-total-count'
-    );
-
-  const verifiedEl =
-    document.getElementById(
-      'applicants-verified-count'
-    );
-
-  const unverifiedEl =
-    document.getElementById(
-      'applicants-unverified-count'
-    );
-
-  const issuedEl =
-    document.getElementById(
-      'applicants-issued-count'
-    );
-
+  /*
+   * Total Registered = COMPLETED applicants only.
+   */
+  const totalEl = document.getElementById('applicants-total-count');
   if (totalEl) {
-    totalEl.textContent =
-      total.toLocaleString();
+    totalEl.textContent = totalRegistered.toLocaleString();
   }
 
+  /*
+   * These two old cards used statuses that do not exist
+   * in the backend anymore.
+   *
+   * We repurpose them into useful workflow counts.
+   */
+  const verifiedEl = document.getElementById('applicants-verified-count');
   if (verifiedEl) {
-    verifiedEl.textContent =
-      verified.toLocaleString();
+    verifiedEl.textContent = (pending + underReview).toLocaleString();
   }
 
+  const unverifiedEl = document.getElementById('applicants-unverified-count');
   if (unverifiedEl) {
-    unverifiedEl.textContent =
-      unverified.toLocaleString();
+    unverifiedEl.textContent = inProcess.toLocaleString();
   }
 
+  const issuedEl = document.getElementById('applicants-issued-count');
   if (issuedEl) {
-    issuedEl.textContent =
-      idsIssued.toLocaleString();
+    issuedEl.textContent = readyForRelease.toLocaleString();
   }
 }
 

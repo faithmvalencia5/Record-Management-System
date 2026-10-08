@@ -58,7 +58,7 @@
             <i class="fi fi-rr-users"></i>
           </span>
           <span class="nav-link__label">Applicants</span>
-          <span class="nav-link__badge">0</span>
+          <span class="nav-link__badge" id="applicants-sidebar-count">0</span>
         </button>
 
         <button class="nav-link staff-only" data-module="applications">
@@ -491,8 +491,8 @@
                 </svg></div>
               <div class="stat-card__meta"><span class="stat-card__trend trend-good">0</span></div>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Verified</span>
-              <span class="stat-card__value" id="applicants-verified-count">0</span><span class="stat-card__sub">Ready for ID generation</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Pending Review</span>
+              <span class="stat-card__value" id="applicants-verified-count">0</span><span class="stat-card__sub">Awaiting staff review</span></div>
           </article>
           <article class="stat-card">
             <div class="stat-card__top">
@@ -504,8 +504,8 @@
                 </svg></div>
               <div class="stat-card__meta"><span class="stat-card__period">Awaiting</span></div>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Unverified</span>
-              <span class="stat-card__value" id="applicants-unverified-count">0</span><span class="stat-card__sub">Awaiting staff review</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">In Process</span>
+              <span class="stat-card__value" id="applicants-unverified-count">0</span><span class="stat-card__sub">Ready for ID generation</span></div>
           </article>
           <article class="stat-card stat-card--purple">
             <div class="stat-card__top">
@@ -516,8 +516,8 @@
                 </svg></div>
               <div class="stat-card__meta"><span class="stat-card__trend trend-neutral">0</span></div>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">IDs Issued</span>
-              <span class="stat-card__value" id="applicants-issued-count">0</span><span class="stat-card__sub">Printed and distributed</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Ready for Release</span>
+              <span class="stat-card__value" id="applicants-issued-count">0</span><span class="stat-card__sub">Printed and to bedistributed</span></div>
           </article>
         </div>
 
@@ -584,10 +584,13 @@
                 </select>
               </div>
               <select class="filter-select" onchange="filterApplicantsByStatus(this.value)">
-                <option>All Status</option>
-                <option>Verified</option>
-                <option>Unverified</option>
-                <option>ID Issued</option>
+                <option value="">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Under Review">Under Review</option>
+                <option value="In Process">In Process</option>
+                <option value="Ready for Release">Ready for Release</option>
+                <option value="Completed">Completed</option>
+                <option value="Rejected">Rejected</option>
               </select>
             </div>
           </div>
