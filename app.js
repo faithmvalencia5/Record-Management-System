@@ -808,10 +808,29 @@ function filterApplicantsByBarangay(barangay) {
 }
 
 function filterApplicantsByStatus(status) {
-  APPLICANTS_FILTER_STATE.status =
-    status || '';
+  const selectedStatus =
+    String(status || '').trim().toLowerCase();
 
-  applyApplicantsFilters();
+  document
+    .querySelectorAll('#applicants-tbody tr[data-app-id]')
+    .forEach(row => {
+
+      const rowStatus =
+        String(
+          row.dataset.status ||
+          ''
+        )
+          .trim()
+          .toLowerCase();
+
+      const matches =
+        !selectedStatus ||
+        selectedStatus === 'all statuses' ||
+        rowStatus === selectedStatus;
+
+      row.style.display =
+        matches ? '' : 'none';
+    });
 }
 
 function filterRecentSubmissions() {
@@ -2664,6 +2683,25 @@ async function updateTableStatus(
   // Optimistic UI update
   app.status = newStatus;
   APP_DB[appId] = app;
+
+  // Update the applicant row status immediately
+  const applicantRow =
+    document.querySelector(
+      '#applicants-tbody tr[data-app-id="' +
+      appId +
+      '"]'
+    );
+
+  if (applicantRow) {
+    applicantRow.dataset.status = newStatus;
+
+    const applicantStatusLabel =
+      applicantRow.querySelector('.status-select__label');
+
+    if (applicantStatusLabel) {
+      applicantStatusLabel.textContent = newStatus;
+    }
+  }
 
   const row =
     document.querySelector(
@@ -6043,7 +6081,7 @@ function renderApplicantsTable() {
   if (totalEl) totalEl.textContent = fmt(activeApplications.length) + ' Total';
   const rows = activeApplications.map(a => {
     const badgeClass = a.status === 'Verified' ? 'badge-approved' : a.status === 'ID Issued' ? 'badge-issued' : a.status === 'Rejected' ? 'badge-rejected' : 'badge-pending';
-    return '<tr onclick="openApplicationDetail(\'' + a.id + '\')" style="cursor:pointer">' +
+    return '<tr data-app-id="' + a.id + '" data-status="' + (a.status || 'Pending') + '" onclick="openApplicationDetail(\'' + a.id + '\')" style="cursor:pointer">' +
       '<td data-label="Name"><span class="cell-text applicant-name-cell">' + (a.name || '—') + '</span></td>' +
       '<td data-label="ID Number"><span class="cell-text">' + (a.id || '—') + '</span></td>' +
       '<td data-label="Barangay"><span class="cell-text">' + (a.barangay || '—') + '</span></td>' +
