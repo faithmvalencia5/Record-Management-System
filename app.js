@@ -1438,6 +1438,108 @@ function checkCapsLock(event) {
   warn.classList.toggle('visible', isOn);
 }
 
+/* ═══════════════════════════════════════════════════════════
+   FORGOT PASSWORD MODAL
+   ═══════════════════════════════════════════════════════════ */
+
+const _BACKEND_BASE = 'https://management-backend-3cij.onrender.com';
+
+function openForgotModal() {
+  const overlay = document.getElementById('forgot-modal-overlay');
+  if (!overlay) return;
+  // Reset to form step
+  const formStep = document.getElementById('fp-step-form');
+  const sentStep = document.getElementById('fp-step-sent');
+  const input    = document.getElementById('fp-identifier');
+  const err      = document.getElementById('fp-err');
+  if (formStep) formStep.style.display = '';
+  if (sentStep) sentStep.style.display = 'none';
+  if (input)    input.value = '';
+  if (err)      { err.textContent = ''; err.style.opacity = '0'; }
+  overlay.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => { if (input) input.focus(); }, 80);
+  overlay.addEventListener('mousedown', _fpOverlayClick);
+  document.addEventListener('keydown', _fpEscKey);
+}
+
+function closeForgotModal() {
+  const overlay = document.getElementById('forgot-modal-overlay');
+  if (!overlay) return;
+  overlay.style.display = 'none';
+  document.body.style.overflow = '';
+  overlay.removeEventListener('mousedown', _fpOverlayClick);
+  document.removeEventListener('keydown', _fpEscKey);
+}
+
+function _fpOverlayClick(e) {
+  const modal = document.getElementById('forgot-modal');
+  if (modal && !modal.contains(e.target)) closeForgotModal();
+}
+
+function _fpEscKey(e) {
+  if (e.key === 'Escape') closeForgotModal();
+}
+
+function clearFPError() {
+  const input = document.getElementById('fp-identifier');
+  const err   = document.getElementById('fp-err');
+  if (input) input.classList.remove('field-invalid');
+  if (err)   err.style.opacity = '0';
+}
+
+async function handleForgotSubmit() {
+  const input  = document.getElementById('fp-identifier');
+  const err    = document.getElementById('fp-err');
+  const btn    = document.getElementById('fp-submit-btn');
+  const cont   = document.getElementById('fp-btn-content');
+  const spin   = document.getElementById('fp-btn-spinner');
+
+  if (!input) return;
+
+  const identifier = input.value.trim();
+
+  // Clear previous error
+  input.classList.remove('field-invalid');
+  if (err) err.style.opacity = '0';
+
+  if (!identifier) {
+    input.classList.add('field-invalid');
+    if (err) { err.textContent = 'Please enter your username or email.'; err.style.opacity = '1'; }
+    input.focus();
+    return;
+  }
+
+  // Show spinner
+  if (btn)  btn.disabled = true;
+  if (cont) cont.style.display = 'none';
+  if (spin) spin.style.display = 'block';
+
+  try {
+    await fetch(`${_BACKEND_BASE}/api/auth/forgot-password`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ identifier }),
+    });
+    // Always show success (anti-enumeration)
+    const formStep = document.getElementById('fp-step-form');
+    const sentStep = document.getElementById('fp-step-sent');
+    if (formStep) formStep.style.display = 'none';
+    if (sentStep) sentStep.style.display = '';
+  } catch (_) {
+    // Network error — still show success to avoid exposing state
+    const formStep = document.getElementById('fp-step-form');
+    const sentStep = document.getElementById('fp-step-sent');
+    if (formStep) formStep.style.display = 'none';
+    if (sentStep) sentStep.style.display = '';
+  } finally {
+    if (btn)  btn.disabled = false;
+    if (cont) cont.style.display = '';
+    if (spin) spin.style.display = 'none';
+  }
+}
+
+
 function togglePwVis(btn) {
   const wrap = btn.closest('.auth-input-wrap');
   const input = wrap && wrap.querySelector('input');

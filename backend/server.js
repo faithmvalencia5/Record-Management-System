@@ -4,6 +4,7 @@ require("dotenv").config();
 
 const applicationRoutes = require("./routes/applicationRoutes");
 const authRoutes = require("./routes/authRoutes");
+const forgotPasswordRoutes = require("./routes/forgotPasswordRoutes");
 const idMakerQueueRoutes = require("./routes/idMakerQueueRoutes");
 const auditLogRoutes = require("./routes/auditLogRoutes");
 
@@ -27,6 +28,7 @@ app.use(express.json());
 app.use("/api/applications", applicationRoutes);
 app.use("/api/id-maker-queue", idMakerQueueRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/auth", forgotPasswordRoutes);
 app.use("/api/audit-logs", auditLogRoutes);
 
 app.get("/", (req, res) => {

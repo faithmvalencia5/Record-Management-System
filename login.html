@@ -88,7 +88,7 @@
             </div>
 
             <div class="auth-row">
-              <span class="auth-forgot" id="forgot-btn" onclick="showForgotPanel()">Forgot password?</span>
+              <span class="auth-forgot" id="forgot-btn" onclick="openForgotModal()">Forgot password?</span>
             </div>
 
             <!-- reCAPTCHA -->
@@ -107,18 +107,6 @@
               </span>
             </div>
 
-            <!-- Forgot password info panel -->
-            <div class="auth-forgot-panel" id="forgot-panel" role="alert">
-              <div class="auth-forgot-panel__icon"><i class="fi fi-rr-info"></i></div>
-              <div class="auth-forgot-panel__body">
-                <strong>Need help?</strong>
-                <p>Contact your System Administrator to reset your password. Do not share your credentials with anyone.
-                </p>
-              </div>
-              <button type="button" class="auth-forgot-panel__close" onclick="hideForgotPanel()"
-                aria-label="Dismiss">&times;</button>
-            </div>
-
             <button type="submit" class="auth-submit" id="login-submit-btn">
               <span class="auth-submit-content">
                 <i class="fi fi-sr-sign-in-alt"></i>
@@ -132,6 +120,105 @@
               Protected by Office of the Senior Citizen Affairs Bauan
             </p>
           </form>
+
+  <!-- ══════════════════════════════════════════════════
+       FORGOT PASSWORD MODAL
+       ══════════════════════════════════════════════════ -->
+  <div id="forgot-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="forgot-modal-title"
+    style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.55);backdrop-filter:blur(3px);z-index:9999;
+           display:none;align-items:center;justify-content:center;padding:20px;">
+    <div id="forgot-modal" style="background:#fff;border-radius:16px;width:100%;max-width:420px;
+         box-shadow:0 20px 60px rgba(0,0,0,0.18);overflow:hidden;position:relative;animation:fpSlideIn 0.22s ease;">
+
+      <!-- Top accent bar -->
+      <div style="height:4px;background:linear-gradient(90deg,#1E40AF,#2563EB,#7C3AED);"></div>
+
+      <div style="padding:32px 32px 28px;">
+        <!-- Header -->
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;">
+          <div>
+            <h2 id="forgot-modal-title" style="font-family:'Plus Jakarta Sans',sans-serif;font-size:18px;font-weight:800;color:#0F172A;margin:0 0 4px;">Forgot your password?</h2>
+            <p id="forgot-modal-sub" style="font-size:13px;color:#64748B;margin:0;line-height:1.5;">
+              Enter your username or email and we'll send a reset link.
+            </p>
+          </div>
+          <button onclick="closeForgotModal()" aria-label="Close"
+            style="background:none;border:none;cursor:pointer;color:#94A3B8;font-size:20px;padding:2px 4px;line-height:1;margin-left:12px;flex-shrink:0;">
+            <i class="fi fi-rr-cross-small"></i>
+          </button>
+        </div>
+
+        <!-- ─ Request form step ─ -->
+        <div id="fp-step-form">
+          <div style="margin-bottom:18px;">
+            <label for="fp-identifier" style="display:block;font-size:13px;font-weight:600;color:#334155;margin-bottom:7px;">
+              Username or Email Address
+            </label>
+            <div style="position:relative;display:flex;align-items:center;">
+              <i class="fi fi-rr-user" style="position:absolute;left:13px;color:#94A3B8;font-size:14px;pointer-events:none;"></i>
+              <input id="fp-identifier" type="text" placeholder="Enter username or email"
+                autocomplete="username email"
+                oninput="clearFPError()"
+                onkeydown="if(event.key==='Enter'){handleForgotSubmit();}"
+                style="width:100%;padding:11px 14px 11px 38px;border:1.5px solid #E2E8F0;border-radius:10px;
+                       font-size:14px;font-family:inherit;color:#1E293B;background:#F8FAFC;outline:none;
+                       transition:border-color 0.18s,box-shadow 0.18s;" />
+            </div>
+            <span id="fp-err" style="display:block;font-size:12px;color:#E11D48;margin-top:5px;min-height:16px;
+                  opacity:0;transition:opacity 0.18s;" aria-live="polite"></span>
+          </div>
+
+          <button onclick="handleForgotSubmit()" id="fp-submit-btn"
+            style="width:100%;padding:12px 20px;background:linear-gradient(135deg,#1E40AF,#2563EB);color:#fff;border:none;
+                   border-radius:10px;font-size:14px;font-weight:700;font-family:inherit;cursor:pointer;
+                   display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity 0.18s;position:relative;overflow:hidden;">
+            <span id="fp-btn-content" style="display:flex;align-items:center;gap:8px;">
+              <i class="fi fi-rr-paper-plane"></i> Send Reset Link
+            </span>
+            <span id="fp-btn-spinner" style="display:none;width:18px;height:18px;border:2.5px solid rgba(255,255,255,0.3);
+                  border-top-color:#fff;border-radius:50%;animation:fpSpin 0.7s linear infinite;"></span>
+          </button>
+        </div>
+
+        <!-- ─ Sent confirmation step ─ -->
+        <div id="fp-step-sent" style="display:none;text-align:center;">
+          <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#059669,#10B981);
+               display:flex;align-items:center;justify-content:center;margin:0 auto 16px;
+               box-shadow:0 4px 16px rgba(5,150,105,0.25);">
+            <i class="fi fi-sr-envelope" style="color:#fff;font-size:22px;"></i>
+          </div>
+          <h3 style="font-family:'Plus Jakarta Sans',sans-serif;font-size:16px;font-weight:800;color:#0F172A;margin:0 0 8px;">Check your inbox</h3>
+          <p style="font-size:13px;color:#64748B;line-height:1.6;margin:0 0 20px;">
+            If an account matches that username or email, we've sent a password reset link. It expires in <strong>30 minutes</strong>.
+            <br/><br/>
+            Don't see it? Check your <strong>spam / junk</strong> folder.
+          </p>
+          <button onclick="closeForgotModal()"
+            style="padding:10px 24px;background:#F1F5F9;border:1.5px solid #E2E8F0;border-radius:8px;
+                   font-size:13px;font-weight:600;font-family:inherit;color:#475569;cursor:pointer;">
+            Back to Sign In
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <style>
+    @keyframes fpSlideIn {
+      from { opacity:0; transform:translateY(-16px) scale(0.97); }
+      to   { opacity:1; transform:translateY(0) scale(1); }
+    }
+    @keyframes fpSpin { to { transform:rotate(360deg); } }
+    #fp-identifier:focus {
+      border-color:#2563EB !important;
+      background:#fff !important;
+      box-shadow:0 0 0 3px rgba(37,99,235,0.10) !important;
+    }
+    #fp-identifier.field-invalid {
+      border-color:#E11D48 !important;
+      background:#FFF1F2 !important;
+    }
+  </style>
 
         </div>
       </div>
