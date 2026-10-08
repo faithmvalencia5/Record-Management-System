@@ -2794,16 +2794,17 @@ async function updateTableStatus(
       'success'
     );
 
-    // Reload from database
-    // This makes the database the source of truth.
-    // The table will now display whatever status the backend
-    // retrieves from application_status_history.
+    // Keep the current Applicants filter after saving.
+    // Do NOT reload/rebuild all 4,251 rows.
+    const applicantsStatusFilter =
+      document.querySelector(
+        '#mod-applicants .filter-select:nth-of-type(2)'
+      );
 
-    if (
-      typeof loadApplicationsFromDatabase ===
-      'function'
-    ) {
-      await loadApplicationsFromDatabase();
+    if (applicantsStatusFilter) {
+      filterApplicantsByStatus(
+        applicantsStatusFilter.value
+      );
     }
 
   } catch (error) {
