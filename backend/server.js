@@ -10,7 +10,15 @@ const auditLogRoutes = require("./routes/auditLogRoutes");
 const app = express();
 
 app.use(cors({
-  origin: 'https://record-management-system-black.vercel.app',
+  origin: [
+    'https://record-management-system-black.vercel.app',
+    'http://localhost:5500',
+    'http://127.0.0.1:5500',
+    'http://localhost:5506',
+    'http://127.0.0.1:5506',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+  ],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
