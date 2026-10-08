@@ -728,10 +728,10 @@ const downloadIssuanceDocument = async (req, res) => {
 
                 margin: {
 
-                  top: 540,
-                  right: 540,
-                  bottom: 540,
-                  left: 540,
+                  top: 720,
+                  right: 720,
+                  bottom: 720,
+                  left: 720,
 
                 },
 
