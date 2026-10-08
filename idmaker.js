@@ -132,20 +132,51 @@ const QUEUE_FILTER_STATE = { search:'', status:'all', barangay:'all' };
 
 function applyQueueFilters(){
   const st = QUEUE_FILTER_STATE;
-  let visible = 0, total = 0;
-  document.querySelectorAll('#id-maker-queue-tbody tr').forEach(r=>{
-    if(!r.dataset.appId) return; // keep the empty-state placeholder row visible
-    total++;
-    const matchesSearch = !st.search || r.textContent.toLowerCase().includes(st.search);
-    const matchesStatus = st.status === 'all' || (r.dataset.printStatus || '') === st.status;
-    const matchesBrgy = st.barangay === 'all' || r.dataset.brgy === st.barangay;
-    const show = matchesSearch && matchesStatus && matchesBrgy;
-    r.style.display = show ? '' : 'none';
-    if(show) visible++;
-  });
-  updateQueueCheckedDisabled();
-  updateQueueFooterCount(visible, total);
-  updateBatchSelection();
+  let visible = 0;
+  let total = 0;
+
+  document
+    .querySelectorAll('#id-maker-queue-tbody tr')
+    .forEach(r => {
+
+      // Keep the empty-state row visible
+      if (!r.dataset.appId) {
+        return;
+      }
+
+      total++;
+
+      const matchesSearch =
+        !st.search ||
+        r.textContent
+          .toLowerCase()
+          .includes(st.search);
+
+      const matchesStatus =
+        st.status === 'all' ||
+        (r.dataset.printStatus || '') === st.status;
+
+      const matchesBrgy =
+        st.barangay === 'all' ||
+        r.dataset.brgy === st.barangay;
+
+      const show =
+        matchesSearch &&
+        matchesStatus &&
+        matchesBrgy;
+
+      r.style.display =
+        show ? '' : 'none';
+
+      if (show) {
+        visible++;
+      }
+    });
+
+  updateQueueFooterCount(
+    visible,
+    total
+  );
 }
 
 function updateQueueFooterCount(visible, total){
