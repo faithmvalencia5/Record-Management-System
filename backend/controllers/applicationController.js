@@ -890,102 +890,229 @@ const chunkArray = (
 
 const getApplications = async (req, res) => {
   try {
-    // 1. GET APPLICATIONS
-    const applications =
-    await fetchAllRows(
-      "applications",
-      "*",
-      "created_at"
-    );
 
-    if (!applications || applications.length === 0) {
+    // ============================================================
+    // 1. GET ALL APPLICATIONS
+    // ============================================================
+
+    const applications =
+      await fetchAllRows(
+        "applications",
+        "*",
+        "created_at"
+      );
+
+    if (
+      !applications ||
+      applications.length === 0
+    ) {
       return res.status(200).json({
         success: true,
         applications: [],
       });
     }
 
-    // --------------------------------------------------
+
+    // ============================================================
     // 2. GET APPLICATION IDS
-    // --------------------------------------------------
-    const applicationIds = applications.map(
-      (application) => application.application_id
-    );
+    // ============================================================
 
-    // --------------------------------------------------
-    // 3. GET APPLICATION FILE RECORDS
-    // --------------------------------------------------
+    const applicationIds =
+      applications.map(
+        (application) =>
+          application.application_id
+      );
+
+
+    // ============================================================
+    // 3. SPLIT IDS INTO SMALL BATCHES
+    // ============================================================
+
     const applicationIdChunks =
-      chunkArray(applicationIds, 500);
+      chunkArray(
+        applicationIds,
+        500
+      );
 
-    let files = [];
 
-    for (const idChunk of applicationIdChunks) {
-      const {
-        data,
-        error,
-      } = await supabase
-        .from("application_files")
-        .select(`
-          application_id,
-          valid_id_url,
-          valid_id_back_url,
-          latest_photo_url,
-          birth_certificate_url,
-          community_tax_certificate_url,
-          signature_url,
-          authentication_status,
-          authentication_method,
-          authenticated_by,
-          authenticated_at,
-          authentication_remarks,
-          supporting_document_type
-        `)
-        .in(
-          "application_id",
-          idChunk
+    // ============================================================
+    // 4. LOAD APPLICATION FILES IN PARALLEL
+    //
+    // Previously these queries ran one after another.
+    // Promise.all() allows Supabase to process the batches
+    // at the same time.
+    // ============================================================
+
+    const fileResults =
+      await Promise.all(
+        applicationIdChunks.map(
+          async (idChunk) => {
+
+            const {
+              data,
+              error,
+            } = await supabase
+              .from("application_files")
+              .select(`
+                application_id,
+                valid_id_url,
+                valid_id_back_url,
+                latest_photo_url,
+                birth_certificate_url,
+                community_tax_certificate_url,
+                signature_url,
+                authentication_status,
+                authentication_method,
+                authenticated_by,
+                authenticated_at,
+                authentication_remarks,
+                supporting_document_type
+              `)
+              .in(
+                "application_id",
+                idChunk
+              );
+
+            if (error) {
+              throw error;
+            }
+
+            return data || [];
+          }
+        )
+      );
+
+
+    // Flatten all file batches into one array.
+    const files =
+      fileResults.flat();
+
+
+    // ============================================================
+    // 5. LOAD STATUS HISTORY IN PARALLEL
+    //
+    // Same optimization as application_files.
+    // ============================================================
+
+    const statusResults =
+      await Promise.all(
+        applicationIdChunks.map(
+          async (idChunk) => {
+
+            const {
+              data,
+              error,
+            } = await supabase
+              .from(
+                "application_status_history"
+              )
+              .select("*")
+              .in(
+                "application_id",
+                idChunk
+              )
+              .order(
+                "updated_at",
+                {
+                  ascending: false,
+                }
+              );
+
+            if (error) {
+              throw error;
+            }
+
+            return data || [];
+          }
+        )
+      );
+
+
+    // Flatten all status-history batches.
+    const statusHistory =
+      statusResults.flat();
+
+
+    // ============================================================
+    // 6. BUILD FAST LOOKUP MAPS
+    //
+    // This avoids repeatedly using .find() for every applicant.
+    //
+    // Before:
+    // 4,000+ applicants × search through status history
+    //
+    // Now:
+    // Build the lookup once, then retrieve by application_id.
+    // ============================================================
+
+    const latestStatusByApplication =
+      new Map();
+
+
+    for (
+      const history of statusHistory
+    ) {
+
+      if (
+        !history ||
+        !history.application_id
+      ) {
+        continue;
+      }
+
+
+      const existing =
+        latestStatusByApplication.get(
+          history.application_id
         );
 
-      if (error) {
-        throw error;
-      }
 
-      if (data) {
-        files.push(...data);
-      }
-    }
-
-    // --------------------------------------------------
-    // 4. GET STATUS HISTORY
-    // --------------------------------------------------
-    let statusHistory = [];
-
-    for (const idChunk of applicationIdChunks) {
-      const {
-        data,
-        error,
-      } = await supabase
-        .from("application_status_history")
-        .select("*")
-        .in(
-          "application_id",
-          idChunk
+      // Keep the newest status record.
+      if (
+        !existing ||
+        new Date(
+          history.updated_at || 0
+        ) >
+        new Date(
+          existing.updated_at || 0
         )
-        .order("updated_at", {
-          ascending: false,
-        });
-
-      if (error) {
-        throw error;
-      }
-
-      if (data) {
-        statusHistory.push(...data);
+      ) {
+        latestStatusByApplication.set(
+          history.application_id,
+          history
+        );
       }
     }
 
-    // --------------------------------------------------
-    // 5. COMBINE APPLICATION + FILE + STATUS DATA
+
+    // ============================================================
+    // 7. BUILD FILE LOOKUP MAP
+    //
+    // This also avoids calling .find() for every applicant.
+    // ============================================================
+
+    const filesByApplication =
+      new Map();
+
+
+    for (
+      const file of files
+    ) {
+
+      if (
+        file &&
+        file.application_id
+      ) {
+        filesByApplication.set(
+          file.application_id,
+          file
+        );
+      }
+    }
+
+
+    // ============================================================
+    // 8. COMBINE APPLICATION + FILE + STATUS DATA
     //
     // IMPORTANT:
     // Do NOT create signed Storage URLs here.
@@ -993,100 +1120,149 @@ const getApplications = async (req, res) => {
     // This endpoint is used by the dashboard/list.
     // Signed URLs are generated only when opening
     // one application's detail page.
-    // --------------------------------------------------
-    const applicationsWithFiles = applications.map((application) => {
-      const latestStatus = statusHistory?.find(
-        (history) =>
-          history.application_id === application.application_id
+    // ============================================================
+
+    const applicationsWithFiles =
+      applications.map(
+        (application) => {
+
+          const applicationId =
+            application.application_id;
+
+
+          // Fast status lookup.
+          const latestStatus =
+            latestStatusByApplication.get(
+              applicationId
+            );
+
+
+          const currentStatus =
+            latestStatus?.status ||
+            application.status ||
+            "Pending";
+
+
+          const statusUpdatedAt =
+            latestStatus?.updated_at ||
+            application.updated_at ||
+            application.created_at ||
+            null;
+
+
+          // Fast file lookup.
+          const fileRecord =
+            filesByApplication.get(
+              applicationId
+            );
+
+
+          // ======================================================
+          // NO FILE RECORD
+          // ======================================================
+
+          if (!fileRecord) {
+
+            return {
+              ...application,
+
+              status:
+                currentStatus,
+
+              status_updated_at:
+                statusUpdatedAt,
+
+              documents: {
+                idFront: null,
+                idBack: null,
+                photo: null,
+                bc: null,
+                cedula: null,
+                signature: null,
+              },
+
+              document_files:
+                null,
+            };
+          }
+
+
+          // ======================================================
+          // FILE RECORD EXISTS
+          //
+          // Return STORAGE PATHS only.
+          // The detail endpoint generates signed URLs.
+          // ======================================================
+
+          return {
+            ...application,
+
+            status:
+              currentStatus,
+
+            status_updated_at:
+              statusUpdatedAt,
+
+            documents: {
+              idFront:
+                fileRecord.valid_id_url ||
+                null,
+
+              idBack:
+                fileRecord.valid_id_back_url ||
+                null,
+
+              photo:
+                fileRecord.latest_photo_url ||
+                null,
+
+              bc:
+                fileRecord.birth_certificate_url ||
+                null,
+
+              cedula:
+                fileRecord
+                  .community_tax_certificate_url ||
+                null,
+
+              signature:
+                fileRecord.signature_url ||
+                null,
+            },
+
+            document_files: {
+              ...fileRecord,
+            },
+          };
+        }
       );
 
-      const currentStatus =
-        latestStatus?.status ||
-        application.status ||
-        "Pending";
 
-      const statusUpdatedAt =
-        latestStatus?.updated_at ||
-        application.updated_at ||
-        application.created_at ||
-        null;
+    // ============================================================
+    // 9. RETURN RESPONSE
+    // ============================================================
 
-      const fileRecord = files?.find(
-        (file) =>
-          file.application_id === application.application_id
-      );
-
-      // ----------------------------------------------
-      // NO FILE RECORD
-      // ----------------------------------------------
-      if (!fileRecord) {
-        return {
-          ...application,
-
-          status: currentStatus,
-
-          status_updated_at: statusUpdatedAt,
-
-          documents: {
-            idFront: null,
-            idBack: null,
-            photo: null,
-            bc: null,
-            cedula: null,
-            signature: null,
-          },
-
-          document_files: null,
-        };
-      }
-
-      // ----------------------------------------------
-      // FILE RECORD EXISTS
-      //
-      // Return STORAGE PATHS only.
-      // The detail endpoint will generate signed URLs.
-      // ----------------------------------------------
-      return {
-        ...application,
-
-        status: currentStatus,
-
-        status_updated_at: statusUpdatedAt,
-
-        documents: {
-          idFront: fileRecord.valid_id_url || null,
-          idBack: fileRecord.valid_id_back_url || null,
-          photo: fileRecord.latest_photo_url || null,
-          bc: fileRecord.birth_certificate_url || null,
-          cedula:
-            fileRecord.community_tax_certificate_url || null,
-          signature: fileRecord.signature_url || null,
-        },
-
-        document_files: {
-          ...fileRecord,
-        },
-      };
-    });
-
-    // --------------------------------------------------
-    // 6. RETURN RESPONSE
-    // --------------------------------------------------
     return res.status(200).json({
       success: true,
-      applications: applicationsWithFiles,
+      applications:
+        applicationsWithFiles,
     });
 
+
   } catch (error) {
+
     console.error(
       "Error fetching applications:",
       error
     );
 
+
     return res.status(500).json({
       success: false,
-      message: "Failed to retrieve applications.",
-      error: error.message,
+      message:
+        "Failed to retrieve applications.",
+      error:
+        error.message,
     });
   }
 };
