@@ -5,6 +5,20 @@ const ID_MAKER_API =
 
 async function loadIdMakerQueueFromDatabase(showMessage = false) {
   try {
+    const tbody =
+      document.getElementById(
+        'id-maker-queue-tbody'
+      );
+
+    if (tbody) {
+      tbody.innerHTML =
+        '<tr>' +
+        '<td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">' +
+        '<i class="fi fi-rr-spinner"></i> ' +
+        'Loading print queue...' +
+        '</td>' +
+        '</tr>';
+    }
 
     console.log('Loading ID Maker queue from database...');
 
