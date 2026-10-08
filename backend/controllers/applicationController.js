@@ -432,6 +432,287 @@ const downloadIssuanceDocument = async (req, res) => {
 
       });
 
+    // OUTER FORM BOX
+    const outerFormTable =
+      new Table({
+
+        alignment:
+          AlignmentType.CENTER,
+
+        width: {
+          size: 7600,
+          type: WidthType.DXA,
+        },
+
+        borders: {
+
+          top: {
+            style:
+              BorderStyle.SINGLE,
+            size: 8,
+            color: "222222",
+          },
+
+          bottom: {
+            style:
+              BorderStyle.SINGLE,
+            size: 8,
+            color: "222222",
+          },
+
+          left: {
+            style:
+              BorderStyle.SINGLE,
+            size: 8,
+            color: "222222",
+          },
+
+          right: {
+            style:
+              BorderStyle.SINGLE,
+            size: 8,
+            color: "222222",
+          },
+
+          insideHorizontal: {
+            style:
+              BorderStyle.NONE,
+            size: 0,
+            color: "FFFFFF",
+          },
+
+          insideVertical: {
+            style:
+              BorderStyle.NONE,
+            size: 0,
+            color: "FFFFFF",
+          },
+
+        },
+
+        rows: [
+
+          new TableRow({
+
+            children: [
+
+              new TableCell({
+
+                margins: {
+
+                  top: 220,
+                  bottom: 220,
+                  left: 220,
+                  right: 220,
+
+                },
+
+                borders: {
+
+                  top: {
+                    style:
+                      BorderStyle.NONE,
+                    size: 0,
+                  },
+
+                  bottom: {
+                    style:
+                      BorderStyle.NONE,
+                    size: 0,
+                  },
+
+                  left: {
+                    style:
+                      BorderStyle.NONE,
+                    size: 0,
+                  },
+
+                  right: {
+                    style:
+                      BorderStyle.NONE,
+                    size: 0,
+                  },
+
+                },
+
+                children: [
+
+                  // HEADER 1
+
+                  new Paragraph({
+
+                    alignment:
+                      AlignmentType.CENTER,
+
+                    children: [
+
+                      new TextRun({
+
+                        text:
+                          "REPUBLIC OF THE PHILIPPINES",
+
+                        bold: true,
+
+                        size: 22,
+
+                      }),
+
+                    ],
+
+                    spacing: {
+                      after: 40,
+                    },
+
+                  }),
+
+
+                  // HEADER 2
+
+                  new Paragraph({
+
+                    alignment:
+                      AlignmentType.CENTER,
+
+                    children: [
+
+                      new TextRun({
+
+                        text:
+                          "OFFICE OF THE SENIOR CITIZEN AFFAIRS - OSCA",
+
+                        bold: true,
+
+                        size: 22,
+
+                      }),
+
+                    ],
+
+                    spacing: {
+                      after: 40,
+                    },
+
+                  }),
+
+
+                  // HEADER 3
+
+                  new Paragraph({
+
+                    alignment:
+                      AlignmentType.CENTER,
+
+                    children: [
+
+                      new TextRun({
+
+                        text:
+                          "MUNICIPALITY OF BAUAN",
+
+                        bold: true,
+
+                        size: 22,
+
+                      }),
+
+                    ],
+
+                    spacing: {
+                      after: 180,
+                    },
+
+                  }),
+
+
+                  // APPLICANT PHOTO
+
+                  new Paragraph({
+
+                    alignment:
+                      AlignmentType.CENTER,
+
+                    children:
+                      photoChildren,
+
+                    spacing: {
+                      after: 180,
+                    },
+
+                  }),
+
+
+                  // APPLICANT INFORMATION
+
+                  fieldTable,
+
+
+                  // SPACE BEFORE SIGNATURE
+
+                  new Paragraph({
+
+                    children: [
+
+                      new TextRun({
+                        text: " ",
+                      }),
+
+                    ],
+
+                    spacing: {
+                      after: 120,
+                    },
+
+                  }),
+
+
+                  // SIGNATURE IMAGE
+
+                  signatureTable,
+
+
+                  // SIGNATURE LABEL
+
+                  new Paragraph({
+
+                    alignment:
+                      AlignmentType.CENTER,
+
+                    children: [
+
+                      new TextRun({
+
+                        text:
+                          "Signature",
+
+                        size: 18,
+
+                      }),
+
+                    ],
+
+                    spacing: {
+
+                      before: 40,
+
+                      after: 0,
+
+                    },
+
+                  }),
+
+                ],
+
+              }),
+
+            ],
+
+          }),
+
+        ],
+
+      });
+
+
     // CREATE DOCUMENT
 
     const doc =
@@ -447,10 +728,10 @@ const downloadIssuanceDocument = async (req, res) => {
 
                 margin: {
 
-                  top: 720,
-                  right: 720,
-                  bottom: 720,
-                  left: 720,
+                  top: 540,
+                  right: 540,
+                  bottom: 540,
+                  left: 540,
 
                 },
 
@@ -460,144 +741,11 @@ const downloadIssuanceDocument = async (req, res) => {
 
             children: [
 
-              // HEADER 1
-              new Paragraph({
+              // ===================================================
+              // THE ENTIRE FORM IS NOW ONE OUTER BOX
+              // ===================================================
 
-                alignment:
-                  AlignmentType.CENTER,
-
-                children: [
-
-                  new TextRun({
-
-                    text:
-                      "REPUBLIC OF THE PHILIPPINES",
-
-                    bold: true,
-
-                    size: 22,
-
-                  }),
-
-                ],
-
-                spacing: {
-                  after: 40,
-                },
-
-              }),
-
-              // HEADER 2
-              new Paragraph({
-
-                alignment:
-                  AlignmentType.CENTER,
-
-                children: [
-
-                  new TextRun({
-
-                    text:
-                      "OFFICE OF THE SENIOR CITIZEN AFFAIRS - OSCA",
-
-                    bold: true,
-
-                    size: 22,
-
-                  }),
-
-                ],
-
-                spacing: {
-                  after: 40,
-                },
-
-              }),
-
-              // HEADER 3
-              new Paragraph({
-
-                alignment:
-                  AlignmentType.CENTER,
-
-                children: [
-
-                  new TextRun({
-
-                    text:
-                      "MUNICIPALITY OF BAUAN",
-
-                    bold: true,
-
-                    size: 22,
-
-                  }),
-
-                ],
-
-                spacing: {
-                  after: 180,
-                },
-
-              }),
-
-              // PHOTO
-              new Paragraph({
-
-                alignment:
-                  AlignmentType.CENTER,
-
-                children:
-                  photoChildren,
-
-                spacing: {
-                  after: 180,
-                },
-
-              }),
-
-              // APPLICANT INFORMATION
-              fieldTable,
-
-              // SMALL GAP
-              new Paragraph({
-
-                children: [],
-
-                spacing: {
-                  after: 180,
-                },
-
-              }),
-
-              // SIGNATURE IMAGE
-              signatureTable,
-
-              // SIGNATURE LABEL
-              new Paragraph({
-
-                alignment:
-                  AlignmentType.CENTER,
-
-                children: [
-
-                  new TextRun({
-
-                    text:
-                      "Signature",
-
-                    size: 18,
-
-                  }),
-
-                ],
-
-                spacing: {
-                  before: 40,
-                  after: 0,
-                },
-
-              }),
+              outerFormTable,
 
             ],
 
