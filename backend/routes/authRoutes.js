@@ -6,10 +6,6 @@ const supabase = require("../config/supabase");
 const {
   createAuditLog,
 } = require("../controllers/auditLogController");
-const express = require("express");
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const supabase = require("../config/supabase");
 
 const {
   authenticateToken,
@@ -37,14 +33,12 @@ function isStrongPassword(password) {
 
 /* =========================================================
    LOGIN
+   POST /api/auth/login
    ========================================================= */
 
 router.post("/login", async (req, res) => {
   try {
-    const {
-      username,
-      password
-    } = req.body;
+    const { username, password } = req.body;
 
     if (!username || !password) {
       return res.status(400).json({
@@ -53,25 +47,16 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    const {
-      data: user,
-      error
-    } = await supabase
+    const { data: user, error } = await supabase
       .from("user_accounts")
       .select(
         "id, username, password_hash, role, email, account_status"
       )
-      .eq(
-        "username",
-        username.trim()
-      )
+      .eq("username", username.trim())
       .maybeSingle();
 
     if (error) {
-      console.error(
-        "Supabase login error:",
-        error
-      );
+      console.error("Supabase login error:", error);
 
       return res.status(500).json({
         success: false,
@@ -80,21 +65,38 @@ router.post("/login", async (req, res) => {
     }
 
     if (!user) {
+      await createAuditLog({
+        username: username.trim(),
+        action: "LOGIN_FAILED",
+        entityType: "USER",
+        details: "Failed login attempt for unknown username.",
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+      });
+
       return res.status(401).json({
         success: false,
         message: "Invalid username or password.",
       });
     }
 
-
     /* -----------------------------------------
        Block inactive accounts
        ----------------------------------------- */
 
-    if (
-      user.account_status ===
-      "Inactive"
-    ) {
+    if (user.account_status === "Inactive") {
+      await createAuditLog({
+        userId: user.id,
+        username: user.username,
+        role: user.role,
+        action: "LOGIN_BLOCKED",
+        entityType: "USER",
+        entityId: String(user.id),
+        details: "Login blocked because the account is inactive.",
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+      });
+
       return res.status(403).json({
         success: false,
         message:
@@ -102,19 +104,23 @@ router.post("/login", async (req, res) => {
       });
     }
 
+    /* -----------------------------------------
+       Verify password
+       ----------------------------------------- */
 
-    const passwordMatch =
-      await bcrypt.compare(
-        password,
-        user.password_hash
-      );
-
+    const passwordMatch = await bcrypt.compare(
+      password,
+      user.password_hash
+    );
 
     if (!passwordMatch) {
       await createAuditLog({
-        username: username.trim(),
+        userId: user.id,
+        username: user.username,
+        role: user.role,
         action: "LOGIN_FAILED",
         entityType: "USER",
+        entityId: String(user.id),
         details: "Failed login attempt due to invalid credentials.",
         ipAddress: req.ip,
         userAgent: req.get("user-agent"),
@@ -126,17 +132,18 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    await createAuditLog({
-      userId: user.id,
-      username: user.username,
-      role: user.role,
-      action: "LOGIN",
-      entityType: "USER",
-      entityId: String(user.id),
-      details: "User logged into the system.",
-      ipAddress: req.ip,
-      userAgent: req.get("user-agent"),
-    });
+    /* -----------------------------------------
+       Create JWT
+       ----------------------------------------- */
+
+    if (!process.env.JWT_SECRET) {
+      console.error("JWT_SECRET is not configured.");
+
+      return res.status(500).json({
+        success: false,
+        message: "Authentication service is not configured.",
+      });
+    }
 
     const token = jwt.sign(
       {
@@ -151,33 +158,45 @@ router.post("/login", async (req, res) => {
       }
     );
 
+    /* -----------------------------------------
+       Audit successful login
+       ----------------------------------------- */
+
+    await createAuditLog({
+      userId: user.id,
+      username: user.username,
+      role: user.role,
+      action: "LOGIN",
+      entityType: "USER",
+      entityId: String(user.id),
+      details: "User logged into the system.",
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    });
+
+    /* -----------------------------------------
+       Login response
+       ----------------------------------------- */
+
     return res.json({
       success: true,
-
+      token,
       user: {
         id: user.id,
         username: user.username,
         role: user.role,
         email: user.email,
-        account_status:
-          user.account_status ||
-          "Active",
+        account_status: user.account_status || "Active",
       },
     });
 
   } catch (error) {
-
-    console.error(
-      "Login error:",
-      error
-    );
+    console.error("Login error:", error);
 
     return res.status(500).json({
       success: false,
-      message:
-        "Something went wrong during login.",
+      message: "Something went wrong during login.",
     });
-
   }
 });
 
@@ -185,518 +204,352 @@ router.post("/login", async (req, res) => {
 /* =========================================================
    GET ALL USER ACCOUNTS
    GET /api/auth/users
+
+   ADMIN ONLY
    ========================================================= */
 
-router.get("/users", authenticateToken, requireAdmin, async (req, res) => {
+router.get(
+  "/users",
+  authenticateToken,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const { data: users, error } = await supabase
+        .from("user_accounts")
+        .select(
+          "id, username, email, role, account_status"
+        )
+        .order("id", {
+          ascending: true,
+        });
 
-  try {
+      if (error) {
+        console.error(
+          "Supabase users fetch error:",
+          error
+        );
 
-    const {
-      data: users,
-      error
-    } = await supabase
-      .from("user_accounts")
-      .select(
-        "id, username, email, role, account_status"
-      )
-      .order(
-        "id",
-        {
-          ascending: true
-        }
-      );
+        return res.status(500).json({
+          success: false,
+          message: "Unable to load user accounts.",
+        });
+      }
 
+      return res.json({
+        success: true,
+        users: (users || []).map((user) => ({
+          id: user.id,
+          username: user.username,
+          email: user.email || "",
+          role: user.role || "Staff",
+          account_status:
+            user.account_status || "Active",
+        })),
+      });
 
-    if (error) {
-
-      console.error(
-        "Supabase users fetch error:",
-        error
-      );
+    } catch (error) {
+      console.error("Get users error:", error);
 
       return res.status(500).json({
         success: false,
         message:
-          "Unable to load user accounts.",
+          "Something went wrong while loading user accounts.",
       });
-
     }
-
-
-    return res.json({
-      success: true,
-      users:
-        (users || []).map(
-          user => ({
-            id: user.id,
-            username: user.username,
-            email:
-              user.email || "",
-            role:
-              user.role || "Staff",
-            account_status:
-              user.account_status ||
-              "Active",
-          })
-        )
-    });
-
-  } catch (error) {
-
-    console.error(
-      "Get users error:",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-      message:
-        "Something went wrong while loading user accounts.",
-    });
-
   }
-
-});
+);
 
 
 /* =========================================================
    CREATE USER
    POST /api/auth/users
+
+   ADMIN ONLY
    ========================================================= */
 
-router.post("/users", authenticateToken, requireAdmin, async (req, res) => {
+router.post(
+  "/users",
+  authenticateToken,
+  requireAdmin,
+  async (req, res) => {
+    try {
+      const {
+        username,
+        password,
+        email,
+        role,
+        account_status,
+      } = req.body;
 
-  try {
-
-    const {
-      username,
-      password,
-      email,
-      role,
-      account_status
-    } = req.body;
-
-
-    const cleanUsername =
-      String(
+      const cleanUsername = String(
         username || ""
       ).trim();
 
-
-    const cleanEmail =
-      String(
+      const cleanEmail = String(
         email || ""
       ).trim();
 
-
-    const cleanRole =
-      String(
+      const cleanRole = String(
         role || "Staff"
       ).trim();
 
+      const cleanStatus =
+        account_status === "Inactive"
+          ? "Inactive"
+          : "Active";
 
-    const cleanStatus =
-      account_status ===
-      "Inactive"
-        ? "Inactive"
-        : "Active";
+      if (!cleanUsername) {
+        return res.status(400).json({
+          success: false,
+          message: "Username is required.",
+        });
+      }
 
+      if (!password) {
+        return res.status(400).json({
+          success: false,
+          message: "Password is required.",
+        });
+      }
 
-    if (!cleanUsername) {
+      if (!isStrongPassword(password)) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Password must be at least 8 characters and include at least one capital letter, one number, and one special character.",
+        });
+      }
 
-      return res.status(400).json({
-        success: false,
-        message:
-          "Username is required.",
-      });
+      const allowedRoles = [
+        "Admin",
+        "Staff",
+        "ID Maker",
+      ];
 
-    }
+      if (!allowedRoles.includes(cleanRole)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid user role.",
+        });
+      }
 
+      /* Check duplicate username */
 
-    if (!password) {
+      const {
+        data: existingUser,
+        error: existingError,
+      } = await supabase
+        .from("user_accounts")
+        .select("id")
+        .eq("username", cleanUsername)
+        .maybeSingle();
 
-      return res.status(400).json({
-        success: false,
-        message:
-          "Password is required.",
-      });
+      if (existingError) {
+        console.error(
+          "Duplicate username check error:",
+          existingError
+        );
 
-    }
+        return res.status(500).json({
+          success: false,
+          message: "Unable to validate username.",
+        });
+      }
 
+      if (existingUser) {
+        return res.status(409).json({
+          success: false,
+          message: "Username already exists.",
+        });
+      }
 
-    if (
-      !isStrongPassword(
-        password
-      )
-    ) {
+      /* Hash password */
 
-      return res.status(400).json({
-        success: false,
-        message:
-          "Password must be at least 8 characters and include at least one capital letter, one number, and one special character.",
-      });
-
-    }
-
-
-    const allowedRoles = [
-      "Admin",
-      "Staff",
-      "ID Maker"
-    ];
-
-
-    if (
-      !allowedRoles.includes(
-        cleanRole
-      )
-    ) {
-
-      return res.status(400).json({
-        success: false,
-        message:
-          "Invalid user role.",
-      });
-
-    }
-
-
-    /* -----------------------------------------
-       Check duplicate username
-       ----------------------------------------- */
-
-    const {
-      data: existingUser,
-      error: existingError
-    } = await supabase
-      .from("user_accounts")
-      .select("id")
-      .eq(
-        "username",
-        cleanUsername
-      )
-      .maybeSingle();
-
-
-    if (existingError) {
-
-      console.error(
-        "Duplicate username check error:",
-        existingError
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Unable to validate username.",
-      });
-
-    }
-
-
-    if (existingUser) {
-
-      return res.status(409).json({
-        success: false,
-        message:
-          "Username already exists.",
-      });
-
-    }
-
-
-    /* -----------------------------------------
-       Hash password
-       ----------------------------------------- */
-
-    const passwordHash =
-      await bcrypt.hash(
+      const passwordHash = await bcrypt.hash(
         password,
         10
       );
 
+      /* Insert account */
 
-    /* -----------------------------------------
-       Insert account
-       ----------------------------------------- */
+      const {
+        data: newUser,
+        error,
+      } = await supabase
+        .from("user_accounts")
+        .insert({
+          username: cleanUsername,
+          password_hash: passwordHash,
+          role: cleanRole,
+          email: cleanEmail || null,
+          account_status: cleanStatus,
+        })
+        .select(
+          "id, username, email, role, account_status"
+        )
+        .single();
 
-    const {
-      data: newUser,
-      error
-    } = await supabase
-      .from("user_accounts")
-      .insert({
-        username:
-          cleanUsername,
+      if (error) {
+        console.error(
+          "Supabase create user error:",
+          error
+        );
 
-        password_hash:
-          passwordHash,
+        return res.status(500).json({
+          success: false,
+          message: "Unable to create user account.",
+        });
+      }
 
-        role:
-          cleanRole,
+      await createAuditLog({
+        userId: req.user.id,
+        username: req.user.username,
+        role: req.user.role,
+        action: "USER_CREATED",
+        entityType: "USER",
+        entityId: String(newUser.id),
+        details:
+          `Created user account: ${newUser.username}`,
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+      });
 
-        email:
-          cleanEmail || null,
+      return res.status(201).json({
+        success: true,
+        message: "User account created successfully.",
+        user: newUser,
+      });
 
-        account_status:
-          cleanStatus
-      })
-      .select(
-        "id, username, email, role, account_status"
-      )
-      .single();
-
-
-    if (error) {
-
-      console.error(
-        "Supabase create user error:",
-        error
-      );
+    } catch (error) {
+      console.error("Create user error:", error);
 
       return res.status(500).json({
         success: false,
         message:
-          "Unable to create user account.",
+          "Something went wrong while creating the user account.",
       });
-
     }
-
-    await createAuditLog({
-      username: data.username,
-      role: data.role,
-      action: "USER_CREATED",
-      entityType: "USER",
-      entityId: String(data.id),
-      details: `Created user account: ${data.username}`,
-      ipAddress: req.ip,
-      userAgent: req.get("user-agent"),
-    });
-
-    return res.status(201).json({
-      success: true,
-      message:
-        "User account created successfully.",
-      user: newUser
-    });
-
-  } catch (error) {
-
-    console.error(
-      "Create user error:",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-      message:
-        "Something went wrong while creating the user account.",
-    });
-
   }
-
-});
+);
 
 
 /* =========================================================
    UPDATE USER
    PUT /api/auth/users/:id
+
+   ADMIN ONLY
    ========================================================= */
 
-router.put("/users/:id", authenticateToken, requireAdmin, async (req, res) => {
-
+router.put(
+  "/users/:id",
+  authenticateToken,
+  requireAdmin,
+  async (req, res) => {
     try {
-
-      const userId =
-        req.params.id;
-
+      const userId = req.params.id;
 
       const {
         username,
         email,
         role,
         account_status,
-        password
+        password,
       } = req.body;
-
 
       const updateData = {};
 
-
-      if (
-        username !==
-        undefined
-      ) {
-
+      if (username !== undefined) {
         const cleanUsername =
-          String(
-            username
-          ).trim();
-
+          String(username).trim();
 
         if (!cleanUsername) {
-
           return res.status(400).json({
             success: false,
-            message:
-              "Username cannot be empty.",
+            message: "Username cannot be empty.",
           });
-
         }
 
-
-        updateData.username =
-          cleanUsername;
-
+        updateData.username = cleanUsername;
       }
 
-
-      if (
-        email !==
-        undefined
-      ) {
-
+      if (email !== undefined) {
         updateData.email =
-          String(
-            email || ""
-          ).trim() ||
-          null;
-
+          String(email || "").trim() || null;
       }
 
-
-      if (
-        role !==
-        undefined
-      ) {
-
+      if (role !== undefined) {
         const allowedRoles = [
           "Admin",
           "Staff",
-          "ID Maker"
+          "ID Maker",
         ];
 
-
-        if (
-          !allowedRoles.includes(
-            role
-          )
-        ) {
-
+        if (!allowedRoles.includes(role)) {
           return res.status(400).json({
             success: false,
-            message:
-              "Invalid user role.",
+            message: "Invalid user role.",
           });
-
         }
 
-
-        updateData.role =
-          role;
-
+        updateData.role = role;
       }
 
-
-      if (
-        account_status !==
-        undefined
-      ) {
-
+      if (account_status !== undefined) {
         if (
-          ![
-            "Active",
-            "Inactive"
-          ].includes(
+          !["Active", "Inactive"].includes(
             account_status
           )
         ) {
-
           return res.status(400).json({
             success: false,
-            message:
-              "Invalid account status.",
+            message: "Invalid account status.",
           });
-
         }
-
 
         updateData.account_status =
           account_status;
-
       }
 
-
-      /* -----------------------------------------
-         Optional password update
-         ----------------------------------------- */
+      /* Optional password */
 
       if (
-        password !==
-          undefined &&
-        password !==
-          ""
+        password !== undefined &&
+        password !== ""
       ) {
-
-        if (
-          !isStrongPassword(
-            password
-          )
-        ) {
-
+        if (!isStrongPassword(password)) {
           return res.status(400).json({
             success: false,
             message:
               "Password must be at least 8 characters and include at least one capital letter, one number, and one special character.",
           });
-
         }
 
-
         updateData.password_hash =
-          await bcrypt.hash(
-            password,
-            10
-          );
-
+          await bcrypt.hash(password, 10);
       }
-
 
       if (
-        Object.keys(
-          updateData
-        ).length === 0
+        Object.keys(updateData).length === 0
       ) {
-
         return res.status(400).json({
           success: false,
-          message:
-            "No changes were provided.",
+          message: "No changes were provided.",
         });
-
       }
-
 
       const {
         data: updatedUser,
-        error
+        error,
       } = await supabase
         .from("user_accounts")
-        .update(
-          updateData
-        )
-        .eq(
-          "id",
-          userId
-        )
+        .update(updateData)
+        .eq("id", userId)
         .select(
           "id, username, email, role, account_status"
         )
         .single();
 
-
       if (error) {
-
         console.error(
           "Supabase update user error:",
           error
@@ -704,19 +557,19 @@ router.put("/users/:id", authenticateToken, requireAdmin, async (req, res) => {
 
         return res.status(500).json({
           success: false,
-          message:
-            "Unable to update user account.",
+          message: "Unable to update user account.",
         });
-
       }
 
       await createAuditLog({
-        username: data.username,
-        role: data.role,
+        userId: req.user.id,
+        username: req.user.username,
+        role: req.user.role,
         action: "USER_UPDATED",
         entityType: "USER",
-        entityId: String(data.id),
-        details: `Updated user account: ${data.username}`,
+        entityId: String(updatedUser.id),
+        details:
+          `Updated user account: ${updatedUser.username}`,
         ipAddress: req.ip,
         userAgent: req.get("user-agent"),
       });
@@ -725,25 +578,18 @@ router.put("/users/:id", authenticateToken, requireAdmin, async (req, res) => {
         success: true,
         message:
           "User account updated successfully.",
-        user:
-          updatedUser
+        user: updatedUser,
       });
 
     } catch (error) {
-
-      console.error(
-        "Update user error:",
-        error
-      );
+      console.error("Update user error:", error);
 
       return res.status(500).json({
         success: false,
         message:
           "Something went wrong while updating the user account.",
       });
-
     }
-
   }
 );
 
@@ -751,70 +597,52 @@ router.put("/users/:id", authenticateToken, requireAdmin, async (req, res) => {
 /* =========================================================
    RESET PASSWORD
    PUT /api/auth/users/:id/password
+
+   ADMIN ONLY
    ========================================================= */
 
-router.put("/users/:id/password", authenticateToken, requireAdmin, async (req, res) => {
-
+router.put(
+  "/users/:id/password",
+  authenticateToken,
+  requireAdmin,
+  async (req, res) => {
     try {
-
-      const userId =
-        req.params.id;
-
-
-      const {
-        password
-      } = req.body;
-
+      const userId = req.params.id;
+      const { password } = req.body;
 
       if (!password) {
-
         return res.status(400).json({
           success: false,
-          message:
-            "Password is required.",
+          message: "Password is required.",
         });
-
       }
 
-
-      if (
-        !isStrongPassword(
-          password
-        )
-      ) {
-
+      if (!isStrongPassword(password)) {
         return res.status(400).json({
           success: false,
           message:
             "Password must be at least 8 characters and include at least one capital letter, one number, and one special character.",
         });
-
       }
 
-
       const passwordHash =
-        await bcrypt.hash(
-          password,
-          10
-        );
-
+        await bcrypt.hash(password, 10);
 
       const {
-        error
+        data: updatedUser,
+        error,
       } = await supabase
         .from("user_accounts")
         .update({
-          password_hash:
-            passwordHash
+          password_hash: passwordHash,
         })
-        .eq(
-          "id",
-          userId
-        );
-
+        .eq("id", userId)
+        .select(
+          "id, username, email, role, account_status"
+        )
+        .single();
 
       if (error) {
-
         console.error(
           "Supabase password reset error:",
           error
@@ -822,31 +650,29 @@ router.put("/users/:id/password", authenticateToken, requireAdmin, async (req, r
 
         return res.status(500).json({
           success: false,
-          message:
-            "Unable to reset password.",
+          message: "Unable to reset password.",
         });
-
       }
 
       await createAuditLog({
-        username: data.username,
-        role: data.role,
+        userId: req.user.id,
+        username: req.user.username,
+        role: req.user.role,
         action: "PASSWORD_RESET",
         entityType: "USER",
-        entityId: String(data.id),
-        details: `Password reset for user: ${data.username}`,
+        entityId: String(updatedUser.id),
+        details:
+          `Password reset for user: ${updatedUser.username}`,
         ipAddress: req.ip,
         userAgent: req.get("user-agent"),
       });
 
       return res.json({
         success: true,
-        message:
-          "Password reset successfully."
+        message: "Password reset successfully.",
       });
 
     } catch (error) {
-
       console.error(
         "Reset password error:",
         error
@@ -857,9 +683,7 @@ router.put("/users/:id/password", authenticateToken, requireAdmin, async (req, r
         message:
           "Something went wrong while resetting the password.",
       });
-
     }
-
   }
 );
 
@@ -867,59 +691,46 @@ router.put("/users/:id/password", authenticateToken, requireAdmin, async (req, r
 /* =========================================================
    ENABLE / DISABLE USER
    PUT /api/auth/users/:id/status
+
+   ADMIN ONLY
    ========================================================= */
 
-router.put("/users/:id/status", authenticateToken, requireAdmin, async (req, res) => {
-
+router.put(
+  "/users/:id/status",
+  authenticateToken,
+  requireAdmin,
+  async (req, res) => {
     try {
-
-      const userId =
-        req.params.id;
-
-
-      const {
-        account_status
-      } = req.body;
-
+      const userId = req.params.id;
+      const { account_status } = req.body;
 
       if (
-        ![
-          "Active",
-          "Inactive"
-        ].includes(
+        !["Active", "Inactive"].includes(
           account_status
         )
       ) {
-
         return res.status(400).json({
           success: false,
           message:
             "Account status must be Active or Inactive.",
         });
-
       }
-
 
       const {
         data: updatedUser,
-        error
+        error,
       } = await supabase
         .from("user_accounts")
         .update({
-          account_status
+          account_status,
         })
-        .eq(
-          "id",
-          userId
-        )
+        .eq("id", userId)
         .select(
           "id, username, email, role, account_status"
         )
         .single();
 
-
       if (error) {
-
         console.error(
           "Supabase status update error:",
           error
@@ -930,22 +741,26 @@ router.put("/users/:id/status", authenticateToken, requireAdmin, async (req, res
           message:
             "Unable to update account status.",
         });
-
       }
 
+      const action =
+        updatedUser.account_status === "Active"
+          ? "USER_ACTIVATED"
+          : "USER_DEACTIVATED";
+
+      const details =
+        updatedUser.account_status === "Active"
+          ? `Activated user account: ${updatedUser.username}`
+          : `Deactivated user account: ${updatedUser.username}`;
+
       await createAuditLog({
-        username: data.username,
-        role: data.role,
-        action:
-          data.account_status === "Active"
-            ? "USER_ACTIVATED"
-            : "USER_DEACTIVATED",
+        userId: req.user.id,
+        username: req.user.username,
+        role: req.user.role,
+        action,
         entityType: "USER",
-        entityId: String(data.id),
-        details:
-          data.account_status === "Active"
-            ? `Activated user account: ${data.username}`
-            : `Deactivated user account: ${data.username}`,
+        entityId: String(updatedUser.id),
+        details,
         ipAddress: req.ip,
         userAgent: req.get("user-agent"),
       });
@@ -954,12 +769,10 @@ router.put("/users/:id/status", authenticateToken, requireAdmin, async (req, res
         success: true,
         message:
           `Account ${account_status.toLowerCase()} successfully.`,
-        user:
-          updatedUser
+        user: updatedUser,
       });
 
     } catch (error) {
-
       console.error(
         "Update account status error:",
         error
@@ -970,9 +783,7 @@ router.put("/users/:id/status", authenticateToken, requireAdmin, async (req, res
         message:
           "Something went wrong while updating account status.",
       });
-
     }
-
   }
 );
 
