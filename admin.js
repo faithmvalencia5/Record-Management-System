@@ -283,6 +283,43 @@ function getAuthHeaders() {
   };
 }
 
+function requireAdminSession() {
+  try {
+    const rawSession =
+      sessionStorage.getItem('senioridAuth') ||
+      localStorage.getItem('senioridAuth');
+
+    if (!rawSession) {
+      window.location.href = 'login.html';
+      return false;
+    }
+
+    const session = JSON.parse(rawSession);
+
+    if (!session.token) {
+      window.location.href = 'login.html';
+      return false;
+    }
+
+    if (session.role !== 'Admin') {
+      alert('Administrator access required.');
+      window.location.href = 'index.html';
+      return false;
+    }
+
+    return true;
+
+  } catch (error) {
+    console.error(
+      'Admin session validation error:',
+      error
+    );
+
+    window.location.href = 'login.html';
+    return false;
+  }
+}
+
 /* =========================================================
    APPLICATION STATUS ANALYTICS
    ========================================================= */
@@ -1571,34 +1608,13 @@ document.addEventListener(
   'DOMContentLoaded',
   () => {
 
-    /*
-     * Load actual application records
-     * from Supabase through the backend.
-     */
-    loadAdminDashboardData();
+    if (requireAdminSession()) {
+      loadAdminDashboardData();
+      loadAdminUsers();
+      loadAdminAuditLogs();
+      checkAdminSystemHealth();
+    }
 
-
-    /*
-     * Load actual user accounts.
-     */
-    loadAdminUsers();
-
-
-    /*
-     * Load actual audit logs.
-     */
-    loadAdminAuditLogs();
-
-
-    /*
-     * Check backend health.
-     */
-    checkAdminSystemHealth();
-
-
-    /*
-     * Existing audit summary filter.
-     */
     filterAuditLog(
       readAuditSummaryRange(),
       {
