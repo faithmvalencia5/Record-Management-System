@@ -128,7 +128,13 @@
                 <circle cx="6.5" cy="6.5" r="4.5" />
                 <path d="M11 11l3 3" />
               </svg>
-              <input type="search" placeholder="Quick search…" />
+              <input
+                type="search"
+                id="dashboard-quick-search"
+                placeholder="Quick search…"
+                oninput="handleDashboardQuickSearch(this.value)"
+                autocomplete="off"
+              />
             </label>
             <div class="date-pill" id="dashboard-date-pill" onclick="toggleDateFilter(event)">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7">
@@ -251,12 +257,13 @@
                 <div class="chart-card__title">Senior Registrations by Barangay (Top 6)</div>
                 <p class="chart-card__subtitle">Highest registration areas</p>
               </div>
-              <select class="filter-select" id="barangay-year-filter" style="height:34px"
-                onchange="filterBarangayYear(this.value)">
-                <option value="2026" selected>2026</option>
-                <option value="2025">2025</option>
-                <option value="2024">2024</option>
-                <option value="2023">2023</option>
+              <select
+                class="filter-select"
+                id="barangay-year-filter"
+                style="height:34px"
+                onchange="filterBarangayYear(this.value)"
+                aria-label="Filter registrations by year"
+              >
               </select>
             </div>
             <div class="bar-chart-wrap">

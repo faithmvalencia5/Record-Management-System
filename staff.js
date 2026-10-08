@@ -777,20 +777,60 @@ function updateLiveDashboardVisuals(
 
 }
 
+// ============================================================
+// INITIALIZE BARANGAY YEAR FILTER
+// ============================================================
+
+function initializeBarangayYearFilter() {
+
+  const select =
+    document.getElementById(
+      'barangay-year-filter'
+    );
+
+  if (!select) {
+    return;
+  }
+
+  const currentYear =
+    new Date().getFullYear();
+
+  const years = [];
+
+  for (
+    let year = currentYear;
+    year >= currentYear - 4;
+    year--
+  ) {
+    years.push(year);
+  }
+
+  select.innerHTML =
+    years
+      .map(
+        year =>
+          `<option value="${year}">${year}</option>`
+      )
+      .join('');
+
+  select.value =
+    String(currentYear);
+
+}
 
 // BARANGAY YEAR FILTER
 
 function filterBarangayYear(year) {
 
-  if (
-    typeof LIVE_APPLICATIONS ===
-    'undefined'
-  ) {
-    return;
-  }
+  const applications =
+    Array.isArray(
+      LIVE_APPLICATIONS
+    )
+      ? LIVE_APPLICATIONS
+      : [];
 
   updateLiveDashboardVisuals(
-    LIVE_APPLICATIONS
+    applications
   );
 
 }
@@ -964,11 +1004,9 @@ function updateApplicationSummaryCards(
 }
 
 
-// UPDATE STAFF KPI CARDS
+// STAFF DASHBOARD KPI CARDS
 
-function updateStaffKPICards(
-  metrics
-) {
+function updateStaffKPICards(metrics) {
 
   const strip =
     document.getElementById(
@@ -988,24 +1026,21 @@ function updateStaffKPICards(
     return;
   }
 
-
   const values = [
-    metrics.total,
-    metrics.pendingReview,
-    metrics.approvedToday,
-    metrics.processedThisMonth,
-    metrics.rejectedThisMonth
+    Number(metrics.total) || 0,
+    Number(metrics.pendingReview) || 0,
+    Number(metrics.approvedToday) || 0,
+    Number(metrics.processedThisMonth) || 0,
+    Number(metrics.rejectedThisMonth) || 0
   ];
-
 
   const subtitles = [
-    'System Volume',
-    'Awaiting action',
-    'Approved today',
-    'This month',
-    'This month'
+    'System volume',
+    'Awaiting staff action',
+    'Completed today',
+    'Processed this month',
+    'Rejected this month'
   ];
-
 
   cards.forEach(
     (card, index) => {
@@ -1025,26 +1060,19 @@ function updateStaffKPICards(
           '.stat-card__trend'
         );
 
-
       if (value) {
 
         value.textContent =
-          Number(
-            values[index] || 0
-          )
-            .toLocaleString();
+          values[index].toLocaleString();
 
       }
-
 
       if (sub) {
 
         sub.textContent =
-          subtitles[index] ||
-          '';
+          subtitles[index] || '';
 
       }
-
 
       if (trend) {
 
@@ -1829,6 +1857,31 @@ function updateAnalyticsHandoff(applications) {
       ready > 0
         ? 'Approved applications ready to move to the ID Maker queue.'
         : 'Applications marked Ready for Release will appear here.';
+  }
+
+}
+
+// DASHBOARD QUICK SEARCH
+
+function handleDashboardQuickSearch(query) {
+
+  const value =
+    String(query || '')
+      .trim()
+      .toLowerCase();
+
+  const recentSearch =
+    document.getElementById(
+      'recent-submission-search'
+    );
+
+  if (recentSearch) {
+
+    recentSearch.value =
+      query || '';
+
+    filterRecentSubmissions();
+
   }
 
 }
@@ -3370,51 +3423,101 @@ function renderRecentSubmissions(
       '.data-table-card'
     );
 
+  cards.forEach(
+    card => {
 
-  cards.forEach(card => {
+      const title =
+        card
+          .querySelector(
+            '.table-header__title'
+          )
+          ?.textContent
+          ?.trim();
 
-    const title =
-      card
-        .querySelector(
-          '.table-header__title'
-        )
-        ?.textContent
-        ?.trim();
+      if (
+        title !==
+        'Recent Submissions'
+      ) {
+        return;
+      }
 
+      const footer =
+        card.querySelector(
+          '.table-footer__info'
+        );
 
-    if (
-      title !==
-      'Recent Submissions'
-    ) {
-      return;
-    }
-
-
-    const footer =
-      card.querySelector(
-        '.table-footer__info'
-      );
-
-
-    if (footer) {
+      if (!footer) {
+        return;
+      }
 
       footer.textContent =
         `Showing ${
           recentApplications.length
-        } of ${
-          applications.length
-        } applicants`;
+        } latest submissions`;
 
     }
-
-  });
+  );
 
 }
 
+// ============================================================
+// STAFF DASHBOARD LOADING STATE
+// ============================================================
 
-// LOAD APPLICATIONS
+function setStaffDashboardLoading(isLoading) {
+
+  const strip =
+    document.getElementById(
+      'staff-kpi-strip'
+    );
+
+  if (strip) {
+
+    strip.classList.toggle(
+      'is-loading',
+      Boolean(isLoading)
+    );
+
+  }
+
+
+  const tbody =
+    document.getElementById(
+      'recent-submissions-tbody'
+    );
+
+
+  if (
+    isLoading &&
+    tbody
+  ) {
+
+    tbody.innerHTML = `
+      <tr>
+        <td
+          colspan="5"
+          style="
+            text-align:center;
+            padding:32px;
+            color:var(--text-muted);
+          "
+        >
+          <i class="fi fi-rr-spinner"></i>
+          Loading recent submissions...
+        </td>
+      </tr>
+    `;
+
+  }
+
+}
+
+// LOAD APPLICATIONS FROM DATABASE
 
 async function loadApplicationsFromDatabase() {
+
+  // Show loading state
+  setStaffDashboardLoading(true);
 
   try {
 
@@ -3422,6 +3525,10 @@ async function loadApplicationsFromDatabase() {
       "Loading applications from backend..."
     );
 
+
+    // --------------------------------------------------------
+    // FETCH APPLICATIONS
+    // --------------------------------------------------------
 
     const response =
       await fetch(
@@ -3443,6 +3550,10 @@ async function loadApplicationsFromDatabase() {
     );
 
 
+    // --------------------------------------------------------
+    // CHECK RESPONSE
+    // --------------------------------------------------------
+
     if (!response.ok) {
 
       throw new Error(
@@ -3451,6 +3562,10 @@ async function loadApplicationsFromDatabase() {
 
     }
 
+
+    // --------------------------------------------------------
+    // READ JSON
+    // --------------------------------------------------------
 
     const result =
       await response.json();
@@ -3472,6 +3587,10 @@ async function loadApplicationsFromDatabase() {
     }
 
 
+    // --------------------------------------------------------
+    // GET APPLICATION ARRAY
+    // --------------------------------------------------------
+
     const applications =
       Array.isArray(
         result.applications
@@ -3486,74 +3605,145 @@ async function loadApplicationsFromDatabase() {
     );
 
 
+    // --------------------------------------------------------
     // SAVE LIVE APPLICATIONS
+    // --------------------------------------------------------
 
-    LIVE_APPLICATIONS = applications;
+    LIVE_APPLICATIONS =
+      applications;
 
-    if (typeof syncApplicationsToAppDB === 'function') {
-      syncApplicationsToAppDB(applications);
+
+    // --------------------------------------------------------
+    // SYNC APPLICATIONS TO APP DB
+    // --------------------------------------------------------
+
+    if (
+      typeof syncApplicationsToAppDB ===
+      'function'
+    ) {
+
+      syncApplicationsToAppDB(
+        applications
+      );
+
     }
 
 
+    // --------------------------------------------------------
     // UPDATE LIVE ANALYTICS DATA
+    // --------------------------------------------------------
 
     if (
       typeof updateLiveAnalyticsData ===
       "function"
     ) {
+
       updateLiveAnalyticsData(
         applications
       );
+
     }
 
 
+    // --------------------------------------------------------
     // UPDATE DASHBOARD VISUALS
+    // --------------------------------------------------------
 
     if (
       typeof updateLiveDashboardVisuals ===
       "function"
     ) {
+
       updateLiveDashboardVisuals(
         applications
       );
+
     }
 
 
+    // --------------------------------------------------------
     // UPDATE ANALYTICS CHART DATA
+    // --------------------------------------------------------
 
     if (
       typeof updateLiveAnalyticsCharts ===
       "function"
     ) {
+
       updateLiveAnalyticsCharts(
         applications
       );
+
     }
 
+
+    // --------------------------------------------------------
     // UPDATE APPLICANTS TABLE
+    // --------------------------------------------------------
 
-    if (typeof renderLiveApplicants === "function") {
-      renderLiveApplicants(applications);
+    if (
+      typeof renderLiveApplicants ===
+      "function"
+    ) {
+
+      renderLiveApplicants(
+        applications
+      );
+
     }
 
-    if (typeof updateApplicantSummaryCards === "function") {
-      updateApplicantSummaryCards(applications);
+
+    // --------------------------------------------------------
+    // UPDATE APPLICANT SUMMARY CARDS
+    // --------------------------------------------------------
+
+    if (
+      typeof updateApplicantSummaryCards ===
+      "function"
+    ) {
+
+      updateApplicantSummaryCards(
+        applications
+      );
+
     }
 
 
+    // --------------------------------------------------------
     // UPDATE RECENT SUBMISSIONS
+    // --------------------------------------------------------
 
-    if (typeof renderRecentSubmissions === "function") {
-      renderRecentSubmissions(applications);
+    if (
+      typeof renderRecentSubmissions ===
+      "function"
+    ) {
+
+      renderRecentSubmissions(
+        applications
+      );
+
     }
 
 
+    // --------------------------------------------------------
     // UPDATE APPLICATIONS TABLE
+    // --------------------------------------------------------
 
-    if (typeof renderLiveApplications === "function") {
-      renderLiveApplications(applications);
+    if (
+      typeof renderLiveApplications ===
+      "function"
+    ) {
+
+      renderLiveApplications(
+        applications
+      );
+
     }
 
+
+    // --------------------------------------------------------
+    // RETURN DATA
+    // --------------------------------------------------------
 
     return applications;
 
@@ -3568,17 +3758,18 @@ async function loadApplicationsFromDatabase() {
 
     console.error(
       "Make sure the backend is running at:",
-      "http://localhost:5000"
+      "https://management-backend-3cij.onrender.com"
     );
 
 
+    // Show user-friendly message
     if (
       typeof showToast ===
       "function"
     ) {
 
       showToast(
-        "Failed to load applications. Check the browser console.",
+        "Failed to load applications. Please try again.",
         "error"
       );
 
@@ -3586,6 +3777,15 @@ async function loadApplicationsFromDatabase() {
 
 
     return [];
+
+
+  } finally {
+
+    // Always remove loading state,
+    // whether loading succeeded or failed.
+    setStaffDashboardLoading(
+      false
+    );
 
   }
 
@@ -3674,29 +3874,42 @@ document.addEventListener(
   "DOMContentLoaded",
   () => {
 
-    console.log("Staff dashboard loaded.");
+    console.log(
+      "Staff dashboard loaded."
+    );
 
+    // INITIALIZE ROLE
     if (
       typeof CURRENT_ROLE !== 'undefined' &&
       CURRENT_ROLE
     ) {
+
       switchKPIs(
         CURRENT_ROLE
       );
+
     }
+
+    // INITIALIZE BARANGAY YEAR FILTER
+    initializeBarangayYearFilter();
 
     // INITIALIZE ANALYTICS CHARTS
     if (
       typeof initAllCharts === "function"
     ) {
+
       initAllCharts();
+
     }
 
-    // LOAD APPLICATIONS FROM DATABASE
+    // LOAD APPLICATIONS
     if (
-      typeof loadApplicationsFromDatabase === "function"
+      typeof loadApplicationsFromDatabase ===
+      "function"
     ) {
+
       loadApplicationsFromDatabase();
+
     }
 
   }
