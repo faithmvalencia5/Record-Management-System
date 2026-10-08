@@ -2670,6 +2670,11 @@ async function updateTableStatus(
       '#applications-tbody tr[data-app-id="' +
       appId +
       '"]'
+    ) ||
+    document.querySelector(
+      '#applicants-tbody tr[data-app-id="' +
+      appId +
+      '"]'
     );
 
   const statusLabel =
@@ -2743,30 +2748,6 @@ async function updateTableStatus(
       );
     }
 
-    // Re-render Applicants table and preserve the active status filter
-    if (
-      typeof renderApplicantsTable === 'function'
-    ) {
-      renderApplicantsTable();
-
-      const applicantsFilters =
-        document.querySelectorAll(
-          '#mod-applicants .filter-select'
-        );
-
-      const statusFilter =
-        applicantsFilters[1];
-
-      if (
-        statusFilter &&
-        statusFilter.value
-      ) {
-        filterApplicantsByStatus(
-          statusFilter.value
-        );
-      }
-    }
-
     // Use the status confirmed by the database
 
     const savedStatus =
@@ -2777,6 +2758,26 @@ async function updateTableStatus(
       savedStatus;
 
     APP_DB[appId] = app;
+
+    // Reapply the Applicants status filter without rebuilding 4,251 rows
+    if (
+      row &&
+      row.closest('#applicants-tbody')
+    ) {
+      const applicantsFilters =
+        document.querySelectorAll(
+          '#mod-applicants .filter-select'
+        );
+
+      const statusFilter =
+        applicantsFilters[1];
+
+      if (statusFilter) {
+        filterApplicantsByStatus(
+          statusFilter.value
+        );
+      }
+    }
 
     console.log(
       'Application status saved:',
