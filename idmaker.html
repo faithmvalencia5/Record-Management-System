@@ -162,7 +162,7 @@
               </div>
             </div>
             <div class="stat-card__body">
-              <div class="stat-card__label">Printied</div>
+              <div class="stat-card__label">Printed</div>
               <div class="stat-card__value">0</div>
               <div class="stat-card__sub">Successfully Printed</div>
             </div>
@@ -357,11 +357,24 @@
 
     </header>
 
+
+    <!-- =======================================================
+        THREE ANALYTICS CARDS
+        ======================================================= -->
+
     <div
       class="an-grid-main"
-      style="gap:16px;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-    ">
+      style="
+        display:grid;
+        grid-template-columns:repeat(3,minmax(0,1fr));
+        gap:16px;
+        align-items:stretch;
+      ">
+
+
+      <!-- =====================================================
+          1. PRODUCTION QUEUE STATUS
+          ===================================================== -->
 
       <div class="an-card">
 
@@ -385,19 +398,23 @@
         <div
           class="an-card__body"
           style="
-            flex-direction:row;
-            align-items:center;
-            justify-content:space-between;
-            gap:24px;
-            padding:16px 18px
+            flex-direction:column;
+            align-items:stretch;
+            justify-content:center;
+            gap:18px;
+            padding:18px;
           ">
+
+
+          <!-- DONUT CHART -->
 
           <div
             class="chart-wrap"
             style="
               height:180px;
-              width:180px;
-              flex-shrink:0
+              width:100%;
+              max-width:220px;
+              margin:0 auto;
             ">
 
             <canvas
@@ -407,13 +424,16 @@
           </div>
 
 
+          <!-- STATUS COUNTS -->
+
           <div
             style="
               display:grid;
               grid-template-columns:repeat(2,1fr);
-              gap:14px 20px;
-              min-width:0
+              gap:12px 18px;
+              width:100%;
             ">
+
 
             <div>
 
@@ -427,7 +447,7 @@
                 id="idm-awaiting-count"
                 style="
                   color:var(--text-muted);
-                  font-size:12px
+                  font-size:12px;
                 ">
                 0
               </span>
@@ -447,7 +467,7 @@
                 id="idm-production-count"
                 style="
                   color:var(--text-muted);
-                  font-size:12px
+                  font-size:12px;
                 ">
                 0
               </span>
@@ -467,7 +487,7 @@
                 id="idm-completed-count"
                 style="
                   color:var(--text-muted);
-                  font-size:12px
+                  font-size:12px;
                 ">
                 0
               </span>
@@ -487,7 +507,7 @@
                 id="idm-transit-count"
                 style="
                   color:var(--text-muted);
-                  font-size:12px
+                  font-size:12px;
                 ">
                 0
               </span>
@@ -498,7 +518,45 @@
 
         </div>
 
+
+        <!-- STATUS INSIGHT — INSIDE THE CARD -->
+
+        <div
+          class="analytics-insight"
+          id="idmaker-status-insight">
+
+          <div class="analytics-insight__icon">
+
+            <i class="fi fi-rr-lightbulb-on"></i>
+
+          </div>
+
+
+          <div class="analytics-insight__content">
+
+            <div class="analytics-insight__label">
+              Insight
+            </div>
+
+            <div
+              class="analytics-insight__text"
+              id="idmaker-status-insight-text">
+
+              Analyzing production status...
+
+            </div>
+
+          </div>
+
+        </div>
+
       </div>
+
+
+
+      <!-- =====================================================
+          2. QUEUE BY BARANGAY
+          ===================================================== -->
 
       <div class="an-card">
 
@@ -522,20 +580,22 @@
         <div
           class="an-card__body--nop"
           style="
-            padding:0 20px 20px
+            padding:0 18px 18px;
           ">
 
           <div
             class="chart-wrap chart-wrap--analytics"
             style="
               height:320px;
-              position:relative
+              position:relative;
             ">
 
             <canvas
               id="chart-idmaker-barangay">
             </canvas>
 
+
+            <!-- EMPTY STATE -->
 
             <div
               class="chart-empty-state"
@@ -551,49 +611,62 @@
                 font-size:13px;
                 text-align:center;
                 padding:20px;
-                pointer-events:none
+                pointer-events:none;
               ">
 
               <span
                 style="
                   font-weight:600;
-                  color:var(--text-secondary)
+                  color:var(--text-secondary);
                 ">
+
                 No Queue Data
+
               </span>
+
 
               <span
                 style="
                   font-size:12px;
-                  margin-top:4px
+                  margin-top:4px;
                 ">
+
                 Barangay workload will appear here
                 when applications enter the queue.
+
               </span>
 
             </div>
 
           </div>
 
-          <div
-            class="analytics-insight"
-            id="idmaker-barangay-insight">
+        </div>
 
-            <div class="analytics-insight__icon">
-              <i class="fi fi-rr-lightbulb-on"></i>
+
+        <!-- BARANGAY INSIGHT — INSIDE THE CARD -->
+
+        <div
+          class="analytics-insight"
+          id="idmaker-barangay-insight">
+
+          <div class="analytics-insight__icon">
+
+            <i class="fi fi-rr-lightbulb-on"></i>
+
+          </div>
+
+
+          <div class="analytics-insight__content">
+
+            <div class="analytics-insight__label">
+              Insight
             </div>
 
-            <div class="analytics-insight__content">
+            <div
+              class="analytics-insight__text"
+              id="idmaker-barangay-insight-text">
 
-              <div class="analytics-insight__label">
-                Insight
-              </div>
-
-              <div
-                class="analytics-insight__text"
-                id="idmaker-barangay-insight-text">
-                Analyzing barangay workload...
-              </div>
+              Analyzing barangay workload...
 
             </div>
 
@@ -603,8 +676,13 @@
 
       </div>
 
-      <div
-        class="an-card an-card--metric">
+
+
+      <!-- =====================================================
+          3. QUEUE AGING / SLA
+          ===================================================== -->
+
+      <div class="an-card an-card--metric">
 
         <div class="an-card__header">
 
@@ -626,26 +704,36 @@
         <div
           class="an-card__body"
           style="
-            justify-content:center
+            justify-content:center;
+            padding:18px;
           ">
 
           <div class="sla-tracker">
+
+
+            <!-- MAIN SLA NUMBER -->
 
             <div class="sla-big">
 
               <div
                 class="sla-big__value"
                 id="sla-24h">
+
                 0
+
               </div>
 
-              <div
-                class="sla-big__label">
+
+              <div class="sla-big__label">
+
                 waiting &gt; 24h
+
               </div>
 
             </div>
 
+
+            <!-- SLA BAR -->
 
             <div
               class="sla-segmented-bar"
@@ -657,10 +745,12 @@
                 id="sla-bar-on-time">
               </span>
 
+
               <span
                 class="sla-segment sla-segment--24h"
                 id="sla-bar-24h">
               </span>
+
 
               <span
                 class="sla-segment sla-segment--48h"
@@ -670,33 +760,49 @@
             </div>
 
 
+            <!-- LEGEND -->
+
             <div class="sla-segment-legend">
 
               <span>
+
                 <i
                   class="sla-legend-dot sla-legend-dot--on-time">
                 </i>
+
                 ≤24h
+
               </span>
 
+
               <span>
+
                 <i
                   class="sla-legend-dot sla-legend-dot--24h">
                 </i>
+
                 &gt;24h
+
               </span>
 
+
               <span>
+
                 <i
                   class="sla-legend-dot sla-legend-dot--48h">
                 </i>
+
                 &gt;48h
+
               </span>
 
             </div>
 
 
+            <!-- SLA COUNTS -->
+
             <div class="sla-row">
+
 
               <div
                 class="sla-row__box sla-warn">
@@ -742,6 +848,8 @@
             </div>
 
 
+            <!-- SLA NOTE -->
+
             <div class="sla-note">
 
               <i
@@ -758,13 +866,19 @@
 
         </div>
 
+
+        <!-- SLA INSIGHT — INSIDE THE CARD -->
+
         <div
           class="analytics-insight"
           id="idmaker-sla-insight">
 
           <div class="analytics-insight__icon">
+
             <i class="fi fi-rr-lightbulb-on"></i>
+
           </div>
+
 
           <div class="analytics-insight__content">
 
@@ -772,38 +886,17 @@
               Insight
             </div>
 
+
             <div
               class="analytics-insight__text"
               id="idmaker-sla-insight-text">
+
               Analyzing queue aging...
+
             </div>
 
           </div>
 
-        </div>
-
-      </div>
-
-    </div>
-
-    <div
-      class="analytics-insight"
-      id="idmaker-status-insight">
-
-      <div class="analytics-insight__icon">
-        <i class="fi fi-rr-lightbulb-on"></i>
-      </div>
-
-      <div class="analytics-insight__content">
-
-        <div class="analytics-insight__label">
-          Insight
-        </div>
-
-        <div
-          class="analytics-insight__text"
-          id="idmaker-status-insight-text">
-          Analyzing production status...
         </div>
 
       </div>
