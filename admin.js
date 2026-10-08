@@ -1,10 +1,5 @@
 // Admin portal logic
 
-
-/* =========================================================
-   LIVE ADMIN DASHBOARD DATA
-   ========================================================= */
-
 const ADMIN_APPLICATIONS_API =
   'https://management-backend-3cij.onrender.com/api/applications';
 
@@ -253,6 +248,40 @@ async function loadAdminDashboardData() {
 
 }
 
+function getAuthHeaders() {
+  let token = null;
+
+  try {
+    const raw = window.sessionStorage.getItem('senioridAuth');
+
+    if (raw) {
+      const session = JSON.parse(raw);
+      token = session.token || null;
+    }
+  } catch (error) {
+    console.error('Unable to read authentication session:', error);
+  }
+
+  if (!token) {
+    try {
+      const raw = window.localStorage.getItem('senioridAuth');
+
+      if (raw) {
+        const session = JSON.parse(raw);
+        token = session.token || null;
+      }
+    } catch (error) {
+      console.error('Unable to read authentication session:', error);
+    }
+  }
+
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': token
+      ? `Bearer ${token}`
+      : ''
+  };
+}
 
 /* =========================================================
    APPLICATION STATUS ANALYTICS
@@ -582,9 +611,7 @@ async function loadAdminUsers() {
         ADMIN_USERS_API,
         {
           method: 'GET',
-          headers: {
-            Accept: 'application/json'
-          },
+          headers: getAuthHeaders(),
           cache: 'no-store'
         }
       );
@@ -1172,9 +1199,7 @@ async function loadAdminAuditLogs() {
         `${ADMIN_AUDIT_API}?limit=500`,
         {
           method: 'GET',
-          headers: {
-            Accept: 'application/json'
-          },
+          headers: getAuthHeaders(),
           cache: 'no-store'
         }
       );
@@ -2885,13 +2910,7 @@ async function saveUser() {
             method:
               'PUT',
 
-            headers: {
-              'Content-Type':
-                'application/json',
-
-              Accept:
-                'application/json'
-            },
+            headers: getAuthHeaders(),
 
             body:
               JSON.stringify(
@@ -2914,13 +2933,7 @@ async function saveUser() {
             method:
               'POST',
 
-            headers: {
-              'Content-Type':
-                'application/json',
-
-              Accept:
-                'application/json'
-            },
+            headers: getAuthHeaders(),
 
             body:
               JSON.stringify({
@@ -3097,13 +3110,7 @@ async function toggleMgmtUserStatus(
                 method:
                   'PUT',
 
-                headers: {
-                  'Content-Type':
-                    'application/json',
-
-                  Accept:
-                    'application/json'
-                },
+                headers: getAuthHeaders(),
 
                 body:
                   JSON.stringify({
@@ -3550,13 +3557,7 @@ async function resetUserCredentials() {
           method:
             'PUT',
 
-          headers: {
-            'Content-Type':
-              'application/json',
-
-            Accept:
-              'application/json'
-          },
+          headers: getAuthHeaders(),
 
           body:
             JSON.stringify({

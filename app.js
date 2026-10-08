@@ -361,6 +361,22 @@ function initRadar() {
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, padding: 14, font: { size: 11 } } }, tooltip: { ...TIP } }, scales: { r: { min: 0, max: 100, ticks: { display: false }, grid: { color: C.grid }, angleLines: { color: C.grid }, pointLabels: { color: C.text, font: { size: 10, weight: '600' } } } } }
   });
 }
+function getAuthToken() {
+  return localStorage.getItem('authToken');
+}
+
+function getAuthHeaders() {
+  const token = getAuthToken();
+
+  return {
+    'Content-Type': 'application/json',
+    ...(token
+      ? {
+          'Authorization': `Bearer ${token}`
+        }
+      : {})
+  };
+}
 /* ── ID Maker Operational Analytics ── */
 
 
@@ -1179,7 +1195,6 @@ async function handleLogin(event) {
       : '';
 
   if (!recaptchaResponse) {
-
     if (recaptchaError) {
       recaptchaError.textContent =
         'Please complete the CAPTCHA.';
@@ -1198,19 +1213,24 @@ async function handleLogin(event) {
   }
 
   try {
-    const response = await fetch('https://management-backend-3cij.onrender.com/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        username,
-        password
-      })
-    });
+    // Send login request to backend
+    const response = await fetch(
+      'https://management-backend-3cij.onrender.com/api/auth/login',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          username,
+          password
+        })
+      }
+    );
 
     const result = await response.json();
 
+    // Login failed
     if (!response.ok || !result.success) {
       if (btn) {
         btn.classList.remove('loading');
@@ -1234,20 +1254,43 @@ async function handleLogin(event) {
       return;
     }
 
-    // User returned from Supabase
     const user = result.user;
+    const token = result.token;
 
-    // Convert database role to the role names used by the frontend
+    // Make sure the backend actually returned a token
+    if (!token) {
+      console.error(
+        'Login succeeded but no authentication token was returned.'
+      );
+
+      if (btn) {
+        btn.classList.remove('loading');
+      }
+
+      showFieldError(
+        'login-password',
+        'Login succeeded, but the secure session could not be created.'
+      );
+
+      return;
+    }
+
+    // Convert database role to the role names
     let frontendRole;
 
     if (user.role === 'admin') {
       frontendRole = 'Admin';
+
     } else if (user.role === 'staff') {
       frontendRole = 'Staff';
+
     } else if (user.role === 'idmaker') {
       frontendRole = 'ID Maker';
+
     } else {
-      if (btn) btn.classList.remove('loading');
+      if (btn) {
+        btn.classList.remove('loading');
+      }
 
       showFieldError(
         'login-password',
@@ -1257,7 +1300,8 @@ async function handleLogin(event) {
       return;
     }
 
-    // Create the user object used by the existing system
+    // Create the user object used by the existing frontend
+
     const authUser = {
       id: user.id,
       username: user.username,
@@ -1266,27 +1310,55 @@ async function handleLogin(event) {
       displayName: user.username
     };
 
+    // Update current application session
     CURRENT_USER = authUser;
 
     setRole(authUser.role, true);
     applySessionContext();
 
-    writeAuthSession(
-      JSON.stringify({
-        id: authUser.id,
-        username: authUser.username,
-        role: authUser.role,
-        email: authUser.email,
-        displayName: authUser.displayName
-      })
+    // SAVE THE JWT TOKEN WITH THE EXISTING SESSION
+
+    const sessionData = {
+      id: authUser.id,
+      username: authUser.username,
+      role: authUser.role,
+      email: authUser.email,
+      displayName: authUser.displayName,
+
+      // JWT returned by the backend
+      token: token
+    };
+
+    const sessionSaved = writeAuthSession(
+      JSON.stringify(sessionData)
     );
 
-    if (PAGE === 'login') {
-      location.href = portalFileForRole(authUser.role);
+    if (!sessionSaved) {
+      if (btn) {
+        btn.classList.remove('loading');
+      }
+
+      showFieldError(
+        'login-password',
+        'Unable to create a secure login session. Please try again.'
+      );
+
       return;
     }
 
-    if (btn) btn.classList.remove('loading');
+    // Redirect to the correct portal
+
+    if (PAGE === 'login') {
+      location.href = portalFileForRole(
+        authUser.role
+      );
+
+      return;
+    }
+
+    if (btn) {
+      btn.classList.remove('loading');
+    }
 
     showPortalPage();
 
@@ -1302,9 +1374,14 @@ async function handleLogin(event) {
     );
 
   } catch (error) {
-    console.error('Login error:', error);
+    console.error(
+      'Login error:',
+      error
+    );
 
-    if (btn) btn.classList.remove('loading');
+    if (btn) {
+      btn.classList.remove('loading');
+    }
 
     showFieldError(
       'login-password',
