@@ -8,6 +8,81 @@ const { createAuditLog } = require("../controllers/auditLogController");
 const router = express.Router();
 
 /* =========================================================
+   DIAGNOSTIC: POST /api/auth/test-email
+   Tests SMTP connection + user lookup. Remove after debugging.
+   ========================================================= */
+
+router.post("/test-email", async (req, res) => {
+  const results = { smtp: null, userLookup: null, tokenInsert: null, emailSend: null };
+
+  // 1. Check env vars
+  results.envVars = {
+    SMTP_HOST:    process.env.SMTP_HOST     || "MISSING",
+    SMTP_PORT:    process.env.SMTP_PORT     || "MISSING",
+    SMTP_USER:    process.env.SMTP_USER     || "MISSING",
+    SMTP_PASS:    process.env.SMTP_PASS     ? "SET (hidden)" : "MISSING",
+    FRONTEND_URL: process.env.FRONTEND_URL  || "MISSING",
+  };
+
+  // 2. Test SMTP connection
+  try {
+    const transport = createMailTransport();
+    await transport.verify();
+    results.smtp = "OK — SMTP connection successful";
+  } catch (err) {
+    results.smtp = "FAILED: " + err.message;
+  }
+
+  // 3. Test user lookup
+  const { identifier } = req.body;
+  if (identifier) {
+    const clean = String(identifier).trim().toLowerCase();
+    try {
+      const { data: user, error } = await supabase
+        .from("user_accounts")
+        .select("id, username, email, account_status")
+        .or(`username.eq.${clean},email.eq.${clean}`)
+        .maybeSingle();
+      if (error) {
+        results.userLookup = "SUPABASE ERROR: " + error.message;
+      } else if (!user) {
+        results.userLookup = "NOT FOUND — no user with that username/email in user_accounts";
+      } else {
+        results.userLookup = {
+          found: true,
+          username: user.username,
+          email: user.email || "NO EMAIL SET",
+          status: user.account_status,
+        };
+      }
+    } catch (err) {
+      results.userLookup = "EXCEPTION: " + err.message;
+    }
+  } else {
+    results.userLookup = "No identifier provided in body";
+  }
+
+  // 4. Test sending a real email if SMTP is OK and user was found with email
+  if (results.smtp === "OK — SMTP connection successful" &&
+      results.userLookup?.email && results.userLookup.email !== "NO EMAIL SET") {
+    try {
+      const transport = createMailTransport();
+      await transport.sendMail({
+        from: `"OSCA Bauan System" <${process.env.SMTP_USER}>`,
+        to: results.userLookup.email,
+        subject: "OSCA System — Test Email",
+        text: "This is a test email from the OSCA password reset system. If you received this, email sending is working correctly.",
+      });
+      results.emailSend = "OK — test email sent to " + results.userLookup.email;
+    } catch (err) {
+      results.emailSend = "SEND FAILED: " + err.message;
+    }
+  }
+
+  return res.json(results);
+});
+
+/* =========================================================
    CONSTANTS
    ========================================================= */
 
