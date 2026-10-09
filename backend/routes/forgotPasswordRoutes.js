@@ -26,23 +26,13 @@ router.post("/test-email", async (req, res) => {
     FRONTEND_URL: process.env.FRONTEND_URL || "❌ MISSING",
   };
 
-  // 2. SMTP test — send a real email directly (verify() can hang; sendMail fails fast)
-  const testTarget = process.env.SMTP_USER;
-  if (testTarget) {
-    try {
-      const transport = createMailTransport();
-      await transport.sendMail({
-        from: `"OSCA Bauan Diagnostic" <${process.env.SMTP_USER}>`,
-        to: testTarget,
-        subject: "OSCA — SMTP Diagnostic Test",
-        text: "If you see this, SMTP is working correctly.",
-      });
-      results.smtp = "✅ SMTP send OK — check " + testTarget + " inbox";
-    } catch (err) {
-      results.smtp = "❌ SMTP FAILED: " + err.message;
-    }
-  } else {
-    results.smtp = "❌ SMTP_USER env var not set — cannot test";
+  // 2. SMTP connection test
+  try {
+    const transport = createMailTransport();
+    await transport.verify();
+    results.smtp = "✅ SMTP connection OK";
+  } catch (err) {
+    results.smtp = "❌ SMTP FAILED: " + err.message;
   }
 
   // 3. User lookup in Supabase
@@ -72,6 +62,21 @@ router.post("/test-email", async (req, res) => {
     }
   } else {
     results.userLookup = "⚠️ No identifier sent in request body";
+  }
+
+  // 3b. DB table check — does password_reset_tokens exist and is it accessible?
+  try {
+    const { error: tableError } = await supabase
+      .from("password_reset_tokens")
+      .select("id")
+      .limit(1);
+    if (tableError) {
+      results.dbTable = "❌ password_reset_tokens ERROR: " + tableError.message;
+    } else {
+      results.dbTable = "✅ password_reset_tokens table is accessible";
+    }
+  } catch (err) {
+    results.dbTable = "❌ password_reset_tokens EXCEPTION: " + err.message;
   }
 
   // 4. Send real test email if both SMTP and user are OK
@@ -115,18 +120,14 @@ const FRONTEND_BASE_URL =
    ========================================================= */
 
 function createMailTransport() {
-  const port = Number(process.env.SMTP_PORT) || 465;
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || "smtp.gmail.com",
-    port,
-    secure: port === 465, // port 465 = SSL, port 587 = STARTTLS
+    port: Number(process.env.SMTP_PORT) || 587,
+    secure: process.env.SMTP_SECURE === "true", // true for 465, false for other ports
     auth: {
       user: process.env.SMTP_USER,
-      pass: String(process.env.SMTP_PASS || "").replace(/\s/g, ""), // strip any accidental spaces
+      pass: process.env.SMTP_PASS,
     },
-    connectionTimeout: 10000,  // 10 s
-    greetingTimeout:   8000,   // 8 s
-    socketTimeout:     15000,  // 15 s
   });
 }
 
