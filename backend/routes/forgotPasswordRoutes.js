@@ -8,32 +8,34 @@ const { createAuditLog } = require("../controllers/auditLogController");
 const router = express.Router();
 
 /* =========================================================
-   DIAGNOSTIC: POST /api/auth/test-email
-   Tests SMTP connection + user lookup. Remove after debugging.
+   DIAGNOSTIC — POST /api/auth/test-email
+   Checks env vars, SMTP connection, user lookup, and sends
+   a real test email. REMOVE after debugging is done.
    ========================================================= */
 
 router.post("/test-email", async (req, res) => {
-  const results = { smtp: null, userLookup: null, tokenInsert: null, emailSend: null };
+  const results = {};
 
-  // 1. Check env vars
+  // 1. Env var check
   results.envVars = {
-    SMTP_HOST:    process.env.SMTP_HOST     || "MISSING",
-    SMTP_PORT:    process.env.SMTP_PORT     || "MISSING",
-    SMTP_USER:    process.env.SMTP_USER     || "MISSING",
-    SMTP_PASS:    process.env.SMTP_PASS     ? "SET (hidden)" : "MISSING",
-    FRONTEND_URL: process.env.FRONTEND_URL  || "MISSING",
+    SMTP_HOST:    process.env.SMTP_HOST    || "❌ MISSING",
+    SMTP_PORT:    process.env.SMTP_PORT    || "❌ MISSING",
+    SMTP_SECURE:  process.env.SMTP_SECURE  || "❌ MISSING",
+    SMTP_USER:    process.env.SMTP_USER    || "❌ MISSING",
+    SMTP_PASS:    process.env.SMTP_PASS    ? "✅ SET (hidden)" : "❌ MISSING",
+    FRONTEND_URL: process.env.FRONTEND_URL || "❌ MISSING",
   };
 
-  // 2. Test SMTP connection
+  // 2. SMTP connection test
   try {
     const transport = createMailTransport();
     await transport.verify();
-    results.smtp = "OK — SMTP connection successful";
+    results.smtp = "✅ SMTP connection OK";
   } catch (err) {
-    results.smtp = "FAILED: " + err.message;
+    results.smtp = "❌ SMTP FAILED: " + err.message;
   }
 
-  // 3. Test user lookup
+  // 3. User lookup in Supabase
   const { identifier } = req.body;
   if (identifier) {
     const clean = String(identifier).trim().toLowerCase();
@@ -44,39 +46,44 @@ router.post("/test-email", async (req, res) => {
         .or(`username.eq.${clean},email.eq.${clean}`)
         .maybeSingle();
       if (error) {
-        results.userLookup = "SUPABASE ERROR: " + error.message;
+        results.userLookup = "❌ Supabase error: " + error.message;
       } else if (!user) {
-        results.userLookup = "NOT FOUND — no user with that username/email in user_accounts";
+        results.userLookup = "❌ NOT FOUND — no user_accounts row matches that username/email";
       } else {
         results.userLookup = {
           found: true,
           username: user.username,
-          email: user.email || "NO EMAIL SET",
+          email: user.email || "❌ NO EMAIL SET on this account",
           status: user.account_status,
         };
       }
     } catch (err) {
-      results.userLookup = "EXCEPTION: " + err.message;
+      results.userLookup = "❌ Exception: " + err.message;
     }
   } else {
-    results.userLookup = "No identifier provided in body";
+    results.userLookup = "⚠️ No identifier sent in request body";
   }
 
-  // 4. Test sending a real email if SMTP is OK and user was found with email
-  if (results.smtp === "OK — SMTP connection successful" &&
-      results.userLookup?.email && results.userLookup.email !== "NO EMAIL SET") {
+  // 4. Send real test email if both SMTP and user are OK
+  const userEmail = results.userLookup?.email;
+  const smtpOk = results.smtp?.startsWith("✅");
+  const emailIsReal = userEmail && !userEmail.startsWith("❌");
+
+  if (smtpOk && emailIsReal) {
     try {
       const transport = createMailTransport();
       await transport.sendMail({
         from: `"OSCA Bauan System" <${process.env.SMTP_USER}>`,
-        to: results.userLookup.email,
-        subject: "OSCA System — Test Email",
-        text: "This is a test email from the OSCA password reset system. If you received this, email sending is working correctly.",
+        to: userEmail,
+        subject: "OSCA System — Diagnostic Test Email",
+        text: `This is a test email from the OSCA password reset system.\n\nIf you received this, email sending is working correctly!\n\n— OSCA Bauan`,
       });
-      results.emailSend = "OK — test email sent to " + results.userLookup.email;
+      results.emailSend = "✅ Test email sent to " + userEmail;
     } catch (err) {
-      results.emailSend = "SEND FAILED: " + err.message;
+      results.emailSend = "❌ Email send FAILED: " + err.message;
     }
+  } else {
+    results.emailSend = "⏭️ Skipped (SMTP or user email not ready)";
   }
 
   return res.json(results);
