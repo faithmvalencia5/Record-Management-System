@@ -1,11 +1,14 @@
 const express = require("express");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const supabase = require("../config/supabase");
 const { createAuditLog } = require("../controllers/auditLogController");
 
 const router = express.Router();
+
+// Resend client — uses HTTPS so works on Render (SMTP is blocked)
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 /* =========================================================
    DIAGNOSTIC — POST /api/auth/test-email
@@ -26,14 +29,10 @@ router.post("/test-email", async (req, res) => {
     FRONTEND_URL: process.env.FRONTEND_URL || "❌ MISSING",
   };
 
-  // 2. SMTP connection test
-  try {
-    const transport = createMailTransport();
-    await transport.verify();
-    results.smtp = "✅ SMTP connection OK";
-  } catch (err) {
-    results.smtp = "❌ SMTP FAILED: " + err.message;
-  }
+  // 2. Resend API key check
+  results.resend = process.env.RESEND_API_KEY
+    ? "✅ RESEND_API_KEY is SET"
+    : "❌ RESEND_API_KEY is MISSING — add it to Render env vars";
 
   // 3. User lookup in Supabase
   const { identifier } = req.body;
@@ -84,11 +83,10 @@ router.post("/test-email", async (req, res) => {
   const smtpOk = results.smtp?.startsWith("✅");
   const emailIsReal = userEmail && !userEmail.startsWith("❌");
 
-  if (smtpOk && emailIsReal) {
+  const resendOk = results.resend?.startsWith("✅");
+  if (resendOk && emailIsReal) {
     try {
-      const transport = createMailTransport();
-      await transport.sendMail({
-        from: `"OSCA Bauan System" <${process.env.SMTP_USER}>`,
+      await sendEmail({
         to: userEmail,
         subject: "OSCA System — Diagnostic Test Email",
         text: `This is a test email from the OSCA password reset system.\n\nIf you received this, email sending is working correctly!\n\n— OSCA Bauan`,
@@ -98,7 +96,7 @@ router.post("/test-email", async (req, res) => {
       results.emailSend = "❌ Email send FAILED: " + err.message;
     }
   } else {
-    results.emailSend = "⏭️ Skipped (SMTP or user email not ready)";
+    results.emailSend = "⏭️ Skipped (Resend API key missing or user email not ready)";
   }
 
   return res.json(results);
@@ -114,21 +112,16 @@ const FRONTEND_BASE_URL =
   "https://record-management-system-black.vercel.app";
 
 /* =========================================================
-   EMAIL TRANSPORT
-   Uses env vars so credentials stay out of source code.
-   Supported: Gmail (with App Password) or any SMTP provider.
+   EMAIL SENDER — Resend HTTP API
+   Render blocks outbound SMTP; Resend uses HTTPS instead.
+   Requires RESEND_API_KEY env var and a verified sender domain/email.
    ========================================================= */
 
-function createMailTransport() {
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOST || "smtp.gmail.com",
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === "true", // true for 465, false for other ports
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
-  });
+async function sendEmail({ to, subject, html, text }) {
+  const from = process.env.RESEND_FROM ||
+    `OSCA Bauan System <onboarding@resend.dev>`;
+  const { error } = await resend.emails.send({ from, to, subject, html, text });
+  if (error) throw new Error(error.message);
 }
 
 /* =========================================================
@@ -231,19 +224,16 @@ router.post("/forgot-password", async (req, res) => {
     /* ── Build reset link ── */
     const resetLink = `${FRONTEND_BASE_URL}/reset-password.html?token=${rawToken}`;
 
-    /* ── Send email ── */
+    /* ── Send email via Resend ── */
     try {
-      const transport = createMailTransport();
-
-      await transport.sendMail({
-        from: `"OSCA Bauan System" <${process.env.SMTP_USER}>`,
+      await sendEmail({
         to: user.email,
         subject: "Password Reset Request — OSCA Bauan",
         html: buildResetEmailHTML(user.username, resetLink, RESET_TOKEN_EXPIRY_MINUTES),
         text: buildResetEmailText(user.username, resetLink, RESET_TOKEN_EXPIRY_MINUTES),
       });
     } catch (mailError) {
-      console.error("Email send error:", mailError);
+      console.error("Email send error:", mailError.message);
       // Don't expose mail errors; the token is saved so admin can still use it
     }
 
