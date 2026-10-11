@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>(function(){try{var t=localStorage.getItem('senioridTheme');document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');document.documentElement.style.colorScheme=t==='dark'?'dark':'light';}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
   <title>ID Maker Portal – Senior Citizens Bureau</title>
 
   <!-- Fonts (unchanged) -->
@@ -21,11 +22,12 @@
   <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-solid-rounded/css/uicons-solid-rounded.css" />
   <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-bold-rounded/css/uicons-bold-rounded.css" />
 
-  <link rel="stylesheet" href="base.css?v=27" />
-  <link rel="stylesheet" href="idmaker.css?v=24" />
+  <link rel="stylesheet" href="base.css?v=35" />
+  <link rel="stylesheet" href="idmaker.css?v=26" />
+  <script src="skeleton.js?v=2"></script>
 </head>
 
-<body class="portal-mode">
+<body class="portal-mode skeleton-page-loading" aria-busy="true">
 
   <div class="app-shell" id="portal-shell">
 
@@ -108,6 +110,12 @@
               <span class="page-header__badge purple">ID Production Ops</span>
             </div>
             <p class="page-header__sub">Process pre-approved applications, generate documents, and track issuance status.</p>
+          </div>
+          <div class="page-header__controls">
+            <button class="theme-toggle theme-toggle--header" type="button" data-theme-toggle aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false">
+              <svg data-theme-icon="light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
+              <svg data-theme-icon="dark" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"/></svg>
+            </button>
           </div>
         </header>
 
@@ -353,6 +361,12 @@
           Current ID production workload and queue aging.
         </p>
 
+      </div>
+      <div class="page-header__controls">
+        <button class="theme-toggle theme-toggle--header" type="button" data-theme-toggle aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false">
+          <svg data-theme-icon="light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
+          <svg data-theme-icon="dark" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"/></svg>
+        </button>
       </div>
 
     </header>
@@ -1190,8 +1204,9 @@
   <!-- Toast container -->
   <div class="toast-container" id="toast-container"></div>
 
-<script src="app.js?v=24"></script>
-  <script src="idmaker.js?v=14"></script>
+<script src="theme.js?v=1"></script>
+<script src="app.js?v=25"></script>
+  <script src="idmaker.js?v=15"></script>
 </body>
 
 </html>

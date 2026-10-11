@@ -4,13 +4,24 @@ const ID_MAKER_API =
 // LOAD QUEUE FROM DATABASE
 
 async function loadIdMakerQueueFromDatabase(showMessage = false) {
+  if (typeof Skeleton !== 'undefined') {
+    Skeleton.setLoading(
+      document.querySelectorAll(
+        '#mod-id-maker-dashboard .stat-card, #mod-id-maker-dashboard .chart-card, #mod-id-maker-analytics .stat-card, #mod-id-maker-analytics .chart-card, #mod-id-maker-analytics .donut-card'
+      ),
+      true
+    );
+  }
+
   try {
     const tbody =
       document.getElementById(
         'id-maker-queue-tbody'
       );
 
-    if (tbody) {
+    if (tbody && typeof Skeleton !== 'undefined') {
+      Skeleton.setTable(tbody, 6);
+    } else if (tbody) {
       tbody.innerHTML =
         '<tr>' +
         '<td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">' +
@@ -120,6 +131,15 @@ async function loadIdMakerQueueFromDatabase(showMessage = false) {
 
     return [];
 
+  } finally {
+    if (typeof Skeleton !== 'undefined') {
+      Skeleton.setLoading(
+        document.querySelectorAll(
+          '#mod-id-maker-dashboard .stat-card, #mod-id-maker-dashboard .chart-card, #mod-id-maker-analytics .stat-card, #mod-id-maker-analytics .chart-card, #mod-id-maker-analytics .donut-card'
+        ),
+        false
+      );
+    }
   }
 }
 
@@ -226,6 +246,7 @@ function initIdMakerQueue(){
   const tbody = document.getElementById('id-maker-queue-tbody');
   if(!tbody) return;
   tbody.innerHTML = '';
+  if (typeof Skeleton !== 'undefined') Skeleton.clearBusy(tbody);
   const statuses = ['Queued','In Production','Printed','In Transit'];
   if (!ID_MAKER_QUEUE.length) {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">No cards in the production queue yet. They will appear here once connected to the live system.</td></tr>';
@@ -263,7 +284,9 @@ function initIdMakerQueue(){
       '<td data-label="Barangay"><span class="cell-text">' + app.barangay + '</span></td>',
       '<td data-label="Status"><div class="row-status-select" data-app-id="' + app.id + '">' + triggerHTML + '</div></td>',
       '<td style="text-align:right;white-space:nowrap">',
-      '  <button class="row-action always-visible btn--primary" style="font-size:12px;padding:5px 12px" onclick="openDigitalIssuance(\'' + app.id + '\')">View Form</button>',
+      '  <button type="button" class="row-action always-visible row-action--icon" data-tooltip="View form" aria-label="View form" onclick="openDigitalIssuance(\'' + app.id + '\')">' +
+      '    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.75"/></svg>' +
+      '  </button>',
       '</td>'
     ].join('\n');
     tbody.appendChild(tr);

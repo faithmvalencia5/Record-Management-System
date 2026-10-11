@@ -41,14 +41,14 @@
 .admin-actions-table-wrap{
   border-top:1px solid var(--bg-alt);
   margin:0 -12px -12px;
-  background:#FFFFFF;
+  background:var(--surface);
   border-radius:0 0 var(--r-md) var(--r-md);
   overflow:hidden;
 }
 .admin-actions-table{
   width:100%;
   border-collapse:collapse;
-  background:#FFFFFF;
+  background:var(--surface);
   table-layout:auto;
 }
 .admin-actions-table th{
@@ -59,7 +59,7 @@
   color:var(--text-placeholder);
   padding:8px 14px;
   border-bottom:1px solid var(--bg-alt);
-  background:#F8FAFC;
+  background:var(--bg);
   white-space:nowrap;
 }
 .admin-actions-table td{
@@ -75,7 +75,7 @@
 
 /* High-risk alert row: pure white + bold left accent strip */
 .admin-actions-table .admin-actions-row--alert td{
-  background:#FFFFFF;
+  background:var(--surface);
 }
 .admin-actions-table .admin-actions-row--alert td:first-child{border-left:3px solid #E11D48}
 .admin-actions-table .admin-actions-row--alert:hover td{background:var(--bg-alt)}
@@ -157,7 +157,7 @@
   padding:11px 14px;margin:0;
   border:0;border-top:1px solid #E2E8F0;border-radius:0;
   font-family:var(--font-data);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.6px;
-  color:var(--text-primary);background:#FFFFFF;
+  color:var(--text-primary);background:var(--surface);
   cursor:pointer;
   transition:background var(--tf),color var(--tf),border-color var(--tf);
 }
@@ -318,24 +318,24 @@
 .content-card--tpl .tpl-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap}
 .content-card--tpl .tpl-toggle{border-bottom:none;border-top:1px solid var(--bg-alt);padding:10px 0 2px;margin:0}
 
-/* Skeleton loaders */
-.skeleton-loader{
-  display:inline-block;height:1em;min-width:60px;border-radius:4px;
-  background:linear-gradient(90deg,rgba(200,211,240,0.5) 25%,rgba(228,235,250,0.9) 50%,rgba(200,211,240,0.5) 75%);
-  background-size:200% 100%;
-  animation:skeleton-shimmer 1.4s ease infinite;
-}
-@keyframes skeleton-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-
 /* Elevated visual hierarchy for high-risk card
    (clean white surface; state conveyed via border/tinting only) */
 .admin-op-card--highrisk{
-  background:#FFFFFF;
+  background:var(--surface);
   border:1px solid rgba(225,29,72,0.3);
   box-shadow:none;
 }
 .admin-op-card__tint{font-size:10.5px;font-weight:700;letter-spacing:.8px;text-transform:uppercase}
 .admin-op-card--highrisk .admin-op-card__tint{color:var(--danger-dark)}
+:root[data-theme="dark"] .content-card--tpl .tpl-counter{color:var(--text-muted)}
+
+:root[data-theme="dark"] .quick-actions-bar,
+:root[data-theme="dark"] .admin-actions-table,
+:root[data-theme="dark"] .admin-actions-table .admin-actions-row--alert td,
+:root[data-theme="dark"] .admin-op-card--highrisk{
+  background:var(--surface);
+  border-color:var(--border);
+}
 
 /* Quick administrative actions bar */
 .quick-actions-bar{

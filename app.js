@@ -977,6 +977,16 @@ function showPortalPage() {
   document.body.classList.remove('auth-mode');
   document.body.classList.add('portal-mode');
   document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'));
+
+  // Skeleton: shimmer KPI values and main data tables while live data loads
+  if (typeof Skeleton !== 'undefined') {
+    // Staff / Admin KPI cards
+    Skeleton.setLoading(document.querySelectorAll('.stat-card__value'), true);
+    // Staff tables
+    Skeleton.setTable('recent-submissions-tbody', 5);
+    Skeleton.setTable('applicants-tbody', 8);
+    Skeleton.setTable('applications-tbody', 8);
+  }
 }
 
 function updateRoleUI() {
@@ -2085,6 +2095,11 @@ function syncApplicationsToAppDB(applications) {
   });
 
   initSmallFormIssuance();
+
+  // Skeleton: clear KPI shimmer now that live data is synced
+  if (typeof Skeleton !== 'undefined') {
+    Skeleton.setLoading(document.querySelectorAll('.stat-card__value'), false);
+  }
 
   // Refresh the form if an applicant is already selected
   updatePreview();
@@ -6074,6 +6089,8 @@ function renderApplicantsTable() {
       '</tr>';
   }).join('');
   tbody.innerHTML = rows || '<tr><td colspan="9" style="text-align:center;padding:28px;color:var(--text-muted)">No applicants yet.</td></tr>';
+  // Skeleton: clear busy state now that real rows are inserted
+  if (typeof Skeleton !== 'undefined') Skeleton.clearBusy('applicants-tbody');
   const footerInfo = document.querySelector('#mod-applicants .table-footer__info');
   if (footerInfo) footerInfo.textContent = 'Showing ' + activeApplications.length + ' of ' + fmt(activeApplications.length) + ' applicants';
 }
@@ -6118,6 +6135,11 @@ function renderApplicationsTable() {
       '</tr>';
   }).join('');
   tbody.innerHTML = rows;
+  // Skeleton: clear busy state now that real rows are inserted
+  if (typeof Skeleton !== 'undefined') {
+    Skeleton.clearBusy('applications-tbody');
+    Skeleton.clearBusy('recent-submissions-tbody');
+  }
   const footerInfo = document.querySelector('#mod-applicants .table-footer__info');
   if (footerInfo) footerInfo.textContent = 'Showing ' + rows.length + ' of ' + fmt(FULL_APPLICANTS.length) + ' applicants';
   // Update the status tab counts after rendering
@@ -6139,6 +6161,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // screen, the logout confirmation, or to bounce an active session to its portal.
   if (PAGE === 'login') {
     restoreSession();
+    if (typeof Skeleton !== 'undefined') Skeleton.pageReady();
     return;
   }
 
@@ -6190,6 +6213,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const applicantsStatusSel = document.querySelectorAll('#mod-applicants .filter-select')[1];
   if (applicantsBarangaySel) applicantsBarangaySel.addEventListener('change', function () { filterApplicantsByBarangay(this.value); });
   if (applicantsStatusSel) applicantsStatusSel.addEventListener('change', function () { filterApplicantsByStatus(this.value); });
+
+  if (typeof Skeleton !== 'undefined') Skeleton.pageReady();
 
 });
 

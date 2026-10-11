@@ -537,6 +537,18 @@ function updateLiveDashboardVisuals(
         if (bar) {
           bar.style.height =
             '0';
+          bar.removeAttribute('title');
+          bar.classList.remove('bar-col__bar--peak');
+        }
+
+        column.style.setProperty('--bar-height', '0%');
+        column.classList.remove('is-peak');
+        const value = column.querySelector('.bar-col__value');
+        const label = column.querySelector('.bar-col__label');
+        if (value) value.textContent = '0';
+        if (label) {
+          label.textContent = '\u2014';
+          label.removeAttribute('title');
         }
 
       }
@@ -573,6 +585,18 @@ function updateLiveDashboardVisuals(
           bar.style.height =
             '0';
 
+          column.style.setProperty('--bar-height', '0%');
+          column.classList.remove('is-peak');
+          bar.classList.remove('bar-col__bar--peak');
+          bar.removeAttribute('title');
+          const emptyValue = column.querySelector('.bar-col__value');
+          const emptyLabel = column.querySelector('.bar-col__label');
+          if (emptyValue) emptyValue.textContent = '0';
+          if (emptyLabel) {
+            emptyLabel.textContent = '\u2014';
+            emptyLabel.removeAttribute('title');
+          }
+
           return;
         }
 
@@ -582,19 +606,15 @@ function updateLiveDashboardVisuals(
         const count =
           row[1];
 
-        const height =
-          Math.max(
-            12,
-            Math.round(
-              (
-                count /
-                maxValue
-              ) * 100
-            )
-          );
+        const height = count > 0
+          ? Math.max(5, Math.round((count / maxValue) * 84))
+          : 0;
 
         bar.style.height =
           `${height}%`;
+        column.style.setProperty('--bar-height', `${height}%`);
+        column.classList.toggle('is-peak', index === 0);
+        bar.classList.toggle('bar-col__bar--peak', index === 0);
 
         bar.title =
           `${barangay}: ${count}`;
@@ -607,6 +627,7 @@ function updateLiveDashboardVisuals(
         if (label) {
           label.textContent =
             barangay;
+          label.title = barangay;
         }
 
         const value =
@@ -2494,15 +2515,7 @@ function renderLiveApplicants(applications) {
             </td>
 
 
-            <td style="text-align:right">
-              <button
-                class="row-action always-visible"
-                type="button"
-                onclick="openApplicationDetail('${escapeApplicationHtml(appId)}')"
-              >
-                View
-              </button>
-            </td>
+            <td style="text-align:right">${buildViewAction(appId)}</td>
 
           </tr>
         `;
@@ -2907,17 +2920,7 @@ function renderLiveApplications(applications) {
             </td>
 
 
-            <td style="text-align:right">
-
-              <button
-                type="button"
-                class="row-action always-visible"
-                onclick="openApplicationDetail('${escapeApplicationHtml(appId)}')"
-              >
-                View
-              </button>
-
-            </td>
+            <td style="text-align:right">${buildViewAction(appId)}</td>
 
           </tr>
         `;
@@ -3377,16 +3380,7 @@ function renderRecentSubmissions(
                   </span>
                 </td>
 
-                <td style="text-align:right">
-
-                  <button
-                    class="row-action always-visible"
-                    onclick="openApplicationDetail('${escapeApplicationHtml(appId)}')"
-                  >
-                    View
-                  </button>
-
-                </td>
+                <td style="text-align:right">${buildViewAction(appId)}</td>
 
               </tr>
             `;
@@ -3469,27 +3463,29 @@ function setStaffDashboardLoading(isLoading) {
     );
 
 
-  if (
-    isLoading &&
-    tbody
-  ) {
+  if (!tbody) return;
 
+  if (isLoading) {
+    if (typeof Skeleton !== 'undefined') {
+      Skeleton.setTable('recent-submissions-tbody', 5);
+    }
+    return;
+  }
+
+  // Successful loads replace the skeleton in renderRecentSubmissions(). If
+  // loading failed or returned invalid data, clear the busy state with a
+  // useful message instead of leaving the skeleton spinning forever.
+  if (tbody.querySelector('.sk-row')) {
     tbody.innerHTML = `
       <tr>
-        <td
-          colspan="5"
-          style="
-            text-align:center;
-            padding:32px;
-            color:var(--text-muted);
-          "
-        >
-          <i class="fi fi-rr-spinner"></i>
-          Loading recent submissions...
+        <td colspan="5" style="text-align:center;padding:24px;color:var(--text-muted)">
+          Recent submissions could not be loaded.
         </td>
       </tr>
     `;
-
+    if (typeof Skeleton !== 'undefined') {
+      Skeleton.clearBusy('recent-submissions-tbody');
+    }
   }
 
 }
@@ -3500,6 +3496,8 @@ async function loadApplicationsFromDatabase() {
 
   // Show loading state
   setStaffDashboardLoading(true);
+  document.querySelectorAll('.data-table-card, .content-card').forEach(el => el.setAttribute('aria-busy', 'true'));
+  document.querySelectorAll('.admin-kpi-strip, .stat-card, .chart-card, .donut-card').forEach(el => el.classList.add('is-loading'));
 
   try {
 
@@ -3765,9 +3763,11 @@ async function loadApplicationsFromDatabase() {
 
     // Always remove loading state,
     // whether loading succeeded or failed.
-    setStaffDashboardLoading(
-      false
-    );
+    setStaffDashboardLoading(false);
+    document.querySelectorAll('.data-table-card, .content-card').forEach(el => el.removeAttribute('aria-busy'));
+    document.querySelectorAll('.admin-kpi-strip, .stat-card, .chart-card, .donut-card').forEach(el => el.classList.remove('is-loading'));
+    clearBusy('recent-apps-tbody');
+    clearBusy('recent-submissions-tbody');
 
   }
 

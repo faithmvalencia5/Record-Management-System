@@ -111,6 +111,15 @@ function updateAdminDashboardFromApplications(applications) {
  */
 async function loadAdminDashboardData() {
 
+  // Skeleton: shimmer the KPI values while we wait
+  if (typeof Skeleton !== 'undefined') {
+    Skeleton.setLoading(
+      document.querySelectorAll('#mod-dashboard .stat-card__value, .admin-kpi-strip .stat-card__value'),
+      true
+    );
+    Skeleton.setTable('audit-summary-tbody', 5);
+  }
+
   try {
 
     console.log(
@@ -180,10 +189,27 @@ async function loadAdminDashboardData() {
       applications
     );
 
+    // Skeleton: clear KPI shimmer once data is applied
+    if (typeof Skeleton !== 'undefined') {
+      Skeleton.setLoading(
+        document.querySelectorAll('#mod-dashboard .stat-card__value, .admin-kpi-strip .stat-card__value'),
+        false
+      );
+      Skeleton.clearBusy('audit-summary-tbody');
+    }
 
     return applications;
 
   } catch (error) {
+
+    // Skeleton: clear on error too
+    if (typeof Skeleton !== 'undefined') {
+      Skeleton.setLoading(
+        document.querySelectorAll('#mod-dashboard .stat-card__value, .admin-kpi-strip .stat-card__value'),
+        false
+      );
+      Skeleton.clearBusy('audit-summary-tbody');
+    }
 
     console.error(
       '[Admin Dashboard] Failed to load database data:',
@@ -636,6 +662,15 @@ function setOptionalMetric(
  */
 async function loadAdminUsers() {
 
+  // Skeleton: shimmer user table while loading
+  if (typeof Skeleton !== 'undefined') {
+    Skeleton.setTable('user-mgmt-tbody', 6);
+    Skeleton.setLoading(
+      document.querySelectorAll('#users-total, #users-active, #users-inactive, #users-idmaker'),
+      true
+    );
+  }
+
   try {
 
     console.log(
@@ -906,6 +941,14 @@ function updateAdminUserDashboardMetrics() {
 
   }
 
+  // Skeleton: clear user KPI shimmer now that counts are updated
+  if (typeof Skeleton !== 'undefined') {
+    Skeleton.setLoading(
+      document.querySelectorAll('#users-total, #users-active, #users-inactive, #users-idmaker'),
+      false
+    );
+  }
+
 }
 
 
@@ -920,6 +963,9 @@ async function checkAdminSystemHealth() {
       'kpi-uptime'
     );
 
+  if (typeof Skeleton !== 'undefined') {
+    Skeleton.setLoading(uptimeEl, true);
+  }
 
   try {
 
@@ -1000,6 +1046,10 @@ async function checkAdminSystemHealth() {
 
     }
 
+  } finally {
+    if (typeof Skeleton !== 'undefined') {
+      Skeleton.setLoading(uptimeEl, false);
+    }
   }
 
 }
@@ -1224,6 +1274,12 @@ function getAuditDeviceLabel(
  */
 async function loadAdminAuditLogs() {
 
+  // Skeleton: shimmer audit tables while loading
+  if (typeof Skeleton !== 'undefined') {
+    Skeleton.setTable('audit-logs-tbody', 6);
+    Skeleton.setTable('audit-summary-tbody', 5);
+  }
+
   try {
 
     console.log(
@@ -1298,6 +1354,11 @@ async function loadAdminAuditLogs() {
 
     updateSecurityAlertsKPI();
 
+    // Skeleton: clear once rendered
+    if (typeof Skeleton !== 'undefined') {
+      Skeleton.clearBusy('audit-logs-tbody');
+      Skeleton.clearBusy('audit-summary-tbody');
+    }
 
     return AUDIT_LOG_DATA;
 
@@ -2061,6 +2122,13 @@ function renderUserMgmtTable() {
       'user-mgmt-tbody'
     );
 
+  if (tbody) {
+    if (typeof Skeleton !== 'undefined') {
+      Skeleton.setTable(tbody, 6);
+    } else {
+      startLoading(tbody);
+    }
+  }
 
   if (!tbody) {
 
@@ -2133,6 +2201,9 @@ function renderUserMgmtTable() {
 
   tbody.innerHTML =
     '';
+
+  // Skeleton: clear once we start filling real data
+  if (typeof Skeleton !== 'undefined') Skeleton.clearBusy(tbody);
 
 
   if (!filtered.length) {

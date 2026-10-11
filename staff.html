@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script>(function(){try{var t=localStorage.getItem('senioridTheme');document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');document.documentElement.style.colorScheme=t==='dark'?'dark':'light';}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
   <title>Staff Portal – Senior Citizens Bureau</title>
 
   <!-- Fonts (unchanged) -->
@@ -21,11 +22,12 @@
   <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-solid-rounded/css/uicons-solid-rounded.css" />
   <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-bold-rounded/css/uicons-bold-rounded.css" />
 
-  <link rel="stylesheet" href="base.css?v=17" />
-  <link rel="stylesheet" href="staff.css?v=15" />
+  <link rel="stylesheet" href="base.css?v=35" />
+  <link rel="stylesheet" href="staff.css?v=18" />
+  <script src="skeleton.js?v=2"></script>
 </head>
 
-<body class="portal-mode">
+<body class="portal-mode skeleton-page-loading" aria-busy="true">
 
   <div class="app-shell" id="portal-shell">
 
@@ -164,12 +166,9 @@
                 </div>
               </div>
             </div>
-            <button class="icon-btn">
-              <svg viewBox="0 0 16 16" fill="currentColor">
-                <path
-                  d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2zM8 1.918l-.797.161A4.002 4.002 0 0 0 4 6c0 .628-.134 2.197-.459 3.742-.16.767-.376 1.566-.663 2.258h10.244c-.287-.692-.502-1.49-.663-2.258C12.134 8.197 12 6.628 12 6a4.002 4.002 0 0 0-3.203-3.92L8 1.917z" />
-              </svg>
-              <span class="icon-btn__dot"></span>
+            <button class="theme-toggle theme-toggle--header" type="button" data-theme-toggle aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false">
+              <svg data-theme-icon="light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
+              <svg data-theme-icon="dark" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"/></svg>
             </button>
           </div>
         </header>
@@ -419,11 +418,41 @@
               </tr>
             </thead>
 
-            <tbody id="recent-submissions-tbody">
-              <tr>
-                <td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">
-                  No recent submissions yet.
-                </td>
+            <tbody id="recent-submissions-tbody" aria-busy="true">
+              <tr class="sk-row" aria-hidden="true">
+                <td><span class="skeleton sk-cell" style="width:62%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:88%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:45%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:74%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:56%"></span></td>
+              </tr>
+              <tr class="sk-row" aria-hidden="true">
+                <td><span class="skeleton sk-cell" style="width:88%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:45%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:74%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:56%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:92%"></span></td>
+              </tr>
+              <tr class="sk-row" aria-hidden="true">
+                <td><span class="skeleton sk-cell" style="width:45%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:74%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:56%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:92%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:40%"></span></td>
+              </tr>
+              <tr class="sk-row" aria-hidden="true">
+                <td><span class="skeleton sk-cell" style="width:74%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:56%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:92%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:40%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:68%"></span></td>
+              </tr>
+              <tr class="sk-row" aria-hidden="true">
+                <td><span class="skeleton sk-cell" style="width:56%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:92%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:40%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:68%"></span></td>
+                <td><span class="skeleton sk-cell" style="width:80%"></span></td>
               </tr>
             </tbody>
           </table>
@@ -1957,8 +1986,9 @@
     <div class="toast-container" id="toast-container"></div>
 
     <!-- SCRIPTS -->
-    <script src="app.js?v=21"></script>
-    <script src="staff.js?v=14"></script>
+    <script src="theme.js?v=1"></script>
+    <script src="app.js?v=25"></script>
+    <script src="staff.js?v=17"></script>
 </body>
 
 </html>
