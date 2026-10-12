@@ -3,7 +3,6 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const supabase = require("../config/supabase");
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
 
 const {
   createAuditLog,
@@ -891,16 +890,46 @@ router.post("/forgot-password", async (req, res) => {
     }
 
     try {
-      await resetMailer.sendMail({
-        from: process.env.SMTP_FROM || process.env.SMTP_USER,
-        to: user.email,
-        subject: "Record Management System - Password Reset OTP",
-        text:
-          `Hello ${user.username},\n\n` +
-          `Your password reset code is: ${otp}\n\n` +
-          `This code expires in 10 minutes. ` +
-          `If you did not request a password reset, ignore this email.`,
-      });
+      if (!process.env.BREVO_API_KEY || !process.env.BREVO_SENDER_EMAIL) {
+        throw new Error("Brevo API configuration is missing.");
+      }
+
+      const emailResponse = await fetch(
+        "https://api.brevo.com/v3/smtp/email",
+        {
+          method: "POST",
+          headers: {
+            accept: "application/json",
+            "api-key": process.env.BREVO_API_KEY,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            sender: {
+              name: process.env.BREVO_SENDER_NAME || "Record Management System",
+              email: process.env.BREVO_SENDER_EMAIL,
+            },
+            to: [
+              {
+                email: user.email,
+              },
+            ],
+            subject: "Record Management System - Password Reset OTP",
+            textContent:
+              `Hello,\n\n` +
+              `Your password reset code is: ${otp}\n\n` +
+              `This code expires in 10 minutes. If you did not request a password reset, you can ignore this email.\n\n` +
+              `Record Management System`,
+          }),
+        }
+      );
+
+      if (!emailResponse.ok) {
+        const details = await emailResponse.text();
+        throw new Error(
+          `Brevo email API failed (${emailResponse.status}): ${details}`
+        );
+      }
+
     } catch (mailError) {
       console.error("OTP email sending error:", mailError);
 
