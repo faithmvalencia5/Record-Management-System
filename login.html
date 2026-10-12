@@ -87,9 +87,11 @@
                 <i class="fi fi-rr-lock"></i> Caps Lock is ON
               </span>
               <span class="auth-field-error" id="err-password" aria-live="polite"></span>
-              <button type="button" onclick="showToast('Please contact your OSCA administrator to reset your password.', 'info')"
-                style="align-self:flex-end;padding:0;border:0;background:none;font:inherit;font-size:12.5px;
-                       color:var(--primary);font-weight:600;cursor:pointer;">
+              <button
+                type="button"
+                onclick="openForgotPassword()"
+                style="align-self:flex-end;padding:0;border:0;background:none;font:inherit;
+                      font-size:12.5px;color:var(--primary);font-weight:600;cursor:pointer;">
                 Forgot password?
               </button>
             </div>
@@ -133,9 +135,213 @@
   <div class="toast-container" id="toast-container"></div>
 
 
+  <!-- Forgot Password Modal -->
+  <div id="forgot-password-modal"
+      style="display:none;position:fixed;inset:0;z-index:9999;
+              background:rgba(15,23,42,.6);padding:20px;
+              align-items:center;justify-content:center;">
 
+    <div style="background:white;width:100%;max-width:430px;padding:28px;
+                border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+
+      <h2 style="margin:0 0 8px;color:#1e293b;">Reset your password</h2>
+      <p style="margin:0 0 20px;color:#64748b;font-size:14px;">
+        Enter your registered email to receive a six-digit verification code.
+      </p>
+
+      <form id="forgot-password-form">
+        <div class="auth-field">
+          <label class="auth-field-label" for="reset-email">Registered email</label>
+          <input class="auth-input" id="reset-email" type="email"
+                autocomplete="email" required
+                placeholder="Enter your registered email"
+                style="width:100%;box-sizing:border-box;">
+        </div>
+
+        <button class="auth-submit" id="send-reset-otp" type="submit"
+                style="width:100%;margin-top:16px;">
+          Send OTP
+        </button>
+      </form>
+
+      <form id="reset-password-form" style="display:none;margin-top:20px;">
+        <div class="auth-field">
+          <label class="auth-field-label" for="reset-otp">Six-digit OTP</label>
+          <input class="auth-input" id="reset-otp" type="text"
+                inputmode="numeric" autocomplete="one-time-code"
+                pattern="[0-9]{6}" maxlength="6" required
+                placeholder="Enter the OTP"
+                style="width:100%;box-sizing:border-box;">
+        </div>
+
+        <div class="auth-field" style="margin-top:14px;">
+          <label class="auth-field-label" for="reset-new-password">New password</label>
+          <input class="auth-input" id="reset-new-password" type="password"
+                autocomplete="new-password" minlength="8" required
+                placeholder="Enter your new password"
+                style="width:100%;box-sizing:border-box;">
+          <small style="color:#64748b;">
+            At least 8 characters, with an uppercase letter, number, and special character.
+          </small>
+        </div>
+
+        <div class="auth-field" style="margin-top:14px;">
+          <label class="auth-field-label" for="reset-confirm-password">
+            Confirm new password
+          </label>
+          <input class="auth-input" id="reset-confirm-password" type="password"
+                autocomplete="new-password" minlength="8" required
+                placeholder="Re-enter your new password"
+                style="width:100%;box-sizing:border-box;">
+        </div>
+
+        <button class="auth-submit" id="reset-password-submit" type="submit"
+                style="width:100%;margin-top:18px;">
+          Verify OTP and reset password
+        </button>
+      </form>
+
+      <p id="reset-status" role="status" aria-live="polite"
+        style="font-size:13px;margin-top:16px;color:#475569;"></p>
+
+      <button type="button" onclick="closeForgotPassword()"
+              style="margin-top:12px;border:0;background:none;color:#64748b;
+                    cursor:pointer;font:inherit;">
+        Cancel
+      </button>
+    </div>
+  </div>
 
   <script src="app.js?v=25"></script>
+
+
+  <script>
+    const RESET_API_BASE = "https://management-backend-3cij.onrender.com";
+
+    const resetModal = document.getElementById("forgot-password-modal");
+    const resetStatus = document.getElementById("reset-status");
+    const forgotForm = document.getElementById("forgot-password-form");
+    const resetForm = document.getElementById("reset-password-form");
+
+    let resetEmail = "";
+
+    function openForgotPassword() {
+      resetModal.style.display = "flex";
+      resetStatus.textContent = "";
+    }
+
+    function closeForgotPassword() {
+      resetModal.style.display = "none";
+      resetStatus.textContent = "";
+      forgotForm.reset();
+      resetForm.reset();
+      forgotForm.style.display = "block";
+      resetForm.style.display = "none";
+      resetEmail = "";
+    }
+
+    forgotForm.addEventListener("submit", async function (event) {
+      event.preventDefault();
+
+      const email = document.getElementById("reset-email").value.trim();
+      const button = document.getElementById("send-reset-otp");
+
+      button.disabled = true;
+      resetStatus.textContent = "Sending OTP...";
+
+      try {
+        const response = await fetch(
+          `${RESET_API_BASE}/api/auth/forgot-password`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email })
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || "Unable to request an OTP.");
+        }
+
+        resetEmail = email;
+        forgotForm.style.display = "none";
+        resetForm.style.display = "block";
+        resetStatus.textContent =
+          data.message + " Check your inbox and spam folder.";
+      } catch (error) {
+        resetStatus.textContent =
+          error.message || "Could not connect to the server.";
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    resetForm.addEventListener("submit", async function (event) {
+      event.preventDefault();
+
+      const otp = document.getElementById("reset-otp").value.trim();
+      const newPassword =
+        document.getElementById("reset-new-password").value;
+      const confirmPassword =
+        document.getElementById("reset-confirm-password").value;
+      const button = document.getElementById("reset-password-submit");
+
+      if (newPassword !== confirmPassword) {
+        resetStatus.textContent = "The passwords do not match.";
+        return;
+      }
+
+      button.disabled = true;
+      resetStatus.textContent = "Verifying OTP and updating password...";
+
+      try {
+        const response = await fetch(
+          `${RESET_API_BASE}/api/auth/reset-password`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              email: resetEmail,
+              otp,
+              newPassword
+            })
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || "Unable to reset password.");
+        }
+
+        resetStatus.textContent =
+          "Password reset successfully. You can now sign in.";
+
+        resetForm.reset();
+
+        setTimeout(() => {
+          closeForgotPassword();
+        }, 1800);
+      } catch (error) {
+        resetStatus.textContent =
+          error.message || "Could not connect to the server.";
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    resetModal.addEventListener("click", function (event) {
+      if (event.target === resetModal) {
+        closeForgotPassword();
+      }
+    });
+  </script>
+  </body>
+  </html>
+
+
 </body>
 
 </html>

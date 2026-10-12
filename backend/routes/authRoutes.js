@@ -2,6 +2,8 @@ const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const supabase = require("../config/supabase");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 
 const {
   createAuditLog,
@@ -786,6 +788,281 @@ router.put(
     }
   }
 );
+
+
+/* =========================================================
+   FORGOT PASSWORD - OTP EMAIL CONFIGURATION
+   ========================================================= */
+
+const resetMailer = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT),
+  secure: Number(process.env.SMTP_PORT) === 465,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+function hashResetOtp(otp) {
+  return crypto
+    .createHash("sha256")
+    .update(otp)
+    .digest("hex");
+}
+
+
+/* =========================================================
+   REQUEST PASSWORD RESET OTP
+   POST /api/auth/forgot-password
+   Body: { email }
+   ========================================================= */
+
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const email = String(req.body.email || "")
+      .trim()
+      .toLowerCase();
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid email address.",
+      });
+    }
+
+    const { data: user, error } = await supabase
+      .from("user_accounts")
+      .select("id, username, email, account_status")
+      .ilike("email", email)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Password reset lookup error:", error);
+      return res.status(500).json({
+        success: false,
+        message: "Unable to process your request right now.",
+      });
+    }
+
+    // Use the same response whether or not an account exists.
+    if (!user || user.account_status !== "Active") {
+      return res.json({
+        success: true,
+        message:
+          "If an active account matches that email, an OTP will be sent.",
+      });
+    }
+
+    const otp = crypto.randomInt(100000, 1000000).toString();
+    const tokenHash = hashResetOtp(otp);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000)
+      .toISOString();
+
+    // Invalidate any previous unused reset codes for this user.
+    const { error: invalidateError } = await supabase
+      .from("password_reset_tokens")
+      .update({ used_at: new Date().toISOString() })
+      .eq("user_id", user.id)
+      .is("used_at", null);
+
+    if (invalidateError) {
+      console.error("OTP invalidation error:", invalidateError);
+      return res.status(500).json({
+        success: false,
+        message: "Unable to process your request right now.",
+      });
+    }
+
+    const { error: insertError } = await supabase
+      .from("password_reset_tokens")
+      .insert({
+        user_id: user.id,
+        token_hash: tokenHash,
+        expires_at: expiresAt,
+      });
+
+    if (insertError) {
+      console.error("OTP database error:", insertError);
+      return res.status(500).json({
+        success: false,
+        message: "Unable to generate a reset code.",
+      });
+    }
+
+    try {
+      await resetMailer.sendMail({
+        from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        to: user.email,
+        subject: "Record Management System - Password Reset OTP",
+        text:
+          `Hello ${user.username},\n\n` +
+          `Your password reset code is: ${otp}\n\n` +
+          `This code expires in 10 minutes. ` +
+          `If you did not request a password reset, ignore this email.`,
+      });
+    } catch (mailError) {
+      console.error("OTP email sending error:", mailError);
+
+      // Invalidate the code if sending the email failed.
+      await supabase
+        .from("password_reset_tokens")
+        .update({ used_at: new Date().toISOString() })
+        .eq("user_id", user.id)
+        .eq("token_hash", tokenHash)
+        .is("used_at", null);
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to send the OTP email. Please try again later.",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message:
+        "If an active account matches that email, an OTP will be sent.",
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong. Please try again later.",
+    });
+  }
+});
+
+
+/* =========================================================
+   VERIFY OTP AND RESET PASSWORD
+   POST /api/auth/reset-password
+   Body: { email, otp, newPassword }
+   ========================================================= */
+
+router.post("/reset-password", async (req, res) => {
+  try {
+    const email = String(req.body.email || "")
+      .trim()
+      .toLowerCase();
+    const otp = String(req.body.otp || "").trim();
+    const newPassword = String(req.body.newPassword || "");
+
+    if (!email || !/^\d{6}$/.test(otp) || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Email, six-digit OTP, and new password are required.",
+      });
+    }
+
+    if (!isStrongPassword(newPassword)) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Password must be at least 8 characters and include an uppercase letter, a number, and a special character.",
+      });
+    }
+
+    const { data: user, error: userError } = await supabase
+      .from("user_accounts")
+      .select("id, email, account_status")
+      .ilike("email", email)
+      .maybeSingle();
+
+    if (userError) {
+      console.error("Reset account lookup error:", userError);
+      return res.status(500).json({
+        success: false,
+        message: "Unable to process the password reset.",
+      });
+    }
+
+    if (!user || user.account_status !== "Active") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired OTP.",
+      });
+    }
+
+    const { data: resetToken, error: tokenError } = await supabase
+      .from("password_reset_tokens")
+      .select("id, token_hash, expires_at")
+      .eq("user_id", user.id)
+      .is("used_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (tokenError) {
+      console.error("OTP verification lookup error:", tokenError);
+      return res.status(500).json({
+        success: false,
+        message: "Unable to verify the OTP.",
+      });
+    }
+
+    if (
+      !resetToken ||
+      resetToken.token_hash !== hashResetOtp(otp)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid or expired OTP.",
+      });
+    }
+
+    // Hash the new password only after the OTP has been verified.
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    // Claim the OTP before changing the password to prevent reuse.
+    const { data: claimedToken, error: claimError } = await supabase
+      .from("password_reset_tokens")
+      .update({ used_at: new Date().toISOString() })
+      .eq("id", resetToken.id)
+      .is("used_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .select("id")
+      .maybeSingle();
+
+    if (claimError || !claimedToken) {
+      if (claimError) {
+        console.error("OTP claim error:", claimError);
+      }
+
+      return res.status(400).json({
+        success: false,
+        message: "Invalid, expired, or already used OTP.",
+      });
+    }
+
+    const { error: passwordError } = await supabase
+      .from("user_accounts")
+      .update({ password_hash: passwordHash })
+      .eq("id", user.id);
+
+    if (passwordError) {
+      console.error("Password update error:", passwordError);
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Unable to update the password. Please request a new OTP.",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message:
+        "Password reset successfully. You can now log in with your new password.",
+    });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong. Please try again later.",
+    });
+  }
+});
 
 
 module.exports = router;
