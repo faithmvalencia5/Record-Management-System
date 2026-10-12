@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-bold-rounded/css/uicons-bold-rounded.css" />
 
   <link rel="stylesheet" href="base.css?v=35" />
-  <link rel="stylesheet" href="staff.css?v=18" />
+  <link rel="stylesheet" href="staff.css?v=19" />
   <script src="skeleton.js?v=2"></script>
 </head>
 
@@ -476,7 +476,7 @@
         <header class="page-header">
           <div class="page-header__left">
             <div class="page-header__eyebrow">
-              <h1 class="page-header__title">Applicants</h1> <span class="page-header__badge" id="applicants-total-badge">0 Total</span>
+              <h1 class="page-header__title">Applicants</h1> <span class="page-header__badge" id="applicants-total-badge">0 Profiles</span>
             </div>
             <p class="page-header__sub">Manage and review all registered senior citizen applicants</p>
           </div>
@@ -507,8 +507,8 @@
                 </svg></div>
               <div class="stat-card__meta"><span class="stat-card__trend trend-good">0</span></div>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Total Registered</span>
-              <span class="stat-card__value" id="applicants-total-count">0</span><span class="stat-card__sub">Active database records</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Total Registered Seniors</span>
+              <span class="stat-card__value" id="applicants-total-count">0</span><span class="stat-card__sub">Unique citizens with completed registration</span></div>
           </article>
           <article class="stat-card stat-card--success">
             <div class="stat-card__top">
@@ -520,8 +520,8 @@
                 </svg></div>
               <div class="stat-card__meta"><span class="stat-card__trend trend-good">0</span></div>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Pending Review</span>
-              <span class="stat-card__value" id="applicants-verified-count">0</span><span class="stat-card__sub">Awaiting staff review</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Active Applicants</span>
+              <span class="stat-card__value" id="applicants-verified-count">0</span><span class="stat-card__sub">Unique citizens with open requests</span></div>
           </article>
           <article class="stat-card">
             <div class="stat-card__top">
@@ -531,10 +531,10 @@
                     d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16zm1-12a1 1 0 1 0-2 0v4a1 1 0 0 0 .293.707l2.828 2.829a1 1 0 1 0 1.415-1.415L11 9.586V6z"
                     clip-rule="evenodd" />
                 </svg></div>
-              <div class="stat-card__meta"><span class="stat-card__period">Awaiting</span></div>
+              <div class="stat-card__meta"><span class="stat-card__period">This month</span></div>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">In Process</span>
-              <span class="stat-card__value" id="applicants-unverified-count">0</span><span class="stat-card__sub">Ready for ID generation</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">New Registrations</span>
+              <span class="stat-card__value" id="applicants-unverified-count">0</span><span class="stat-card__sub">Completed registrations this month</span></div>
           </article>
           <article class="stat-card stat-card--purple">
             <div class="stat-card__top">
@@ -545,8 +545,8 @@
                 </svg></div>
               <div class="stat-card__meta"><span class="stat-card__trend trend-neutral">0</span></div>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Ready for Release</span>
-              <span class="stat-card__value" id="applicants-issued-count">0</span><span class="stat-card__sub">Printed and to be distributed</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Duplicate Profiles</span>
+              <span class="stat-card__value" id="applicants-issued-count">0</span><span class="stat-card__sub">Flagged for staff review</span></div>
           </article>
         </div>
 
@@ -612,13 +612,14 @@
                   <option value="Sinala">Barangay: Sinala</option>
                 </select>
               </div>
-              <select class="filter-select" onchange="filterApplicantsByStatus(this.value)">
+              <select class="filter-select" onchange="filterApplicantsByStatus(this.value)" aria-label="Filter applicants by status">
                 <option value="">All Statuses</option>
+                <option value="Registered">Registered</option>
                 <option value="Pending">Pending</option>
                 <option value="Under Review">Under Review</option>
                 <option value="In Process">In Process</option>
                 <option value="Ready for Release">Ready for Release</option>
-                <option value="Completed">Completed</option>
+                <option value="ID Issued">ID Issued</option>
                 <option value="Rejected">Rejected</option>
               </select>
             </div>
@@ -628,14 +629,12 @@
             <thead>
               <tr>
                 <th onclick="sortTable('applicants-tbody',0,this)">Name <span class="sort-icon">↕</span></th>
-                <th onclick="sortTable('applicants-tbody',1,this)">ID Number <span class="sort-icon">↕</span></th>
+                <th>Application ID</th>
                 <th onclick="sortTable('applicants-tbody',2,this)">Barangay <span class="sort-icon">↕</span></th>
                 <th>Age</th>
-                <th>Occupation</th>
-                <th>Application Type</th>
-                <th>Docs Status</th>
-                <th onclick="sortTable('applicants-tbody',7,this)">Status <span class="sort-icon">↕</span></th>
-                <th>Action</th>
+                <th onclick="sortTable('applicants-tbody',4,this)">Registration Date <span class="sort-icon">↕</span></th>
+                <th>Status</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="applicants-tbody">
@@ -731,7 +730,7 @@
                   <path d="M5 2l4 5H1z" />
                   </svg>0</span>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Pending (All Staff)</span><span class="stat-card__value" id="summary-pending">0</span><span class="stat-card__sub">Awaiting review</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Awaiting Review</span><span class="stat-card__value" id="summary-pending">0</span><span class="stat-card__sub">Pending staff review</span></div>
           </article>
           <article class="stat-card">
             <div class="stat-card__top">
@@ -743,7 +742,7 @@
                     clip-rule="evenodd" />
                 </svg></div><span class="stat-card__trend trend-neutral">0</span>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Under Review</span><span class="stat-card__value" id="summary-review">0</span><span class="stat-card__sub">Currently processing</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Incomplete Documents</span><span class="stat-card__value" id="summary-incomplete">0</span><span class="stat-card__sub">Required files still missing</span></div>
           </article>
           <article class="stat-card stat-card--warn">
             <div class="stat-card__top">
@@ -754,7 +753,7 @@
                     clip-rule="evenodd" />
                 </svg></div><span class="stat-card__trend trend-neutral">0</span>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Flagged Duplicates</span><span class="stat-card__value" id="summary-duplicates">0</span><span class="stat-card__sub">Name/DOB match</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Overdue Applications</span><span class="stat-card__value" id="summary-overdue">0</span><span class="stat-card__sub">Open for more than 5 days</span></div>
           </article>
           <article class="stat-card stat-card--danger">
             <div class="stat-card__top">
@@ -767,7 +766,7 @@
                   <path d="M5 8L1 3h8z" />
                 </svg>Needs action</span>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Incomplete Docs</span><span class="stat-card__value" id="summary-incomplete">0</span><span class="stat-card__sub">Awaiting resubmission</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Ready for Release</span><span class="stat-card__value" id="summary-ready">0</span><span class="stat-card__sub">Approved and awaiting pickup</span></div>
           </article>
           <article class="stat-card stat-card--success">
             <div class="stat-card__top">
@@ -778,7 +777,7 @@
                     clip-rule="evenodd" />
                 </svg></div><span class="stat-card__trend trend-good">0</span>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Ready for ID Maker</span><span class="stat-card__value" id="summary-ready">0</span><span class="stat-card__sub">Approved for printing</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Completed This Month</span><span class="stat-card__value" id="summary-completed-month">0</span><span class="stat-card__sub">Requests completed this month</span></div>
           </article>
         </div>
 
@@ -927,13 +926,14 @@
                   <input type="checkbox" class="row-check" id="select-all-apps" title="Select all"
                     aria-label="Select all" onchange="toggleSelectAllApps(this.checked)" />
                 </th>
-                <th onclick="sortTable('applications-tbody',1,this)">Applicant <span class="sort-icon">↕</span></th>
-                <th onclick="sortTable('applications-tbody',2,this)">Date <span class="sort-icon">↕</span></th>
-                <th>Application Type</th>
-                <th onclick="sortTable('applications-tbody',4,this)">Barangay <span class="sort-icon">↕</span></th>
-                <th>Docs Status</th>
-                <th>Status</th>
-                <th>Action</th>
+                <th onclick="sortTable('applications-tbody',1,this)">Application ID <span class="sort-icon">↕</span></th>
+                <th onclick="sortTable('applications-tbody',2,this)">Applicant <span class="sort-icon">↕</span></th>
+                <th>Request Type</th>
+                <th onclick="sortTable('applications-tbody',4,this)">Date Submitted <span class="sort-icon">↕</span></th>
+                <th>Documents Status</th>
+                <th>Processing Stage</th>
+                <th onclick="sortTable('applications-tbody',7,this)">Days Pending <span class="sort-icon">↕</span></th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="applications-tbody">
@@ -1956,6 +1956,35 @@
       </div>
     </div>
 
+    <!-- APPLICANT PROFILE AND APPLICATION HISTORY -->
+    <div class="modal-backdrop" id="applicant-profile-modal">
+      <div class="modal applicant-profile-modal" role="dialog" aria-modal="true" aria-labelledby="applicant-profile-title">
+        <div class="modal__header">
+          <div>
+            <div class="modal__title" id="applicant-profile-title">Senior Citizen Profile</div>
+            <div class="modal__sub" id="applicant-profile-sub">Applicant record and request history</div>
+          </div>
+          <button class="modal__close" type="button" onclick="closeApplicantProfile()" aria-label="Close profile">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
+          </button>
+        </div>
+        <div class="modal__body">
+          <section class="applicant-profile-summary" aria-label="Senior citizen information">
+            <div><span>Name</span><strong id="applicant-profile-name">—</strong></div>
+            <div><span>Senior Citizen ID</span><strong id="applicant-profile-id">—</strong></div>
+            <div><span>Barangay</span><strong id="applicant-profile-barangay">—</strong></div>
+            <div><span>Age</span><strong id="applicant-profile-age">—</strong></div>
+            <div><span>Registration Date</span><strong id="applicant-profile-registration-date">—</strong></div>
+            <div><span>Status</span><strong id="applicant-profile-status">—</strong></div>
+          </section>
+          <section class="applicant-profile-history">
+            <div class="content-card__title">Application History</div>
+            <div class="applicant-profile-history__list" id="applicant-profile-history-list"></div>
+          </section>
+        </div>
+      </div>
+    </div>
+
     <!-- LOGOUT CONFIRMATION MODAL -->
     <div class="modal-backdrop" id="logout-confirm-modal">
       <div class="modal confirm-modal" role="dialog" aria-modal="true" aria-labelledby="logout-confirm-title">
@@ -1987,8 +2016,8 @@
 
     <!-- SCRIPTS -->
     <script src="theme.js?v=1"></script>
-    <script src="app.js?v=25"></script>
-    <script src="staff.js?v=17"></script>
+    <script src="app.js?v=26"></script>
+    <script src="staff.js?v=18"></script>
 </body>
 
 </html>

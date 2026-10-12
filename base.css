@@ -1,13 +1,15 @@
 /*LOGIN RECAPTCHA*/
 
 .login-recaptcha {
-  margin-top: 18px;
-  margin-bottom: 18px;
+  margin-top: 12px;
+  margin-bottom: 12px;
 }
 
 .login-recaptcha .g-recaptcha {
   display: flex;
   justify-content: center;
+  transform: scale(.94);
+  filter: drop-shadow(0 1px 2px rgba(23, 35, 52, .08));
 }
 
 .login-recaptcha .auth-field-error {
@@ -1521,7 +1523,7 @@ select.filter-select:hover{border-color:var(--primary-light)}
 .auth-form-panel::before{display:none}
 .auth-form-brand{
   position:absolute;top:34px;left:clamp(28px,4vw,56px);
-  display:flex;align-items:center;gap:11px;text-align:left;
+  display:flex;align-items:center;gap:14px;text-align:left;
 }
 .auth-form-brand img{
   width:56px;height:56px;border-radius:50%;object-fit:cover;display:block;
@@ -1534,7 +1536,7 @@ select.filter-select:hover{border-color:var(--primary-light)}
 .auth-card{
   width:min(100%,480px);display:flex;flex-direction:column;gap:0;position:relative;z-index:1;text-align:center;
 }
-.auth-card-header{margin-bottom:24px;padding-top:12px}
+.auth-card-header{margin-bottom:18px;padding-top:8px}
 .auth-card-eyebrow{
   width:44px;height:44px;margin:0 auto 14px;padding:0;border-radius:0;display:flex;align-items:center;justify-content:center;
   background:transparent;
@@ -1542,8 +1544,8 @@ select.filter-select:hover{border-color:var(--primary-light)}
 }
 .auth-card-eyebrow i{display:flex;font-size:44px;color:var(--primary);line-height:1}
 .auth-card-eyebrow span{display:none}
-.auth-card-title{font-family:var(--font-display);font-weight:800;font-size:clamp(25px,2.05vw,32px);color:#172334;letter-spacing:-.4px;line-height:1.08;margin-bottom:6px}
-.auth-card-sub{font-size:12.5px;color:var(--text-muted);line-height:1.5}
+.auth-card-title{font-family:var(--font-display);font-weight:800;font-size:clamp(23px,1.9vw,29px);color:#172334;letter-spacing:-.4px;line-height:1.08;margin-bottom:14px}
+.auth-card-sub{font-size:12px;color:var(--text-muted);line-height:1.45}
 
 .login-role-grid{
   display:none;grid-template-columns:1fr 1fr;gap:8px;margin:0 auto 24px;
@@ -1577,20 +1579,20 @@ select.filter-select:hover{border-color:var(--primary-light)}
 .login-role-sub{display:none}
 
 /* Input groups */
-.auth-form{display:flex;flex-direction:column;gap:16px;align-items:center}
-.auth-field{display:flex;flex-direction:column;gap:6px;width:min(100%,390px)}
+.auth-form{display:flex;flex-direction:column;gap:12px;align-items:center}
+.auth-field{display:flex;flex-direction:column;gap:5px;width:min(100%,390px)}
 .auth-field-label{
   position:static;width:auto;height:auto;overflow:visible;clip:auto;
   text-align:left;font-family:var(--font-body);font-weight:700;font-size:10.5px;color:var(--text-muted);
   padding-left:16px;
 }
-.auth-input-wrap{position:relative;display:flex;align-items:center}
+.auth-input-wrap{position:relative;display:flex;align-items:center;width:100%;min-height:50px}
 .auth-input-wrap i{
-  position:absolute;left:14px;font-size:15px;color:var(--primary);
+  position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:15px;color:var(--primary);
   pointer-events:none;transition:color var(--tf);
 }
 .auth-input{
-  width:100%;height:54px;padding:0 16px 0 52px;
+  width:100%;height:50px;padding:0 16px 0 52px;
   border-radius:var(--r-pill);border:1.5px solid #DCE3EE;
   background:#fff;font-family:var(--font-display);font-size:14px;font-weight:700;
   color:var(--text-primary);transition:all var(--tf);outline:none;
@@ -1607,21 +1609,18 @@ select.filter-select:hover{border-color:var(--primary-light)}
   padding:0;border-radius:8px;color:var(--text-muted);transition:color var(--tf),background var(--tf);display:flex;align-items:center;justify-content:center;
 }
 .auth-input-icon-right:hover{color:var(--primary);background:var(--primary-glass)}
-.auth-input-icon-right i{position:static;font-size:15px;pointer-events:none}
+.auth-input-icon-right i{position:static;top:auto;transform:none;font-size:15px;pointer-events:none}
 
-.auth-row{display:flex;align-items:center;justify-content:flex-end;gap:8px;width:min(100%,390px)}
 .auth-check-label{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:var(--text-secondary)}
 .auth-check-label input[type=checkbox]{accent-color:var(--primary);width:15px;height:15px}
-.auth-forgot{font-size:12.5px;color:var(--primary);font-weight:600;cursor:pointer;transition:opacity var(--tf)}
-.auth-forgot:hover{opacity:.75}
 
 .auth-submit{
-  width:min(100%,390px);height:54px;border-radius:var(--r-pill);border:none;cursor:pointer;
+  width:min(100%,390px);height:50px;border-radius:var(--r-pill);border:none;cursor:pointer;
   background:linear-gradient(135deg,var(--primary) 0%,var(--primary-light) 100%);
   color:#fff;font-family:var(--font-display);font-weight:700;font-size:14px;
   letter-spacing:-.2px;display:flex;align-items:center;justify-content:center;gap:9px;
   box-shadow:0 4px 18px rgba(26,79,186,.32);
-  transition:all var(--tf);margin-top:8px;text-transform:uppercase;
+  transition:all var(--tf);margin-top:4px;text-transform:uppercase;
 }
 .auth-submit:hover{box-shadow:0 8px 28px rgba(26,79,186,.42);transform:translateY(-1px)}
 .auth-submit:active{transform:translateY(0)}
@@ -1705,36 +1704,14 @@ select.filter-select:hover{border-color:var(--primary-light)}
 .auth-checkbox:focus-visible{outline:none;box-shadow:0 0 0 3px var(--primary-fade)}
 .auth-checkbox-text{font-size:13px;color:var(--text-secondary)}
 
-/*  Forgot password panel  */
 /* Security notice under the Sign In button — muted, official, unobtrusive */
 .auth-security-notice{
   display:flex;align-items:center;justify-content:center;gap:6px;
-  margin:14px auto 0;width:min(100%,390px);
+  margin:10px auto 0;width:min(100%,390px);
   font-family:var(--font-body);font-size:11px;font-weight:600;letter-spacing:.3px;
   color:var(--text-muted);text-align:center;line-height:1.4;
 }
 .auth-security-notice i{font-size:12px;color:var(--success);flex-shrink:0}
-
-.auth-forgot-panel{
-  display:none;width:min(100%,390px);
-  background:linear-gradient(135deg,#EFF4FF,#F5F8FF);
-  border:1.5px solid var(--primary-border);border-radius:var(--r-lg);
-  padding:13px 15px;gap:10px;align-items:flex-start;
-  animation:auth-fade-up .3s cubic-bezier(.22,1,.36,1) both;
-  position:relative;
-}
-.auth-forgot-panel.visible{display:flex}
-.auth-forgot-panel__icon{color:var(--primary);font-size:18px;flex-shrink:0;margin-top:1px}
-.auth-forgot-panel__body{flex:1;display:flex;flex-direction:column;gap:2px}
-.auth-forgot-panel__body strong{font-size:12.5px;color:var(--primary);font-family:var(--font-display)}
-.auth-forgot-panel__body p{font-size:12px;color:var(--text-secondary);line-height:1.5;margin:0}
-.auth-forgot-panel__close{
-  position:absolute;top:8px;right:10px;
-  width:22px;height:22px;border:none;background:none;cursor:pointer;
-  font-size:16px;color:var(--text-muted);line-height:1;display:flex;align-items:center;justify-content:center;
-  border-radius:4px;transition:color var(--tf),background var(--tf);
-}
-.auth-forgot-panel__close:hover{color:var(--danger);background:var(--danger-bg)}
 
 .auth-divider{display:flex;align-items:center;gap:10px;margin:4px 0}
 .auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:var(--border)}
@@ -1966,8 +1943,6 @@ body.portal-mode #toast-container{display:flex}
   .auth-field { width: 100%; }
   .auth-input-wrap,
   .auth-input { width: 100%; }
-  .auth-row { width: 100%; }
-  .auth-forgot-panel { width: 100%; max-width: none; }
   .auth-field-error { width: 100%; }
 
   /* Submit button fills the width on mobile */
@@ -2006,22 +1981,8 @@ body.portal-mode #toast-container{display:flex}
   .auth-field { gap: 5px; }
   .login-role-grid { margin-bottom: 18px; }
 
-  /* "Remember me" row: don't push Forgot link off-screen */
-  .auth-row {
-    width: 100%;
-    flex-wrap: wrap;
-    gap: 8px 0;
-    justify-content: space-between;
-  }
-  .auth-checkbox-label { flex: 1 1 auto; }
-  .auth-forgot { flex-shrink: 0; }
-
   /* Caps-lock warning — full width pill */
   .auth-caps-warn { width: 100%; justify-content: center; }
-
-  /* Forgot panel full width already, just adjust padding */
-  .auth-forgot-panel { padding: 12px 13px; }
-  .auth-forgot-panel__body p { font-size: 11.5px; }
 
   /* Field error text slightly larger for readability */
   .auth-field-error { font-size: 12px; }
@@ -2057,9 +2018,6 @@ body.portal-mode #toast-container{display:flex}
   .auth-card-title { font-size: 22px; }
   .auth-card-sub { font-size: 12px; }
 
-  /* Row stacks vertically; toggle on left, forgot on right */
-  .auth-row { flex-wrap: wrap; row-gap: 6px; justify-content: space-between; }
-
   /* Ensure comfortable touch targets */
   .auth-input { height: 48px; font-size: 14px; }
   .auth-submit { height: 48px; }
@@ -2070,10 +2028,7 @@ body.portal-mode #toast-container{display:flex}
   .auth-card-title { font-size: 20px; }
   .auth-hero-logo-name { font-size: 12.5px; max-width: 160px; }
   .auth-form-brand-name { font-size: 13px; }
-  .auth-forgot-panel { padding: 10px 11px; }
-  .auth-forgot-panel__body p { font-size: 11px; }
   .auth-checkbox-text { font-size: 12px; }
-  .auth-forgot { font-size: 12px; }
 
   .auth-input { height: 44px; font-size: 13px; }
   .auth-submit { height: 44px; font-size: 12px; }

@@ -2892,7 +2892,6 @@ async function saveUser() {
 
   }
 
-
   if (
     !editingUserKey &&
     !password

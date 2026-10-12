@@ -3896,3 +3896,313 @@ document.addEventListener(
 
   }
 );
+
+// Registry view helpers: group request rows into one profile per senior.
+var STAFF_APPLICANT_PROFILES = [];
+var APPLICATIONS_FILTER_STATE = { search: '', barangay: '', status: 'all' };
+
+function getApplicationName(application) {
+  return [application.first_name, application.middle_name, application.surname]
+    .filter(Boolean).join(' ').trim() || application.full_name || application.name || 'Unnamed Applicant';
+}
+
+function getApplicationSubmittedDate(application) {
+  return application.created_at || application.submitted_at || application.date_submitted || null;
+}
+
+function formatStaffDate(value) {
+  const date = value instanceof Date ? value : (value ? new Date(value) : null);
+  return date && !Number.isNaN(date.getTime())
+    ? date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
+    : '—';
+}
+
+function normalizeProfileIdentity(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' ');
+}
+
+function getProfileIdentityKey(application, fallbackIndex) {
+  const name = normalizeProfileIdentity(getApplicationName(application));
+  const dobValue = application.date_of_birth || application.dob || '';
+  const dobDate = dobValue ? new Date(dobValue) : null;
+  const dob = dobDate && !Number.isNaN(dobDate.getTime())
+    ? dobDate.toISOString().slice(0, 10) : normalizeProfileIdentity(dobValue);
+  if (name && dob) return 'person:' + name + '|' + dob;
+  const seniorId = application.osca_id_number || application.senior_citizen_id || application.id_number;
+  if (seniorId) return 'id:' + normalizeProfileIdentity(seniorId);
+  return 'application:' + String(application.application_id || application.id || fallbackIndex);
+}
+
+function isProfileDuplicateFlagged(application) {
+  const duplicate = application.duplicate;
+  const risk = application.duplicate_risk;
+  return duplicate === true || Boolean(duplicate && typeof duplicate === 'object') ||
+    Boolean(risk && Number(risk.score || 0) >= 0.8);
+}
+
+function buildApplicantProfiles(applications) {
+  const groups = new Map();
+  (Array.isArray(applications) ? applications : []).forEach((application, index) => {
+    const key = getProfileIdentityKey(application, index);
+    if (!groups.has(key)) groups.set(key, { key, applications: [] });
+    groups.get(key).applications.push(application);
+  });
+
+  return Array.from(groups.values()).map(profile => {
+    profile.applications.sort((a, b) =>
+      (new Date(getApplicationSubmittedDate(b) || 0).getTime() || 0) -
+      (new Date(getApplicationSubmittedDate(a) || 0).getTime() || 0));
+    profile.latestApplication = profile.applications[0];
+    profile.name = getApplicationName(profile.latestApplication);
+    const dobValue = profile.latestApplication.date_of_birth || profile.latestApplication.dob || '';
+    const dobDate = dobValue ? new Date(dobValue) : null;
+    profile.nameDobKey = dobValue
+      ? normalizeProfileIdentity(profile.name) + '|' +
+        (dobDate && !Number.isNaN(dobDate.getTime()) ? dobDate.toISOString().slice(0, 10) : normalizeProfileIdentity(dobValue))
+      : '';
+    const addressRecord = profile.applications.find(a => a.barangay_district || a.barangay) || {};
+    profile.barangay = addressRecord.barangay_district || addressRecord.barangay || '';
+    const birthDateValue = profile.latestApplication.date_of_birth || profile.latestApplication.dob;
+    let calculatedAge = null;
+    if (birthDateValue) {
+      const birthDate = new Date(birthDateValue);
+      if (!Number.isNaN(birthDate.getTime())) {
+        const today = new Date();
+        calculatedAge = today.getFullYear() - birthDate.getFullYear();
+        if (today.getMonth() < birthDate.getMonth() ||
+          (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate())) calculatedAge--;
+      }
+    }
+    profile.age = profile.latestApplication.age ?? calculatedAge ?? '—';
+    const idRecord = profile.applications.find(a => a.osca_id_number || a.senior_citizen_id || a.id_number);
+    profile.seniorId = idRecord && (idRecord.osca_id_number || idRecord.senior_citizen_id || idRecord.id_number) || '';
+    profile.completedApplications = profile.applications.filter(a => normalizeApplicationStatus(a.status) === 'completed');
+    profile.isRegistered = profile.completedApplications.length > 0;
+    const registeredDates = profile.completedApplications.map(a => new Date(a.status_updated_at || a.updated_at || a.created_at || 0))
+      .filter(date => !Number.isNaN(date.getTime()) && date.getTime() > 0).sort((a, b) => a - b);
+    profile.registeredAt = registeredDates[0] || null;
+    profile.isActive = profile.applications.some(a =>
+      ['pending', 'review', 'approved', 'process', 'ready', 'issued'].includes(normalizeApplicationStatus(a.status)));
+    profile.hasDuplicateFlag = profile.applications.some(isProfileDuplicateFlagged);
+    profile.status = profile.isRegistered ? 'Registered' : (profile.latestApplication.status || 'Pending');
+    return profile;
+  });
+}
+
+function getProfileStatusClass(status) {
+  if (status === 'Registered') return 'badge-issued';
+  const normalized = normalizeApplicationStatus(status);
+  if (normalized === 'rejected') return 'badge-rejected';
+  if (normalized === 'review') return 'badge-review';
+  if (normalized === 'pending') return 'badge-pending';
+  return 'badge-approved';
+}
+
+function renderLiveApplicants(applications) {
+  const tbody = document.getElementById('applicants-tbody');
+  if (!tbody) return;
+  STAFF_APPLICANT_PROFILES = buildApplicantProfiles(applications);
+  const profiles = STAFF_APPLICANT_PROFILES;
+  const badge = document.getElementById('applicants-total-badge');
+  if (badge) badge.textContent = profiles.length.toLocaleString() + ' Profiles';
+  if (!profiles.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">No applicant profiles found.</td></tr>';
+    if (typeof Skeleton !== 'undefined') Skeleton.clearBusy('applicants-tbody');
+    const footer = document.querySelector('#mod-applicants .table-footer__info');
+    if (footer) footer.textContent = 'Showing 0 of 0 applicants';
+    return;
+  }
+
+  tbody.innerHTML = profiles.map((profile, index) => {
+    const initials = profile.name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0].toUpperCase()).join('');
+    const status = String(profile.status || 'Pending');
+    const ids = profile.applications.map(a => a.application_id || a.id || '').join(' ');
+    const searchText = [profile.name, profile.seniorId, profile.barangay, ids].join(' ').toLowerCase();
+    return `<tr data-profile-index="${index}" data-status="${escapeApplicationHtml(status.toLowerCase())}"
+      data-barangay="${escapeApplicationHtml(profile.barangay.toLowerCase())}" data-search="${escapeApplicationHtml(searchText)}">
+      <td><div class="applicant-cell"><div class="applicant-avatar">${escapeApplicationHtml(initials)}</div><div class="applicant-info">
+        <span class="applicant-name">${escapeApplicationHtml(profile.name)}</span><span class="applicant-id">${profile.applications.length} linked request${profile.applications.length === 1 ? '' : 's'}</span></div></div></td>
+      <td><span class="cell-text">${escapeApplicationHtml(profile.seniorId || 'Not issued')}</span></td>
+      <td><span class="cell-text">${escapeApplicationHtml(profile.barangay || '—')}</span></td>
+      <td><span class="cell-text">${escapeApplicationHtml(String(profile.age))}</span></td>
+      <td><span class="cell-text">${profile.registeredAt ? escapeApplicationHtml(formatStaffDate(profile.registeredAt)) : '—'}</span></td>
+      <td><span class="badge ${getProfileStatusClass(status)}"><span class="status-select__label">${escapeApplicationHtml(status)}</span></span></td>
+      <td style="text-align:right"><button type="button" class="row-action always-visible" onclick="openApplicantProfile(${index})">View Profile</button></td>
+    </tr>`;
+  }).join('');
+  if (typeof Skeleton !== 'undefined') Skeleton.clearBusy('applicants-tbody');
+  applyApplicantsFilters();
+}
+
+function applyApplicantsFilters() {
+  const rows = document.querySelectorAll('#applicants-tbody tr[data-profile-index]');
+  const search = APPLICANTS_FILTER_STATE.search.trim().toLowerCase();
+  const barangay = APPLICANTS_FILTER_STATE.barangay.trim().toLowerCase();
+  const status = APPLICANTS_FILTER_STATE.status.trim().toLowerCase();
+  let visible = 0;
+  rows.forEach(row => {
+    const matches = (!search || (row.dataset.search || row.textContent).toLowerCase().includes(search)) &&
+      (!barangay || row.dataset.barangay === barangay) && (!status || row.dataset.status === status);
+    row.style.display = matches ? '' : 'none';
+    if (matches) visible++;
+  });
+  const footer = document.querySelector('#mod-applicants .table-footer__info');
+  if (footer) footer.textContent = `Showing ${visible.toLocaleString()} of ${rows.length.toLocaleString()} applicants`;
+}
+
+function openApplicantProfile(index) {
+  const profile = STAFF_APPLICANT_PROFILES[index];
+  if (!profile) return;
+  const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value || '—'; };
+  setText('applicant-profile-title', profile.name);
+  setText('applicant-profile-sub', `${profile.applications.length} linked application${profile.applications.length === 1 ? '' : 's'}`);
+  setText('applicant-profile-name', profile.name);
+  setText('applicant-profile-id', profile.seniorId || 'Not issued');
+  setText('applicant-profile-barangay', profile.barangay || '—');
+  setText('applicant-profile-age', profile.age === '—' ? '—' : `${profile.age} years`);
+  setText('applicant-profile-registration-date', formatStaffDate(profile.registeredAt));
+  setText('applicant-profile-status', profile.status);
+  const history = document.getElementById('applicant-profile-history-list');
+  if (history) history.innerHTML = profile.applications.map(application => {
+    const id = application.application_id || application.id || '';
+    const type = getApplicationRequestType(application);
+    return `<article class="applicant-profile-history__item"><div><strong>${escapeApplicationHtml(id)}</strong>
+      <span>${escapeApplicationHtml(type)} · ${escapeApplicationHtml(formatStaffDate(getApplicationSubmittedDate(application)))}</span>
+      <span class="badge ${getProfileStatusClass(application.status || 'Pending')}">${escapeApplicationHtml(application.status || 'Pending')}</span></div>
+      <button type="button" class="btn btn--ghost" data-app-id="${escapeApplicationHtml(id)}" onclick="openLinkedApplication(this)">View request</button></article>`;
+  }).join('');
+  document.getElementById('applicant-profile-modal')?.classList.add('show');
+}
+
+function closeApplicantProfile() { document.getElementById('applicant-profile-modal')?.classList.remove('show'); }
+function openLinkedApplication(button) {
+  const id = button?.dataset.appId;
+  if (!id) return;
+  closeApplicantProfile();
+  openApplicationDetail(id);
+}
+
+function getApplicationRequestType(application) {
+  const savedType = application.application_type || application.request_type || application.applicationType || application.type;
+  return savedType || 'Type not recorded';
+}
+
+function getApplicationDaysPending(application) {
+  const status = normalizeApplicationStatus(application.status);
+  if (status === 'completed' || status === 'rejected') return null;
+  if (application.days_pending !== null && application.days_pending !== undefined && application.days_pending !== '' && Number.isFinite(Number(application.days_pending))) {
+    return Math.max(0, Number(application.days_pending));
+  }
+  const submitted = getApplicationSubmittedDate(application);
+  const date = submitted ? new Date(submitted) : null;
+  return date && !Number.isNaN(date.getTime()) ? Math.max(0, Math.floor((Date.now() - date.getTime()) / 86400000)) : null;
+}
+
+function renderLiveApplications(applications) {
+  const tbody = document.getElementById('applications-tbody');
+  if (!tbody) return;
+  if (!Array.isArray(applications) || !applications.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text-muted)">No applications found.</td></tr>';
+    if (typeof Skeleton !== 'undefined') Skeleton.clearBusy('applications-tbody');
+    const shown = document.getElementById('apps-shown');
+    const total = document.getElementById('apps-total');
+    if (shown) shown.textContent = '0';
+    if (total) total.textContent = '0';
+    return;
+  }
+  tbody.innerHTML = applications.map((application, index) => {
+    const id = application.application_id || application.id || '';
+    const name = getApplicationName(application);
+    const status = application.status || 'Pending';
+    const docs = typeof buildDocsStatusPill === 'function' ? buildDocsStatusPill(application) : '—';
+    const statusHtml = typeof buildStatusSelect === 'function' ? buildStatusSelect(id, status) : `<span class="status-select__label">${escapeApplicationHtml(status)}</span>`;
+    const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0].toUpperCase()).join('');
+    const gradients = ['linear-gradient(135deg,#FDE68A,#D97706)','linear-gradient(135deg,#34D399,#059669)','linear-gradient(135deg,#93C5FD,#2563EB)','linear-gradient(135deg,#F9A8D4,#DB2777)','linear-gradient(135deg,#C4B5FD,#7C3AED)','linear-gradient(135deg,#FCA5A5,#DC2626)'];
+    const barangay = application.barangay_district || application.barangay || '';
+    const days = getApplicationDaysPending(application);
+    return `<tr data-app-id="${escapeApplicationHtml(id)}" data-status="${escapeApplicationHtml(String(status).toLowerCase())}" data-barangay="${escapeApplicationHtml(String(barangay).toLowerCase())}">
+      <td style="width:40px"><input type="checkbox" class="row-check" data-app-id="${escapeApplicationHtml(id)}" aria-label="Select ${escapeApplicationHtml(name)}" onchange="updateBatchState()" /></td>
+      <td data-label="Application ID"><span class="cell-text">${escapeApplicationHtml(id)}</span></td>
+      <td data-label="Applicant"><div class="applicant-cell"><div class="applicant-avatar" style="background:${gradients[index % gradients.length]}">${escapeApplicationHtml(initials)}</div><div class="applicant-info"><span class="applicant-name">${escapeApplicationHtml(name)}</span></div></div></td>
+      <td data-label="Request Type"><span class="app-type-pill app-type-pill--first">${escapeApplicationHtml(getApplicationRequestType(application))}</span></td>
+      <td data-label="Date Submitted"><span class="cell-text">${escapeApplicationHtml(formatStaffDate(getApplicationSubmittedDate(application)))}</span></td>
+      <td data-label="Documents Status">${docs}</td><td data-label="Processing Stage">${statusHtml}</td>
+      <td data-label="Days Pending"><span class="cell-text">${days === null ? '—' : Math.floor(days).toLocaleString()}</span></td>
+      <td style="text-align:right">${buildViewAction(id)}</td></tr>`;
+  }).join('');
+  if (typeof Skeleton !== 'undefined') Skeleton.clearBusy('applications-tbody');
+  const shown = document.getElementById('apps-shown');
+  const total = document.getElementById('apps-total');
+  if (shown) shown.textContent = applications.length.toLocaleString();
+  if (total) total.textContent = applications.length.toLocaleString();
+  applyApplicationsModuleFilters();
+  if (typeof updateStatusTabCounts === 'function') updateStatusTabCounts();
+  const urgentCount = applications.filter(a => ['pending', 'review'].includes(normalizeApplicationStatus(a.status)) && (getApplicationDaysPending(a) || 0) > 5).length;
+  const urgent = document.getElementById('urgent-count');
+  if (urgent) urgent.textContent = urgentCount + ' Urgent';
+  const alert = document.getElementById('urgent-alert');
+  if (alert) alert.style.display = urgentCount ? '' : 'none';
+  const urgentTitle = document.getElementById('urgent-alert-title');
+  if (urgentTitle) urgentTitle.textContent = urgentCount ? `${urgentCount} application${urgentCount === 1 ? '' : 's'} require urgent review` : 'No urgent applications';
+  const urgentDescription = document.getElementById('urgent-alert-desc');
+  if (urgentDescription) urgentDescription.textContent = urgentCount ? 'These applications have been pending for more than 5 days and need immediate attention.' : 'Applications pending for more than 5 days will appear here.';
+}
+
+function applyApplicationsModuleFilters(statusKey) {
+  if (statusKey) APPLICATIONS_FILTER_STATE.status = statusKey;
+  const rows = document.querySelectorAll('#applications-tbody tr[data-app-id]');
+  const statusMap = { pending: 'pending', unverified: 'pending', review: 'review', verified: 'approved', process: 'process', release: 'ready', issued: 'issued', completed: 'completed', rejected: 'rejected' };
+  const expected = statusMap[APPLICATIONS_FILTER_STATE.status] || 'all';
+  let visible = 0;
+  rows.forEach(row => {
+    const match = (!APPLICATIONS_FILTER_STATE.search || row.textContent.toLowerCase().includes(APPLICATIONS_FILTER_STATE.search.trim().toLowerCase())) &&
+      (!APPLICATIONS_FILTER_STATE.barangay || row.dataset.barangay === APPLICATIONS_FILTER_STATE.barangay.toLowerCase()) &&
+      (expected === 'all' || normalizeApplicationStatus(row.dataset.status) === expected);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  const shown = document.getElementById('apps-shown');
+  if (shown) shown.textContent = visible.toLocaleString();
+}
+
+function filterApplicationsTable(query) { APPLICATIONS_FILTER_STATE.search = query || ''; applyApplicationsModuleFilters(); }
+function filterApplicationsByBarangay(barangay) { APPLICATIONS_FILTER_STATE.barangay = barangay || ''; applyApplicationsModuleFilters(); }
+
+function updateApplicantSummaryCards(applications) {
+  const profiles = buildApplicantProfiles(applications);
+  const now = new Date();
+  const identityCounts = new Map();
+  profiles.forEach(profile => {
+    if (!profile.nameDobKey || profile.nameDobKey.startsWith('|')) return;
+    identityCounts.set(profile.nameDobKey, (identityCounts.get(profile.nameDobKey) || 0) + 1);
+  });
+  const duplicateProfiles = profiles.filter(profile => profile.hasDuplicateFlag ||
+    (profile.nameDobKey && !profile.nameDobKey.startsWith('|') && identityCounts.get(profile.nameDobKey) > 1)).length;
+  const counts = {
+    'applicants-total-count': profiles.filter(p => p.isRegistered).length,
+    'applicants-verified-count': profiles.filter(p => p.isActive).length,
+    'applicants-unverified-count': profiles.filter(p => p.registeredAt && p.registeredAt.getFullYear() === now.getFullYear() && p.registeredAt.getMonth() === now.getMonth()).length,
+    'applicants-issued-count': duplicateProfiles
+  };
+  Object.entries(counts).forEach(([id, value]) => { const el = document.getElementById(id); if (el) el.textContent = value.toLocaleString(); });
+}
+
+function updateApplicationSummaryCards(applications) {
+  if (!Array.isArray(applications)) return;
+  const now = new Date();
+  const count = {
+    'summary-pending': applications.filter(a => normalizeApplicationStatus(a.status) === 'pending').length,
+    'summary-incomplete': applications.filter(a =>
+      typeof getDocsStatus === 'function' ? getDocsStatus(a).missing.length > 0 : false
+    ).length,
+    'summary-overdue': applications.filter(a => ['pending', 'review'].includes(normalizeApplicationStatus(a.status)) && (getApplicationDaysPending(a) || 0) > 5).length,
+    'summary-ready': applications.filter(a => normalizeApplicationStatus(a.status) === 'ready').length,
+    'summary-completed-month': applications.filter(a => {
+      if (normalizeApplicationStatus(a.status) !== 'completed') return false;
+      const date = new Date(a.status_updated_at || a.updated_at || a.created_at || 0);
+      return !Number.isNaN(date.getTime()) && date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+    }).length
+  };
+  Object.entries(count).forEach(([id, value]) => { const el = document.getElementById(id); if (el) el.textContent = value.toLocaleString(); });
+}

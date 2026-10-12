@@ -518,6 +518,11 @@ document.querySelectorAll('.nav-link[data-module]').forEach(l => l.addEventListe
 function filterByStatus(el, status) {
   el.closest('.status-tabs').querySelectorAll('.status-tab').forEach(c => c.classList.remove('active'));
   el.classList.add('active');
+  if (typeof applyApplicationsModuleFilters === 'function') {
+    applyApplicationsModuleFilters(status);
+    updateStatusTabCounts();
+    return;
+  }
   // Map tab keys to actual status labels used in the table
   const statusMap = {
     all: 'all',
@@ -1555,106 +1560,6 @@ function checkCapsLock(event) {
   warn.classList.toggle('visible', isOn);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   FORGOT PASSWORD MODAL
-   ═══════════════════════════════════════════════════════════ */
-
-const _BACKEND_BASE = 'https://management-backend-3cij.onrender.com';
-
-function openForgotModal() {
-  const overlay = document.getElementById('forgot-modal-overlay');
-  if (!overlay) return;
-  // Reset to form step
-  const formStep = document.getElementById('fp-step-form');
-  const sentStep = document.getElementById('fp-step-sent');
-  const input    = document.getElementById('fp-identifier');
-  const err      = document.getElementById('fp-err');
-  if (formStep) formStep.style.display = '';
-  if (sentStep) sentStep.style.display = 'none';
-  if (input)    input.value = '';
-  if (err)      { err.textContent = ''; err.style.opacity = '0'; }
-  overlay.classList.add('fp-open');
-  document.body.style.overflow = 'hidden';
-  setTimeout(() => { if (input) input.focus(); }, 80);
-  overlay.addEventListener('mousedown', _fpOverlayClick);
-  document.addEventListener('keydown', _fpEscKey);
-}
-
-function closeForgotModal() {
-  const overlay = document.getElementById('forgot-modal-overlay');
-  if (!overlay) return;
-  overlay.classList.remove('fp-open');
-  document.body.style.overflow = '';
-  overlay.removeEventListener('mousedown', _fpOverlayClick);
-  document.removeEventListener('keydown', _fpEscKey);
-}
-
-function _fpOverlayClick(e) {
-  const modal = document.getElementById('forgot-modal');
-  if (modal && !modal.contains(e.target)) closeForgotModal();
-}
-
-function _fpEscKey(e) {
-  if (e.key === 'Escape') closeForgotModal();
-}
-
-function clearFPError() {
-  const input = document.getElementById('fp-identifier');
-  const err   = document.getElementById('fp-err');
-  if (input) input.classList.remove('field-invalid');
-  if (err)   err.style.opacity = '0';
-}
-
-async function handleForgotSubmit() {
-  const input  = document.getElementById('fp-identifier');
-  const err    = document.getElementById('fp-err');
-  const btn    = document.getElementById('fp-submit-btn');
-  const cont   = document.getElementById('fp-btn-content');
-  const spin   = document.getElementById('fp-btn-spinner');
-
-  if (!input) return;
-
-  const identifier = input.value.trim();
-
-  // Clear previous error
-  input.classList.remove('field-invalid');
-  if (err) err.style.opacity = '0';
-
-  if (!identifier) {
-    input.classList.add('field-invalid');
-    if (err) { err.textContent = 'Please enter your username or email.'; err.style.opacity = '1'; }
-    input.focus();
-    return;
-  }
-
-  // Show spinner
-  if (btn)  btn.disabled = true;
-  if (cont) cont.style.display = 'none';
-  if (spin) spin.style.display = 'block';
-
-  try {
-    await fetch(`${_BACKEND_BASE}/api/auth/forgot-password`, {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ identifier }),
-    });
-    // Always show success (anti-enumeration)
-    const formStep = document.getElementById('fp-step-form');
-    const sentStep = document.getElementById('fp-step-sent');
-    if (formStep) formStep.style.display = 'none';
-    if (sentStep) sentStep.style.display = '';
-  } catch (_) {
-    // Network error — still show success to avoid exposing state
-    const formStep = document.getElementById('fp-step-form');
-    const sentStep = document.getElementById('fp-step-sent');
-    if (formStep) formStep.style.display = 'none';
-    if (sentStep) sentStep.style.display = '';
-  } finally {
-    if (btn)  btn.disabled = false;
-    if (cont) cont.style.display = '';
-    if (spin) spin.style.display = 'none';
-  }
-}
 
 
 function togglePwVis(btn) {
@@ -1665,16 +1570,6 @@ function togglePwVis(btn) {
   input.type = isText ? 'password' : 'text';
   const icon = btn.querySelector('i');
   if (icon) { icon.classList.toggle('fi-rr-eye', isText); icon.classList.toggle('fi-rr-eye-crossed', !isText); }
-}
-
-function showForgotPanel() {
-  const panel = document.getElementById('forgot-panel');
-  if (panel) panel.classList.add('visible');
-}
-
-function hideForgotPanel() {
-  const panel = document.getElementById('forgot-panel');
-  if (panel) panel.classList.remove('visible');
 }
 
 /* ── Live hero clock ── */
@@ -2792,6 +2687,21 @@ async function updateTableStatus(
       savedStatus;
 
     APP_DB[appId] = app;
+
+    // Keep the person registry and both KPI groups in sync with the saved request status.
+    if (typeof LIVE_APPLICATIONS !== 'undefined' && Array.isArray(LIVE_APPLICATIONS)) {
+      const liveApplication = LIVE_APPLICATIONS.find(item =>
+        String(item.application_id || item.id) === String(appId)
+      );
+      if (liveApplication) {
+        liveApplication.status = savedStatus;
+        liveApplication.status_updated_at =
+          result.statusHistory?.[0]?.updated_at || new Date().toISOString();
+      }
+      if (typeof updateApplicantSummaryCards === 'function') updateApplicantSummaryCards(LIVE_APPLICATIONS);
+      if (typeof updateApplicationSummaryCards === 'function') updateApplicationSummaryCards(LIVE_APPLICATIONS);
+      if (typeof renderLiveApplicants === 'function') renderLiveApplicants(LIVE_APPLICATIONS);
+    }
 
     // Reapply the Applicants status filter without rebuilding 4,251 rows
     if (
@@ -5348,6 +5258,31 @@ function exportPDF() { showToast('Exported PDF (demo)', 'success'); }
 function exportExcel() { showToast('Exported Excel (demo)', 'success'); }
 function exportCSV() {
   const data = analyticsScope();
+  const staffProfiles = typeof STAFF_APPLICANT_PROFILES !== 'undefined' && document.getElementById('mod-applicants')
+    ? STAFF_APPLICANT_PROFILES
+    : null;
+  if (staffProfiles) {
+    const header = ['Senior Citizen ID', 'Name', 'Barangay', 'Age', 'Registration Date', 'Status'];
+    const rows = staffProfiles.map(profile => [
+      profile.seniorId || '',
+      profile.name || '',
+      profile.barangay || '',
+      profile.age === '—' ? '' : profile.age,
+      profile.registeredAt ? formatStaffDate(profile.registeredAt) : '',
+      profile.status || ''
+    ]).map(row => row.map(value => '"' + String(value ?? '').replace(/"/g, '""') + '"'));
+    const csv = [header.join(','), ...rows.map(row => row.join(','))].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `osca-applicant-registry-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    appendAudit(CURRENT_USER?.displayName || 'Staff', 'Exported applicant registry (CSV)', 'System');
+    showToast('CSV exported with ' + staffProfiles.length + ' unique profiles', 'success');
+    return;
+  }
   const scope = CURRENT_ROLE === 'Admin' ? FULL_APPLICANTS : FULL_APPLICANTS.slice(0, 30);
   const header = ['ID', 'Name', 'Age', 'Gender', 'Barangay', 'Civil Status', 'Occupation', 'Status', 'Date Registered'];
   const rows = scope.map(a => [
@@ -6203,6 +6138,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const printDetailModalEl = document.getElementById('print-detail-modal');
   if (printDetailModalEl) printDetailModalEl.addEventListener('click', (e) => {
     if (e.target.id === 'print-detail-modal') closePrintDetail();
+  });
+  const applicantProfileModalEl = document.getElementById('applicant-profile-modal');
+  if (applicantProfileModalEl) applicantProfileModalEl.addEventListener('click', (e) => {
+    if (e.target.id === 'applicant-profile-modal') closeApplicantProfile();
   });
 
   // Start session inactivity timer
