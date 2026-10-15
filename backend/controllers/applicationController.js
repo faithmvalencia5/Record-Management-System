@@ -1822,12 +1822,94 @@ const updateApplicationStatus = async (req, res) => {
   }
 };
 
+
+const updateMembershipStatus = async (req, res) => {
+  try {
+    const applicationId = req.params.applicationId;
+    const { membership_status } = req.body;
+
+    // Only Active and Deceased are allowed.
+    if (!["Active", "Deceased"].includes(membership_status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Membership status must be Active or Deceased.",
+      });
+    }
+
+    // Find the application.
+    const { data: application, error: applicationError } =
+      await supabase
+        .from("applications")
+        .select("application_id")
+        .eq("application_id", applicationId)
+        .maybeSingle();
+
+    if (applicationError) throw applicationError;
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: "Application not found.",
+      });
+    }
+
+    // Get the most recent application status.
+    const { data: statusRecords, error: statusError } =
+      await supabase
+        .from("application_status_history")
+        .select("status, updated_at")
+        .eq("application_id", applicationId)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+
+    if (statusError) throw statusError;
+
+    const currentStatus = statusRecords?.[0]?.status;
+
+    // Membership status is allowed only for Completed applications.
+    if (currentStatus !== "Completed") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Membership status can only be updated for Completed applications.",
+      });
+    }
+
+    // Save the membership status.
+    const { data: updatedApplication, error: updateError } =
+      await supabase
+        .from("applications")
+        .update({ membership_status })
+        .eq("application_id", applicationId)
+        .select("application_id, membership_status")
+        .single();
+
+    if (updateError) throw updateError;
+
+    return res.status(200).json({
+      success: true,
+      message: "Membership status updated successfully.",
+      applicationId: updatedApplication.application_id,
+      membership_status: updatedApplication.membership_status,
+    });
+  } catch (error) {
+    console.error("Error updating membership status:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update membership status.",
+      error: error.message,
+    });
+  }
+};
+
 // EXPORT
 module.exports = {
   getApplications,
   getApplicationById,
   saveApplicationValidation,
   updateApplicationStatus,
+  updateMembershipStatus,
   updateDocumentAuthentication,
   downloadIssuanceDocument,
 };

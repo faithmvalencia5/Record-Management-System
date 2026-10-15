@@ -6,6 +6,7 @@ const {
   getApplicationById,
   saveApplicationValidation,
   updateApplicationStatus,
+  updateMembershipStatus,
   updateDocumentAuthentication,
   downloadIssuanceDocument,
 } = require("../controllers/applicationController");
@@ -17,6 +18,8 @@ router.get("/:applicationId", getApplicationById);
 router.post("/:applicationId/issuance-document", downloadIssuanceDocument);
 
 router.put("/:applicationId/status", updateApplicationStatus);
+
+router.put("/:applicationId/membership-status", updateMembershipStatus);
 
 router.put(
   "/:applicationId/documents/:documentType/authentication", updateDocumentAuthentication);
