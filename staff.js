@@ -4117,6 +4117,21 @@ function renderLiveApplications(applications) {
     const status = application.status || 'Pending';
     const docs = typeof buildDocsStatusPill === 'function' ? buildDocsStatusPill(application) : '—';
     const statusHtml = typeof buildStatusSelect === 'function' ? buildStatusSelect(id, status) : `<span class="status-select__label">${escapeApplicationHtml(status)}</span>`;
+    const membershipStatus = application.membership_status || '';
+    const membershipHtml =
+      String(status).trim().toLowerCase() === 'completed'
+        ? `<select
+            class="filter-select membership-status-select"
+            data-app-id="${escapeApplicationHtml(id)}"
+            data-previous-value="${escapeApplicationHtml(membershipStatus)}"
+            aria-label="Membership status"
+            onchange="updateMembershipStatus('${escapeApplicationHtml(id)}', this.value, this)">
+            <option value="" ${!membershipStatus ? 'selected' : ''} disabled>Select status</option>
+            <option value="Active" ${membershipStatus === 'Active' ? 'selected' : ''}>Active</option>
+            <option value="Deceased" ${membershipStatus === 'Deceased' ? 'selected' : ''}>Deceased</option>
+          </select>`
+        : '<span class="cell-text">—</span>';
+
     const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0].toUpperCase()).join('');
     const gradients = ['linear-gradient(135deg,#FDE68A,#D97706)','linear-gradient(135deg,#34D399,#059669)','linear-gradient(135deg,#93C5FD,#2563EB)','linear-gradient(135deg,#F9A8D4,#DB2777)','linear-gradient(135deg,#C4B5FD,#7C3AED)','linear-gradient(135deg,#FCA5A5,#DC2626)'];
     const barangay = application.barangay_district || application.barangay || '';
@@ -4127,7 +4142,7 @@ function renderLiveApplications(applications) {
       <td data-label="Applicant"><div class="applicant-cell"><div class="applicant-avatar" style="background:${gradients[index % gradients.length]}">${escapeApplicationHtml(initials)}</div><div class="applicant-info"><span class="applicant-name">${escapeApplicationHtml(name)}</span></div></div></td>
       <td data-label="Request Type"><span class="app-type-pill app-type-pill--first">${escapeApplicationHtml(getApplicationRequestType(application))}</span></td>
       <td data-label="Date Submitted"><span class="cell-text">${escapeApplicationHtml(formatStaffDate(getApplicationSubmittedDate(application)))}</span></td>
-      <td data-label="Documents Status">${docs}</td><td data-label="Processing Stage">${statusHtml}</td>
+      <td data-label="Documents Status">${docs}</td><td data-label="Processing Stage">${statusHtml}</td><td data-label="Membership Status">${membershipHtml}</td>
       <td data-label="Days Pending"><span class="cell-text">${days === null ? '—' : Math.floor(days).toLocaleString()}</span></td>
       <td style="text-align:right">${buildViewAction(id)}</td></tr>`;
   }).join('');
