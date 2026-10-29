@@ -70,6 +70,14 @@
           <span class="nav-link__label">Applications</span>
         </button>
 
+        <button class="nav-link staff-only" data-module="replacements">
+          <span class="nav-link__icon-wrap">
+            <i class="fi fi-rr-refresh"></i>
+          </span>
+          <span class="nav-link__label">Replacements</span>
+          <span class="nav-link__badge" id="replacements-sidebar-count">0</span>
+        </button>
+
         <button class="nav-link admin-hidden" data-module="analytics">
           <span class="nav-link__icon-wrap">
             <i class="fi fi-rr-chart-histogram"></i>
@@ -984,6 +992,65 @@
             <span></span>>
           </div>
         </div>
+      </div>
+
+      <!-- REPLACEMENTS -->
+      <div class="module" id="mod-replacements">
+        <header class="page-header">
+          <div class="page-header__left">
+            <div class="page-header__eyebrow">
+              <h1 class="page-header__title">Replacements</h1>
+              <span class="page-header__badge" id="replacement-total">0 Requests</span>
+            </div>
+            <p class="page-header__sub">
+              Review and process existing senior citizens' ID requests.
+            </p>
+          </div>
+        </header>
+
+        <section class="content-card">
+          <div class="table-toolbar">
+            <input
+              type="search"
+              id="replacement-search"
+              placeholder="Search applicant or application ID..."
+              oninput="filterReplacementRequests()"
+            />
+
+            <select id="replacement-status-filter"
+                    onchange="filterReplacementRequests()">
+              <option value="">All statuses</option>
+              <option value="Pending">Pending</option>
+              <option value="Accepted">Accepted</option>
+              <option value="Rejected">Rejected</option>
+            </select>
+
+            <button class="btn btn--secondary"
+                    onclick="loadReplacementRequests()">
+              Refresh
+            </button>
+          </div>
+
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Applicant</th>
+                  <th>Application ID</th>
+                  <th>Reason</th>
+                  <th>Request Date</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="replacement-requests-tbody">
+                <tr>
+                  <td colspan="6">Loading requests...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
 
       <!-- ID ISSUANCE -->
