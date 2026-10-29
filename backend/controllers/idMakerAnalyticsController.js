@@ -10,6 +10,30 @@ const BANNED_WORDS = [
   "predict", "prediction", "cause", "causes", "normal", "elevated", "high",
 ];
 
+const INSIGHT_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+const insightCache = new Map();
+const insightInFlight = new Map();
+
+function getCachedInsight(key) {
+  const entry = insightCache.get(key);
+
+  if (!entry) return null;
+
+  if (Date.now() >= entry.expiresAt) {
+    insightCache.delete(key);
+    return null;
+  }
+
+  return entry.value;
+}
+
+function cacheInsight(key, value) {
+  insightCache.set(key, {
+    value,
+    expiresAt: Date.now() + INSIGHT_CACHE_TTL_MS,
+  });
+}
+
 function numericTokens(value, output = new Set()) {
   if (typeof value === "number" && Number.isFinite(value)) {
     output.add(String(value));
@@ -199,14 +223,47 @@ const generateIdMakerAnalyticsInsights = async (req, res) => {
     }
 
     try {
-      const text = await requestGemini(stats);
-      const validationFailure = validateInsight(text, stats);
-      if (validationFailure) {
-        console.warn(`[ID Maker analytics] Rejected Gemini ${cardKey} insight: ${validationFailure}`);
-        insights[cardKey] = { text: stats.fallback, source: "fallback", reason: validationFailure };
+      const cacheKey = `${cardKey}:${JSON.stringify(stats)}`;
+
+      // Reuse a previous successful AI insight if the stats are unchanged.
+      const cached = getCachedInsight(cacheKey);
+      if (cached) {
+        insights[cardKey] = { ...cached, cached: true };
         return;
       }
-      insights[cardKey] = { text: text.trim(), source: "ai" };
+
+      // Share an in-progress request if another call has the same stats.
+      let pending = insightInFlight.get(cacheKey);
+
+      if (!pending) {
+        pending = requestGemini(stats)
+          .then((text) => {
+            const validationFailure = validateInsight(text, stats);
+
+            if (validationFailure) {
+              console.warn(
+                `[ID Maker analytics] Rejected Gemini ${cardKey} insight: ${validationFailure}`
+              );
+
+              return {
+                text: stats.fallback,
+                source: "fallback",
+                reason: validationFailure,
+              };
+            }
+
+            const result = { text: text.trim(), source: "ai" };
+            cacheInsight(cacheKey, result);
+            return result;
+          })
+          .finally(() => {
+            insightInFlight.delete(cacheKey);
+          });
+
+        insightInFlight.set(cacheKey, pending);
+      }
+
+      insights[cardKey] = await pending;
     } catch (error) {
       const reason = error.name === "AbortError" ? "Gemini request timed out" : error.message;
       console.warn(`[ID Maker analytics] Gemini ${cardKey} insight failed: ${reason}`);

@@ -1,6 +1,29 @@
 const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 const KEYS = ["applicationFlow", "queueMix", "replacementRequests", "readyForHandoff", "barangayWorkload", "ageDistribution", "issuanceOverTime", "turnaroundTime"];
 
+const INSIGHT_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const insightCache = new Map();
+
+function getCachedStaffInsights(key) {
+  const entry = insightCache.get(key);
+
+  if (!entry) return null;
+
+  if (Date.now() >= entry.expiresAt) {
+    insightCache.delete(key);
+    return null;
+  }
+
+  return entry.value;
+}
+
+function cacheStaffInsights(key, value) {
+  insightCache.set(key, {
+    value,
+    expiresAt: Date.now() + INSIGHT_CACHE_TTL_MS,
+  });
+}
+
 function plainObject(v) {
   return v !== null && typeof v === "object" && !Array.isArray(v);
 }
@@ -52,6 +75,18 @@ async function generateStaffAnalyticsInsights(req, res) {
     if (!plainObject(req.body?.metrics)) return res.status(400).json({ success: false, message: "Aggregate analytics metrics are required." });
     if (JSON.stringify(req.body.metrics).length > 30000) return res.status(413).json({ success: false, message: "Analytics payload is too large." });
     const metrics = sanitizeMetrics(req.body.metrics);
+    const cacheKey = JSON.stringify(metrics);
+    const cachedInsights = getCachedStaffInsights(cacheKey);
+
+    if (cachedInsights) {
+      return res.json({
+        success: true,
+        configured: true,
+        cached: true,
+        model: MODEL,
+        insights: cachedInsights,
+      });
+    }
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     if (!apiKey) {
       const insights = Object.fromEntries(KEYS.map(k => [k, { text: fallback(k, metrics[k]), source: "fallback" }]));
@@ -92,6 +127,9 @@ async function generateStaffAnalyticsInsights(req, res) {
       insights[key] = candidate && candidate.length <= 1000 && !hasUnsupportedNumber
         ? { text: candidate, source: "gemini" }
         : { text: fallback(key, metrics[key]), source: "fallback" };
+    }
+    if (Object.values(insights).every((item) => item.source === "gemini")) {
+      cacheStaffInsights(cacheKey, insights);
     }
     return res.json({ success: true, configured: true, model: MODEL, insights });
   } catch (error) {
