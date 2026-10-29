@@ -196,8 +196,8 @@ const getIdMakerQueue = async (req, res) => {
 
     // 4. BUILD LIGHTWEIGHT QUEUE RESPONSE
     const completeQueue =
-      queueRecords.map(
-        (queueItem) => {
+      await Promise.all(queueRecords.map(
+        async (queueItem) => {
 
           const application =
             applicationMap.get(
@@ -292,7 +292,7 @@ const getIdMakerQueue = async (req, res) => {
               "",
           };
         }
-      );
+      ));
 
     return res.status(200).json({
       success: true,
