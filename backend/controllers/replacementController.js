@@ -213,6 +213,49 @@ const decideReplacementRequest = async (req, res) => {
           "The request was not found or is no longer pending. Refresh the list and try again.",
       });
     }
+    
+    if (newStatus === "Accepted") {
+      const applicationId = updatedRequest.application_id;
+      const now = new Date().toISOString();
+
+      const {
+        data: historyRecords,
+        error: historyReadError,
+      } = await supabase
+        .from("application_status_history")
+        .select("application_id")
+        .eq("application_id", applicationId);
+
+      if (historyReadError) {
+        throw historyReadError;
+      }
+
+      if (historyRecords && historyRecords.length > 0) {
+        const { error: historyUpdateError } = await supabase
+          .from("application_status_history")
+          .update({
+            status: "Under Review",
+            updated_at: now,
+          })
+          .eq("application_id", applicationId);
+
+        if (historyUpdateError) {
+          throw historyUpdateError;
+        }
+      } else {
+        const { error: historyInsertError } = await supabase
+          .from("application_status_history")
+          .insert({
+            application_id: applicationId,
+            status: "Under Review",
+            updated_at: now,
+          });
+
+        if (historyInsertError) {
+          throw historyInsertError;
+        }
+      }
+    }
 
     return res.json({
       success: true,

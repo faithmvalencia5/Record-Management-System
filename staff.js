@@ -4248,65 +4248,160 @@ function filterReplacementRequests() {
   renderReplacementRequests();
 }
 
-async function viewReplacementRequest(requestId) {
+
+let activeReplacementRequestId = null;
+
+function closeReplacementRequest() {
+  document.getElementById('replacement-request-modal')
+    ?.classList.remove('show');
+
+  activeReplacementRequestId = null;
+}
+
+function viewReplacementRequest(requestId) {
   const request = replacementRequests.find(
     item => Number(item.id) === Number(requestId)
   );
 
-  if (!request) return;
-
-  const details = [
-    'Applicant: ' + (request.applicant_name || 'Not found'),
-    'Application ID: ' + (request.application_id || '—'),
-    'Reason: ' + (request.reason || '—'),
-    'Other details: ' + (request.other_reason || '—'),
-    'Requested: ' + formatReplacementDate(request.requested_at),
-    'Status: ' + (request.request_status || 'Unknown')
-  ].join('\n');
-
-  if (String(request.request_status).toLowerCase() !== 'pending') {
-    alert(details);
+  if (!request) {
+    if (typeof showToast === 'function') {
+      showToast('Request not found. Refresh the list.', 'error');
+    }
     return;
   }
 
-  const decision = prompt(
-    details +
-    '\n\nType ACCEPT to accept, REJECT to reject, or leave blank to cancel.'
+  activeReplacementRequestId = Number(request.id);
+
+  const details = document.getElementById(
+    'replacement-modal-details'
   );
 
-  if (!decision) return;
+  details.innerHTML = `
+    <div style="display:grid;gap:12px">
+      <div>
+        <small>Applicant</small>
+        <div><strong>${escapeReplacementText(
+          request.applicant_name || 'Applicant record not found'
+        )}</strong></div>
+      </div>
+      <div>
+        <small>Application ID</small>
+        <div><strong>${escapeReplacementText(
+          request.application_id || '—'
+        )}</strong></div>
+      </div>
+      <div>
+        <small>Reason</small>
+        <div>${escapeReplacementText(request.reason || '—')}</div>
+      </div>
+      <div>
+        <small>Additional details</small>
+        <div>${escapeReplacementText(request.other_reason || '—')}</div>
+      </div>
+      <div>
+        <small>Request date</small>
+        <div>${formatReplacementDate(request.requested_at)}</div>
+      </div>
+      <div>
+        <small>Current request status</small>
+        <div><strong>${escapeReplacementText(
+          request.request_status || 'Unknown'
+        )}</strong></div>
+      </div>
+    </div>
+  `;
 
-  const normalized = decision.trim().toLowerCase();
-  if (!['accept', 'reject'].includes(normalized)) {
-    alert('Please enter ACCEPT or REJECT.');
+  const select = document.getElementById(
+    'replacement-decision-select'
+  );
+
+  const submit = document.getElementById(
+    'replacement-decision-submit'
+  );
+
+  const isPending =
+    String(request.request_status || '').toLowerCase() === 'pending';
+
+  select.value = '';
+  select.disabled = !isPending;
+  submit.disabled = !isPending;
+  submit.textContent = isPending ? 'Save decision' : 'Already decided';
+
+  const error = document.getElementById('replacement-decision-error');
+  error.style.display = 'none';
+  error.textContent = '';
+
+  document.getElementById('replacement-request-modal')
+    ?.classList.add('show');
+}
+
+async function submitReplacementDecision() {
+  if (!activeReplacementRequestId) return;
+
+  const select = document.getElementById(
+    'replacement-decision-select'
+  );
+
+  const submit = document.getElementById(
+    'replacement-decision-submit'
+  );
+
+  const error = document.getElementById(
+    'replacement-decision-error'
+  );
+
+  const decision = select.value;
+
+  if (!['accept', 'reject'].includes(decision)) {
+    error.textContent = 'Please select Accept request or Reject request.';
+    error.style.display = 'block';
     return;
   }
+
+  const requestId = activeReplacementRequestId;
+
+  submit.disabled = true;
+  submit.textContent = 'Saving...';
+  error.style.display = 'none';
 
   try {
     const response = await fetch(
       REPLACEMENTS_API + '/' +
-      encodeURIComponent(request.id) + '/decision',
+      encodeURIComponent(requestId) + '/decision',
       {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision: normalized })
+        body: JSON.stringify({ decision })
       }
     );
 
     const result = await response.json();
 
     if (!response.ok || !result.success) {
-      throw new Error(result.message || 'Could not update the request.');
+      throw new Error(
+        result.message || 'Failed to save the request decision.'
+      );
     }
 
-    alert(result.message || 'Request updated.');
+    closeReplacementRequest();
+
+    if (typeof showToast === 'function') {
+      showToast(result.message || 'Decision saved.', 'success');
+    }
+
     await loadReplacementRequests();
-  } catch (error) {
-    console.error(error);
-    alert(error.message || 'Could not update the request.');
+  } catch (err) {
+    error.textContent = err.message || 'Unable to save the decision.';
+    error.style.display = 'block';
+  } finally {
+    if (document.getElementById('replacement-request-modal')
+        ?.classList.contains('show')) {
+      submit.disabled = false;
+      submit.textContent = 'Save decision';
+    }
   }
 }
 
-window.loadReplacementRequests = loadReplacementRequests;
-window.filterReplacementRequests = filterReplacementRequests;
 window.viewReplacementRequest = viewReplacementRequest;
+window.closeReplacementRequest = closeReplacementRequest;
+window.submitReplacementDecision = submitReplacementDecision;
