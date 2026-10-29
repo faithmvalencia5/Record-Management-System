@@ -756,8 +756,7 @@ async function updateReplacementStatus(
       }
     }
 
-    // Refresh the replacement list so the displayed status is
-    // the value returned by the database.
+    // Refresh the replacement list so the displayed status is the value returned by the database.
     if (typeof loadReplacementRequests === 'function') {
       await loadReplacementRequests();
     }
