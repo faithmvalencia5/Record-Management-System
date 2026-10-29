@@ -4233,7 +4233,22 @@ async function requestStaffAnalyticsInsights(applications) {
   };
   displayStaffAnalyticsInsights(fallback);
   try {
-    const response = await fetch(STAFF_ANALYTICS_INSIGHTS_API, {method:"POST",headers:{"Content-Type":"application/json"},cache:"no-store",body:JSON.stringify({metrics})});
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 35000);
+
+    let response;
+
+    try {
+      response = await fetch(STAFF_ANALYTICS_INSIGHTS_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ metrics }),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
     const result = await response.json();
     if (id !== staffAnalyticsInsightRequest) return;
     if (!response.ok || !result.success) throw new Error(result.message || "Insight request failed");
