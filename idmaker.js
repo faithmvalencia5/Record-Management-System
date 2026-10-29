@@ -96,7 +96,9 @@ async function loadIdMakerQueueFromDatabase(showMessage = false) {
         if (idx === -1) {
           ID_MAKER_QUEUE.unshift(localItem);
         } else {
-          ID_MAKER_QUEUE[idx] = Object.assign({}, ID_MAKER_QUEUE[idx], localItem);
+          // Keep the database record authoritative so an older local status
+          // cannot overwrite the status just fetched from the server.
+          ID_MAKER_QUEUE[idx] = Object.assign({}, localItem, ID_MAKER_QUEUE[idx]);
         }
       });
     }
@@ -649,10 +651,11 @@ async function inlineStatusChange(appId, newStatus) {
       }
     );
 
-    const result = await response.json();
+    const result = await response.json().catch(() => ({}));
 
     if (!response.ok || !result.success) {
       throw new Error(
+        result.error ||
         result.message ||
         'Failed to update queue status.'
       );

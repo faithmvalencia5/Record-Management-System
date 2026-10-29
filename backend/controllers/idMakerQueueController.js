@@ -1,15 +1,22 @@
 const supabase = require("../config/supabase");
 
-const createSignedFileUrl = async (filePath) => {
-  if (!filePath) return "";
+const createSignedFileUrlMap = async (filePaths) => {
+  const paths = Array.from(new Set(filePaths.filter(Boolean)));
+  if (!paths.length) return new Map();
+
   const { data, error } = await supabase.storage
     .from("documents")
-    .createSignedUrl(filePath, 60 * 30);
+    .createSignedUrls(paths, 60 * 30);
+
   if (error) {
-    console.error("Unable to create ID Maker media URL:", error);
-    return "";
+    console.error("Unable to create ID Maker media URLs:", error);
+    return new Map();
   }
-  return data?.signedUrl || "";
+
+  return new Map((data || []).map((item) => [
+    item.path,
+    item.signedUrl || "",
+  ]));
 };
 
 // ============================================
@@ -186,6 +193,15 @@ const getIdMakerQueue = async (req, res) => {
       String(file.application_id), file
     ]));
 
+    // Sign every photo and signature in one Storage request instead of
+    // issuing up to two requests per applicant before returning the queue.
+    const signedUrls = await createSignedFileUrlMap(
+      (applicationFiles || []).flatMap((file) => [
+        file.latest_photo_url,
+        file.signature_url,
+      ])
+    );
+
     // 3. CREATE A FAST LOOKUP MAP
     const applicationMap =
       new Map(
@@ -216,10 +232,8 @@ const getIdMakerQueue = async (req, res) => {
       await Promise.all(queueEntries.map(
         async ({ applicationId, queueItem, application }) => {
           const files = fileMap.get(applicationId) || {};
-          const [photo, signature] = await Promise.all([
-            createSignedFileUrl(files.latest_photo_url),
-            createSignedFileUrl(files.signature_url),
-          ]);
+          const photo = signedUrls.get(files.latest_photo_url) || "";
+          const signature = signedUrls.get(files.signature_url) || "";
 
           const fullName = [
             application?.first_name,
@@ -361,7 +375,7 @@ const updateIdMakerQueue = async (req, res) => {
     ];
 
     if (
-      print_status &&
+      print_status !== undefined &&
       !allowedStatuses.includes(print_status)
     ) {
       return res.status(400).json({
@@ -386,66 +400,53 @@ const updateIdMakerQueue = async (req, res) => {
       updateData.date_issued = date_issued;
     }
 
-    // Some queue entries can be present in the ID Maker UI (from local
-    // storage) without a matching database row. Update an existing row, or
-    // create one after confirming that the application itself exists.
+    // Queue rows may not exist yet for applications shown from local state.
+    // Confirm the parent record, then use one conflict-safe write path.
+    const { data: application, error: applicationError } = await supabase
+      .from("applications")
+      .select("application_id")
+      .eq("application_id", applicationId)
+      .maybeSingle();
+
+    if (applicationError) {
+      throw applicationError;
+    }
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: "Application not found; cannot update its ID Maker queue status.",
+      });
+    }
+
     const { data: existingQueueItem, error: lookupError } = await supabase
       .from("id_maker_queue")
-      .select("application_id, control_no, date_issued")
+      .select("control_no, date_issued")
       .eq("application_id", applicationId)
+      .limit(1)
       .maybeSingle();
 
     if (lookupError) {
       throw lookupError;
     }
 
-    let data;
-    if (existingQueueItem) {
-      const { data: updatedQueueItem, error: updateError } = await supabase
-        .from("id_maker_queue")
-        .update(updateData)
-        .eq("application_id", applicationId)
-        .select()
-        .single();
-
-      if (updateError) {
-        throw updateError;
-      }
-      data = updatedQueueItem;
-    } else {
-      const { data: application, error: applicationError } = await supabase
-        .from("applications")
-        .select("application_id")
-        .eq("application_id", applicationId)
-        .maybeSingle();
-
-      if (applicationError) {
-        throw applicationError;
-      }
-
-      if (!application) {
-        return res.status(404).json({
-          success: false,
-          message: "Application not found; cannot add it to the ID Maker queue.",
-        });
-      }
-
-      const { data: insertedQueueItem, error: insertError } = await supabase
-        .from("id_maker_queue")
-        .insert({
+    const { data, error } = await supabase
+      .from("id_maker_queue")
+      .upsert(
+        {
           application_id: applicationId,
-          print_status: print_status || "Queued",
-          control_no: control_no ?? null,
-          date_issued: date_issued ?? null,
+          print_status: print_status ?? "Queued",
+          control_no: control_no ?? existingQueueItem?.control_no ?? null,
+          date_issued: date_issued ?? existingQueueItem?.date_issued ?? null,
           updated_at: updateData.updated_at,
-        })
-        .select()
-        .single();
+        },
+        { onConflict: "application_id" }
+      )
+      .select()
+      .single();
 
-      if (insertError) {
-        throw insertError;
-      }
-      data = insertedQueueItem;
+    if (error) {
+      throw error;
     }
 
     return res.status(200).json({
