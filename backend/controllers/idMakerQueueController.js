@@ -165,7 +165,6 @@ const getIdMakerQueue = async (req, res) => {
         date_of_birth,
         sex,
         age,
-        status,
         created_at
       `)
       .in(
@@ -287,10 +286,7 @@ const getIdMakerQueue = async (req, res) => {
               signature,
 
             printStatus:
-              queueItem?.print_status ||
-              (["Ready for Release", "ID Issued"].includes(application?.status)
-                ? "Completed"
-                : "Queued"),
+              queueItem?.print_status || "Queued",
 
             sentAt:
               queueItem?.sent_at ||
