@@ -1612,8 +1612,7 @@ const updateDocumentAuthentication = async (req, res) => {
           authentication_status: status,
           authentication_method:
             method || "staff_review",
-          authenticated_by:
-            authenticated_by || null,
+          authenticated_by: null,
           authenticated_at: status === "approved" ? now : null,
           authentication_remarks:
             remarks || null,
@@ -1629,8 +1628,7 @@ const updateDocumentAuthentication = async (req, res) => {
 
       savedRecord = data;
     } else {
-      // Create authentication record if this
-      // document has never been reviewed before
+      // Create authentication record if this document has never been reviewed before
       const { data, error } = await supabase
         .from("document_authentications")
         .insert({
@@ -1639,8 +1637,7 @@ const updateDocumentAuthentication = async (req, res) => {
           authentication_status: status,
           authentication_method:
             method || "staff_review",
-          authenticated_by:
-            authenticated_by || null,
+          authenticated_by: null,
           authenticated_at: status === "approved" ? now : null,
           authentication_remarks:
             remarks || null,

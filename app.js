@@ -4870,8 +4870,7 @@ async function setDocStatus(doc, state, options = {}) {
 
           method: 'staff_review',
 
-          authenticated_by:
-            CURRENT_USER?.id || null,
+          authenticated_by: null,
 
           remarks:
             databaseStatus === 'approved'
