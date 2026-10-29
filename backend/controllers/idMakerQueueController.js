@@ -132,18 +132,28 @@ const getIdMakerQueue = async (req, res) => {
       throw queueError;
     }
 
-    if (!queueRecords || queueRecords.length === 0) {
-      return res.status(200).json({
-        success: true,
-        queue: [],
-      });
+    // Include applications already sent to ID production even if an earlier
+    // workflow did not create their id_maker_queue row. Pending and rejected
+    // applicants are intentionally excluded from the production queue.
+    const { data: productionApplications, error: productionError } = await supabase
+      .from("applications")
+      .select("application_id")
+      .in("status", ["In Process", "Ready for Release"]);
+
+    if (productionError) {
+      throw productionError;
+    }
+
+    const applicationIds = Array.from(new Set([
+      ...(queueRecords || []).map((item) => String(item.application_id)),
+      ...(productionApplications || []).map((item) => String(item.application_id)),
+    ]));
+
+    if (applicationIds.length === 0) {
+      return res.status(200).json({ success: true, queue: [] });
     }
 
     // 2. GET ONLY THE APPLICATION FIELDS NEEDED
-    const applicationIds =
-      queueRecords.map(
-        (item) => item.application_id
-      );
 
     const {
       data: applications,
@@ -160,6 +170,7 @@ const getIdMakerQueue = async (req, res) => {
         date_of_birth,
         sex,
         age,
+        status,
         created_at
       `)
       .in(
@@ -194,18 +205,25 @@ const getIdMakerQueue = async (req, res) => {
         )
       );
 
+    const queueMap = new Map((queueRecords || []).map((item) => [
+      String(item.application_id), item,
+    ]));
+
+    const queueEntries = applicationIds
+      .map((applicationId) => ({
+        applicationId,
+        queueItem: queueMap.get(applicationId),
+        application: applicationMap.get(applicationId),
+      }))
+      .filter(({ queueItem, application }) =>
+        queueItem || ["In Process", "Ready for Release"].includes(application?.status)
+      );
+
     // 4. BUILD LIGHTWEIGHT QUEUE RESPONSE
     const completeQueue =
-      await Promise.all(queueRecords.map(
-        async (queueItem) => {
-
-          const application =
-            applicationMap.get(
-              String(
-                queueItem.application_id
-              )
-            );
-          const files = fileMap.get(String(queueItem.application_id)) || {};
+      await Promise.all(queueEntries.map(
+        async ({ applicationId, queueItem, application }) => {
+          const files = fileMap.get(applicationId) || {};
           const [photo, signature] = await Promise.all([
             createSignedFileUrl(files.latest_photo_url),
             createSignedFileUrl(files.signature_url),
@@ -221,10 +239,10 @@ const getIdMakerQueue = async (req, res) => {
 
           return {
             id:
-              queueItem.application_id,
+              applicationId,
 
             application_id:
-              queueItem.application_id,
+              applicationId,
 
             name:
               fullName,
@@ -262,11 +280,11 @@ const getIdMakerQueue = async (req, res) => {
               "",
 
             controlNo:
-              queueItem.control_no ||
+              queueItem?.control_no ||
               "",
 
             dateIssued:
-              queueItem.date_issued ||
+              queueItem?.date_issued ||
               "",
 
             photo:
@@ -276,15 +294,16 @@ const getIdMakerQueue = async (req, res) => {
               signature,
 
             printStatus:
-              queueItem.print_status ||
-              "Queued",
+              queueItem?.print_status ||
+              (application?.status === "Ready for Release" ? "Completed" : "Queued"),
 
             sentAt:
-              queueItem.sent_at ||
+              queueItem?.sent_at ||
+              application?.created_at ||
               null,
 
             updatedAt:
-              queueItem.updated_at ||
+              queueItem?.updated_at ||
               null,
 
             regDate:
