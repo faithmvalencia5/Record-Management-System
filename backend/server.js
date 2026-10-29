@@ -7,6 +7,7 @@ const authRoutes = require("./routes/authRoutes");
 const idMakerQueueRoutes = require("./routes/idMakerQueueRoutes");
 const auditLogRoutes = require("./routes/auditLogRoutes");
 const replacementRoutes = require("./routes/replacementRoutes");
+const staffAnalyticsInsightsRoutes = require("./routes/staffAnalyticsInsightsRoutes");
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use("/api/id-maker-queue", idMakerQueueRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/audit-logs", auditLogRoutes);
 app.use("/api/replacements", replacementRoutes);
+app.use("/api/analytics-insights", staffAnalyticsInsightsRoutes);
 
 app.get("/", (req, res) => {
   res.json({

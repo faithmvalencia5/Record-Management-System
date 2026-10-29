@@ -3080,6 +3080,10 @@ async function loadApplicationsFromDatabase() {
         applications
       );
 
+      if (typeof requestStaffAnalyticsInsights === "function") {
+        requestStaffAnalyticsInsights(applications);
+      }
+
     }
 
 
@@ -4115,6 +4119,132 @@ function formatReplacementDate(value) {
   });
 }
 
+
+// GEMINI STAFF ANALYTICS INSIGHTS - BEGIN
+const STAFF_ANALYTICS_INSIGHTS_API = "https://management-backend-3cij.onrender.com/api/analytics-insights";
+let staffAnalyticsInsightRequest = 0;
+
+function staffAnalyticsStatus(app) {
+  return typeof normalizeApplicationStatus === "function" ? normalizeApplicationStatus(app.status) : String(app.status || "pending").toLowerCase();
+}
+function staffAnalyticsDate(app, fields) {
+  for (const field of fields) {
+    if (!app?.[field]) continue;
+    const d = new Date(app[field]);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  return null;
+}
+function buildStaffAnalyticsMetrics(applications) {
+  const apps = Array.isArray(applications) ? applications : [];
+  const now = new Date();
+  const labels = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const monthlySubmitted = Array(12).fill(0), monthlyIssued = Array(12).fill(0);
+  const status = { pending: 0, review: 0, approved: 0, rejected: 0, total: apps.length };
+  const barangays = {};
+  const ages = {"60–64":0,"65–69":0,"70–74":0,"75–79":0,"80–84":0,"85+":0};
+  let ready = 0, issued = 0, turnaroundSum = 0, turnaroundCount = 0;
+  for (const app of apps) {
+    const s = staffAnalyticsStatus(app);
+    if (s === "pending") status.pending++;
+    else if (s === "review") status.review++;
+    else if (["approved","ready","issued","completed"].includes(s)) status.approved++;
+    else if (s === "rejected") status.rejected++;
+    if (s === "ready") ready++;
+    const created = staffAnalyticsDate(app, ["created_at","submitted_at","application_date"]);
+    const updated = staffAnalyticsDate(app, ["status_updated_at","updated_at"]) || created;
+    if (created && created.getFullYear() === now.getFullYear()) monthlySubmitted[created.getMonth()]++;
+    if (["issued","completed"].includes(s)) {
+      issued++;
+      if (updated && updated.getFullYear() === now.getFullYear()) monthlyIssued[updated.getMonth()]++;
+    }
+    if (["approved","ready","issued","completed"].includes(s) && created && updated && updated >= created) {
+      turnaroundSum += (updated - created) / 86400000;
+      turnaroundCount++;
+    }
+    const barangay = String(app.barangay_district || "Unknown").trim() || "Unknown";
+    barangays[barangay] = (barangays[barangay] || 0) + 1;
+    const age = Number(app.age);
+    if (Number.isFinite(age)) {
+      if (age >= 60 && age <= 64) ages["60–64"]++;
+      else if (age <= 69 && age >= 65) ages["65–69"]++;
+      else if (age <= 74 && age >= 70) ages["70–74"]++;
+      else if (age <= 79 && age >= 75) ages["75–79"]++;
+      else if (age <= 84 && age >= 80) ages["80–84"]++;
+      else if (age >= 85) ages["85+"]++;
+    }
+  }
+  const requests = Array.isArray(replacementRequests) ? replacementRequests : [];
+  const replacement = { total: requests.length, pending: 0, inProcess: 0, completed: 0, rejected: 0 };
+  requests.forEach(r => {
+    const s = String(r.request_status || "Pending").toLowerCase().trim();
+    if (s === "pending") replacement.pending++;
+    else if (["under review","in process","ready for release"].includes(s)) replacement.inProcess++;
+    else if (s === "completed") replacement.completed++;
+    else if (s === "rejected") replacement.rejected++;
+  });
+  return {
+    applicationFlow: { submitted: monthlySubmitted.reduce((a,b)=>a+b,0), approved: status.approved, rejected: status.rejected, months: labels.map((label,i)=>({label,count:monthlySubmitted[i]})) },
+    queueMix: status,
+    replacementRequests: replacement,
+    readyForHandoff: { ready, total: apps.length },
+    barangayWorkload: { total: apps.length, barangayCount: Object.keys(barangays).length, topBarangays: Object.entries(barangays).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,count])=>({label,count})) },
+    ageDistribution: { total: Object.values(ages).reduce((a,b)=>a+b,0), groups: Object.entries(ages).map(([label,count])=>({label,count})) },
+    issuanceOverTime: { issued: monthlyIssued.reduce((a,b)=>a+b,0), months: labels.map((label,i)=>({label,count:monthlyIssued[i]})) },
+    turnaroundTime: { averageDays: turnaroundCount ? Math.round(turnaroundSum / turnaroundCount * 10) / 10 : null, sampleSize: turnaroundCount }
+  };
+}
+function ensureStaffAnalyticsInsightAreas() {
+  const mappings = [["Application Flow","applicationFlow"],["Queue Mix","queueMix"],["Replacement Applications Analytics","replacementRequests"],["Ready for Handoff","readyForHandoff"],["Barangay Workload","barangayWorkload"],["Age Group Distribution","ageDistribution"],["ID Issuance Over Time","issuanceOverTime"],["Turnaround Time","turnaroundTime"]];
+  const cards = Array.from(document.querySelectorAll(".an-card"));
+  for (const [title,key] of mappings) {
+    const card = cards.find(node => node.querySelector(".an-card__title")?.textContent.trim() === title);
+    if (!card || card.querySelector(`[data-ai-insight="${key}"]`)) continue;
+    const box = document.createElement("div");
+    box.dataset.aiInsight = key;
+    box.style.cssText = "margin:0 18px 18px;padding:12px 14px;border:1px solid var(--border-color,#dbe3ef);border-radius:12px;background:var(--surface-muted,rgba(100,116,139,.06));font-size:13px;line-height:1.55";
+    box.innerHTML = '<div style="display:flex;gap:7px;align-items:center;font-weight:700;margin-bottom:5px"><span aria-hidden="true">✦</span> AI-Driven Insight <span data-ai-source style="margin-left:auto;font-size:10px;opacity:.7">DATA SUMMARY</span></div><div data-ai-text>Preparing insight from current analytics…</div>';
+    card.appendChild(box);
+  }
+}
+function displayStaffAnalyticsInsights(insights) {
+  ensureStaffAnalyticsInsightAreas();
+  for (const [key,value] of Object.entries(insights || {})) {
+    const area = document.querySelector(`[data-ai-insight="${key}"]`);
+    if (!area) continue;
+    area.querySelector("[data-ai-text]").textContent = String(value?.text || "Insight is currently unavailable.");
+    area.querySelector("[data-ai-source]").textContent = value?.source === "gemini" ? "GEMINI AI" : "DATA SUMMARY";
+  }
+}
+async function requestStaffAnalyticsInsights(applications) {
+  ensureStaffAnalyticsInsightAreas();
+  const id = ++staffAnalyticsInsightRequest;
+  const metrics = buildStaffAnalyticsMetrics(applications);
+  const n = (v) => Number(v || 0).toLocaleString();
+  const fallback = {
+    applicationFlow: {text:`The chart summarizes ${n(metrics.applicationFlow.submitted)} submissions during the current year.`,source:"fallback"},
+    queueMix: {text:`The current queue contains ${n(metrics.queueMix.total)} applications, including ${n(metrics.queueMix.pending)} pending and ${n(metrics.queueMix.rejected)} rejected.`,source:"fallback"},
+    replacementRequests: {text:`There are ${n(metrics.replacementRequests.total)} replacement requests: ${n(metrics.replacementRequests.pending)} pending, ${n(metrics.replacementRequests.inProcess)} in process, ${n(metrics.replacementRequests.completed)} completed, and ${n(metrics.replacementRequests.rejected)} rejected.`,source:"fallback"},
+    readyForHandoff: {text:`${n(metrics.readyForHandoff.ready)} applications are currently marked ready for handoff.`,source:"fallback"},
+    barangayWorkload: {text:`The chart summarizes ${n(metrics.barangayWorkload.total)} applications across ${n(metrics.barangayWorkload.barangayCount)} barangay groups.`,source:"fallback"},
+    ageDistribution: {text:`The age distribution includes ${n(metrics.ageDistribution.total)} applications with a recorded age.`,source:"fallback"},
+    issuanceOverTime: {text:`${n(metrics.issuanceOverTime.issued)} applications are counted as issued or completed in the current year's monthly chart.`,source:"fallback"},
+    turnaroundTime: {text:metrics.turnaroundTime.averageDays == null ? "A processing-time summary is unavailable because there are not enough valid dates." : `The average recorded turnaround time is ${metrics.turnaroundTime.averageDays} days across ${n(metrics.turnaroundTime.sampleSize)} applications.`,source:"fallback"}
+  };
+  displayStaffAnalyticsInsights(fallback);
+  try {
+    const response = await fetch(STAFF_ANALYTICS_INSIGHTS_API, {method:"POST",headers:{"Content-Type":"application/json"},cache:"no-store",body:JSON.stringify({metrics})});
+    const result = await response.json();
+    if (id !== staffAnalyticsInsightRequest) return;
+    if (!response.ok || !result.success) throw new Error(result.message || "Insight request failed");
+    displayStaffAnalyticsInsights(result.insights || {});
+  } catch (error) {
+    console.warn("Staff analytics insights:", error.message);
+  }
+}
+// GEMINI STAFF ANALYTICS INSIGHTS - END
+
+
 async function loadReplacementRequests() {
   const tbody = document.getElementById(
     'replacement-requests-tbody'
@@ -4145,6 +4275,10 @@ async function loadReplacementRequests() {
       ? result.requests
       : [];
     updateReplacementAnalytics(replacementRequests);
+
+    if (typeof requestStaffAnalyticsInsights === "function") {
+      requestStaffAnalyticsInsights(typeof LIVE_APPLICATIONS !== "undefined" ? LIVE_APPLICATIONS : []);
+    }
 
     // Always refresh the sidebar badge when data loads.
     const sidebarCount = document.getElementById(
