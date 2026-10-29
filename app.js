@@ -6129,6 +6129,53 @@ async function sendFromIssuanceToIdMaker() {
     if (!statusResponse.ok || statusResult.success === false) {
       throw new Error(statusResult.message || `The queue accepted the form, but the application status update failed (${statusResponse.status}).`);
     }
+    // Also update the linked ID request in the database.
+    const requestsResponse = await fetchWithTimeout(
+      `${apiBase}/replacements`,
+      { cache: 'no-store' }
+    );
+
+    const requestsResult = await requestsResponse.json();
+
+    if (!requestsResponse.ok || !requestsResult.success) {
+      throw new Error(
+        requestsResult.message ||
+        'Unable to refresh ID requests.'
+      );
+    }
+
+    const linkedRequest = (requestsResult.requests || []).find(
+      request =>
+        String(request.application_id) === String(appId)
+    );
+
+    if (linkedRequest) {
+      const requestStatusResponse = await fetchWithTimeout(
+        `${apiBase}/replacements/${linkedRequest.id}/decision`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            status: 'In Process'
+          })
+        }
+      );
+
+      const requestStatusResult =
+        await requestStatusResponse.json();
+
+      if (
+        !requestStatusResponse.ok ||
+        !requestStatusResult.success
+      ) {
+        throw new Error(
+          requestStatusResult.message ||
+          'Failed to update the ID request status.'
+        );
+      }
+    }
 
     // Reflect and persist locally only after the server confirms both writes.
     const queueEntry = {
@@ -6169,6 +6216,9 @@ async function sendFromIssuanceToIdMaker() {
     appendAudit(CURRENT_USER?.displayName || 'Staff', `Sent ${app.name} (${appId}) to ID Maker via ID Issuance`, CURRENT_ROLE);
     addNotifyLog(appId, 'Sent to ID Maker', 'System', 'Delivered');
     showToast(`${app.name} was sent to the ID Maker queue successfully.`, 'success');
+    if (typeof loadReplacementRequests === 'function') {
+      await loadReplacementRequests();
+    }
     if (typeof initIdMakerQueue === 'function') {
       Promise.resolve(initIdMakerQueue()).catch(error => console.warn('Unable to refresh ID Maker queue:', error));
     }
