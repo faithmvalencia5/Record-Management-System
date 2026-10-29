@@ -23,7 +23,7 @@ def write_file(name, content):
     p.write_text(content, encoding="utf-8")
 
 controller_path = "backend/controllers/staffAnalyticsInsightsController.js"
-controller = r'''const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+controller = r'''const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 const KEYS = ["applicationFlow", "queueMix", "replacementRequests", "readyForHandoff", "barangayWorkload", "ageDistribution", "issuanceOverTime", "turnaroundTime"];
 
 function plainObject(v) {
