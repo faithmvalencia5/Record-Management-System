@@ -133,23 +133,19 @@ const getIdMakerQueue = async (req, res) => {
     }
 
     // Show every database application in the ID Maker table, including older
-    // demo records that have no id_maker_queue row yet.
-    const { data: allApplications, error: applicationsListError } = await supabase
-      .from("applications")
-      .select("application_id")
-      .order("created_at", { ascending: false });
-
-    if (applicationsListError) {
-      throw applicationsListError;
-    }
-
-    const applicationIds = Array.from(new Set([
-      ...(queueRecords || []).map((item) => String(item.application_id)),
-      ...(allApplications || []).map((item) => String(item.application_id)),
-    ]));
+    const applicationIds = Array.from(
+      new Set(
+        (queueRecords || []).map(
+          (item) => String(item.application_id)
+        )
+      )
+    );
 
     if (applicationIds.length === 0) {
-      return res.status(200).json({ success: true, queue: [] });
+      return res.status(200).json({
+        success: true,
+        queue: []
+      });
     }
 
     // 2. GET ONLY THE APPLICATION FIELDS NEEDED
