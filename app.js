@@ -5024,8 +5024,7 @@ async function saveDocumentAuthentication(
 
           method: 'staff_review',
 
-          authenticated_by:
-            CURRENT_USER?.id || null,
+          authenticated_by: null,
 
           remarks:
             databaseStatus === 'verified'
