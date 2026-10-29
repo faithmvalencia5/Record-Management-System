@@ -1,6 +1,6 @@
 const CARD_KEYS = ["production", "barangay", "aging", "monthly"];
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
-const GEMINI_TIMEOUT_MS = 8000;
+const GEMINI_TIMEOUT_MS = 30000;
 
 const SYSTEM_PROMPT = `You write short descriptive insights for the Queue Analytics page of the ID Maker Portal (Senior Citizens Bureau). You receive a JSON object of pre-computed statistics for one card. Describe only what the data shows: totals, percentages, rankings, distributions, and comparison with the previous period. Rules: Use only numbers that appear in the JSON. Never calculate, estimate, round differently, or invent a figure. Do not give recommendations, instructions, predictions, or causes. Do not use 'should', 'increase', 'prioritize', 'process', 'will', 'because', or 'due to'. Do not judge or evaluate; the status label is set by the system. If a field is null or missing, leave that clause out. If the JSON has no data, output exactly: 'No data available for this period.' Format: one sentence with the lead statistic wrapped in **double asterisks**, then one or two short supporting sentences, 45 words maximum. Output only the insight text.`;
 

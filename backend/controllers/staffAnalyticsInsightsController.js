@@ -50,7 +50,7 @@ function fallback(key, m = {}) {
 async function generateStaffAnalyticsInsights(req, res) {
   try {
     if (!plainObject(req.body?.metrics)) return res.status(400).json({ success: false, message: "Aggregate analytics metrics are required." });
-    if (JSON.stringify(req.body.metrics).length > 12000) return res.status(413).json({ success: false, message: "Analytics payload is too large." });
+    if (JSON.stringify(req.body.metrics).length > 30000) return res.status(413).json({ success: false, message: "Analytics payload is too large." });
     const metrics = sanitizeMetrics(req.body.metrics);
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     if (!apiKey) {
