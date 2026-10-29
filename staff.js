@@ -4155,10 +4155,7 @@ async function loadReplacementRequests() {
 }
 
 function renderReplacementRequests() {
-  const tbody = document.getElementById(
-    'replacement-requests-tbody'
-  );
-
+  const tbody = document.getElementById('replacement-requests-tbody');
   if (!tbody) return;
 
   const search = (
@@ -4170,7 +4167,7 @@ function renderReplacementRequests() {
   ).toLowerCase();
 
   const filtered = replacementRequests.filter(request => {
-    const searchableText = [
+    const text = [
       request.applicant_name,
       request.application_id,
       request.reason,
@@ -4178,71 +4175,78 @@ function renderReplacementRequests() {
       request.request_status
     ].join(' ').toLowerCase();
 
-    const matchesSearch = searchableText.includes(search);
-    const matchesStatus = !statusFilter ||
-      String(request.request_status || '').toLowerCase() === statusFilter;
-
-    return matchesSearch && matchesStatus;
+    return text.includes(search) &&
+      (!statusFilter ||
+        String(request.request_status || '').toLowerCase() === statusFilter);
   });
 
-  const totalBadge = document.getElementById('replacement-total');
-  if (totalBadge) {
-    totalBadge.textContent =
-      replacementRequests.length.toLocaleString() +
-      (replacementRequests.length === 1 ? ' Request' : ' Requests');
+  const total = document.getElementById('replacement-total');
+  if (total) {
+    total.textContent = `${replacementRequests.length} Requests`;
   }
 
-  const sidebarBadge = document.getElementById(
-    'replacements-sidebar-count'
-  );
-  if (sidebarBadge) {
-    sidebarBadge.textContent =
-      replacementRequests.length.toLocaleString();
+  const sidebarCount = document.getElementById('replacements-sidebar-count');
+  if (sidebarCount) {
+    sidebarCount.textContent = replacementRequests.length.toLocaleString();
   }
 
   if (!filtered.length) {
     tbody.innerHTML =
       '<tr><td colspan="6" style="text-align:center;padding:28px">' +
-      (replacementRequests.length
-        ? 'No requests match your filters.'
-        : 'No ID requests were returned by the database.') +
-      '</td></tr>';
+      'No matching requests found.</td></tr>';
     return;
   }
 
   tbody.innerHTML = filtered.map(request => {
-    const status = request.request_status || 'Unknown';
+    const id = String(request.application_id || '');
+    const status = request.request_status || 'Pending';
+
+    const statusHtml = typeof buildStatusSelect === 'function'
+      ? buildStatusSelect(id, status)
+      : escapeReplacementText(status);
 
     return `
-      <tr>
+      <tr
+        data-request-id="${Number(request.id)}"
+        data-app-id="${escapeReplacementText(id)}"
+      >
         <td>
           <strong>${escapeReplacementText(
             request.applicant_name || 'Applicant record not found'
           )}</strong>
         </td>
-        <td>${escapeReplacementText(request.application_id || '—')}</td>
+        <td>${escapeReplacementText(id || '—')}</td>
         <td>
           ${escapeReplacementText(request.reason || '—')}
           ${request.other_reason
-            ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+            ? `<div style="font-size:12px;color:var(--text-muted)">
                 ${escapeReplacementText(request.other_reason)}
               </div>`
             : ''}
         </td>
         <td>${formatReplacementDate(request.requested_at)}</td>
-        <td>${escapeReplacementText(status)}</td>
+        <td>${statusHtml}</td>
         <td>
           <button
             type="button"
-            class="btn btn--secondary"
-            onclick="viewReplacementRequest(${Number(request.id)})">
-            View Request
-          </button>
+            class="row-action always-visible"
+            onclick="openApplicationDetail('${escapeReplacementText(id)}')"
+            ${id ? '' : 'disabled'}
+          >View</button>
         </td>
       </tr>
     `;
   }).join('');
+
+  tbody.querySelectorAll('tr[data-request-id]').forEach(row => {
+    const select = row.querySelector('.status-select');
+    if (select) {
+      select.dataset.requestId = row.dataset.requestId;
+      select.dataset.appId = row.dataset.appId;
+    }
+  });
 }
+
 
 function filterReplacementRequests() {
   renderReplacementRequests();

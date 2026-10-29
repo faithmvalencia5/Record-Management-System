@@ -677,11 +677,21 @@ function selectStatusOption(btn, event) {
     status
   );
 
-  updateTableStatus(
-    root.dataset.appId,
-    status,
-    previousStatus
-  );
+  if (root.dataset.requestId) {
+    updateReplacementStatus(
+      root.dataset.requestId,
+      root.dataset.appId,
+      status,
+      previousStatus,
+      root
+    );
+  } else {
+    updateTableStatus(
+      root.dataset.appId,
+      status,
+      previousStatus
+    );
+  }
 
   closeAllStatusMenus();
 
@@ -690,6 +700,94 @@ function selectStatusOption(btn, event) {
     'function'
   ) {
     applyApplicationsFilters();
+  }
+}
+
+async function updateReplacementStatus(
+  requestId,
+  applicationId,
+  newStatus,
+  previousStatus,
+  root
+) {
+  const config = statusOptionCfg(
+    mapStatusForDropdown(previousStatus)
+  );
+
+  try {
+    const response = await fetch(
+      `https://management-backend-3cij.onrender.com/api/replacements/${encodeURIComponent(requestId)}/decision`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          status: newStatus
+        })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(
+        result.message || 'Failed to update replacement status.'
+      );
+    }
+
+    // Keep the local application record in sync when available.
+    if (typeof APP_DB !== 'undefined' && APP_DB[applicationId]) {
+      APP_DB[applicationId].status = newStatus;
+    }
+
+    if (
+      typeof LIVE_APPLICATIONS !== 'undefined' &&
+      Array.isArray(LIVE_APPLICATIONS)
+    ) {
+      const linkedApplication = LIVE_APPLICATIONS.find(
+        item => String(item.application_id || item.id) ===
+          String(applicationId)
+      );
+
+      if (linkedApplication) {
+        linkedApplication.status = newStatus;
+        linkedApplication.status_updated_at = new Date().toISOString();
+      }
+    }
+
+    // Refresh the replacement list so the displayed status is
+    // the value returned by the database.
+    if (typeof loadReplacementRequests === 'function') {
+      await loadReplacementRequests();
+    }
+
+    if (typeof showToast === 'function') {
+      showToast(`Request status updated to ${newStatus}.`, 'success');
+    }
+  } catch (error) {
+    console.error('Failed to update replacement status:', error);
+
+    // Restore the previous selection if saving fails.
+    if (root) {
+      setStatusTrigger(
+        root,
+        config[0],
+        config[1],
+        previousStatus
+      );
+
+      root.querySelectorAll('.status-select__option').forEach(option => {
+        option.classList.toggle(
+          'active',
+          option.dataset.status === previousStatus
+        );
+      });
+    }
+
+    if (typeof showToast === 'function') {
+      showToast(error.message || 'Failed to update request status.', 'error');
+    }
   }
 }
 
