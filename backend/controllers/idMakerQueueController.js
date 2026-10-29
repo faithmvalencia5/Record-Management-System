@@ -1,5 +1,14 @@
 const supabase = require("../config/supabase");
 
+const isMissingCompletedAtColumn = (error) => {
+  const message = String(error?.message || "").toLowerCase();
+  return Boolean(error) && (
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    (message.includes("completed_at") && (message.includes("column") || message.includes("schema cache")))
+  );
+};
+
 const createSignedFileUrlMap = async (filePaths) => {
   const paths = Array.from(new Set(filePaths.filter(Boolean)));
   if (!paths.length) return new Map();
@@ -56,6 +65,23 @@ const addToIdMakerQueue = async (req, res) => {
       });
     }
 
+    let { data: existingQueueItem, error: existingQueueError } = await supabase
+      .from("id_maker_queue")
+      .select("completed_at")
+      .eq("application_id", application_id)
+      .limit(1)
+      .maybeSingle();
+
+    let completionTimestampAvailable = true;
+    if (isMissingCompletedAtColumn(existingQueueError)) {
+      completionTimestampAvailable = false;
+      existingQueueItem = null;
+      existingQueueError = null;
+    }
+    if (existingQueueError) {
+      throw existingQueueError;
+    }
+
     // Allowed queue statuses
     const allowedStatuses = [
       "Queued",
@@ -75,16 +101,23 @@ const addToIdMakerQueue = async (req, res) => {
     }
 
     // Save / update queue record
+    const queuePayload = {
+      application_id: application_id,
+      control_no: control_no || null,
+      date_issued: date_issued || null,
+      print_status: queueStatus,
+      updated_at: new Date().toISOString(),
+    };
+    if (completionTimestampAvailable) {
+      queuePayload.completed_at = queueStatus === "Completed"
+        ? (existingQueueItem?.completed_at || new Date().toISOString())
+        : (existingQueueItem?.completed_at ?? null);
+    }
+
     const { data, error } = await supabase
       .from("id_maker_queue")
       .upsert(
-        {
-          application_id: application_id,
-          control_no: control_no || null,
-          date_issued: date_issued || null,
-          print_status: queueStatus,
-          updated_at: new Date().toISOString(),
-        },
+        queuePayload,
         {
           onConflict: "application_id",
         }
@@ -117,10 +150,7 @@ const addToIdMakerQueue = async (req, res) => {
 const getIdMakerQueue = async (req, res) => {
   try {
     // 1. GET ONLY THE QUEUE FIELDS WE NEED
-    const {
-      data: queueRecords,
-      error: queueError,
-    } = await supabase
+    let queueResult = await supabase
       .from("id_maker_queue")
       .select(`
         id,
@@ -129,15 +159,34 @@ const getIdMakerQueue = async (req, res) => {
         date_issued,
         print_status,
         sent_at,
-        updated_at
+        updated_at,
+        completed_at
       `)
       .order("sent_at", {
         ascending: false,
       });
 
-    if (queueError) {
-      throw queueError;
+    let completionTimestampAvailable = true;
+    if (isMissingCompletedAtColumn(queueResult.error)) {
+      completionTimestampAvailable = false;
+      queueResult = await supabase
+        .from("id_maker_queue")
+        .select(`
+          id,
+          application_id,
+          control_no,
+          date_issued,
+          print_status,
+          sent_at,
+          updated_at
+        `)
+        .order("sent_at", { ascending: false });
     }
+
+    if (queueResult.error) {
+      throw queueResult.error;
+    }
+    const queueRecords = queueResult.data;
 
     // Show every database application in the ID Maker table, including older
     const applicationIds = Array.from(
@@ -151,7 +200,8 @@ const getIdMakerQueue = async (req, res) => {
     if (applicationIds.length === 0) {
       return res.status(200).json({
         success: true,
-        queue: []
+        queue: [],
+        completion_timestamp_available: completionTimestampAvailable,
       });
     }
 
@@ -311,11 +361,14 @@ const getIdMakerQueue = async (req, res) => {
 
             sentAt:
               queueItem?.sent_at ||
-              application?.created_at ||
               null,
 
             updatedAt:
               queueItem?.updated_at ||
+              null,
+
+            completedAt:
+              queueItem?.completed_at ||
               null,
 
             regDate:
@@ -328,6 +381,7 @@ const getIdMakerQueue = async (req, res) => {
     return res.status(200).json({
       success: true,
       queue: completeQueue,
+      completion_timestamp_available: completionTimestampAvailable,
     });
 
   } catch (error) {
@@ -419,27 +473,47 @@ const updateIdMakerQueue = async (req, res) => {
       });
     }
 
-    const { data: existingQueueItem, error: lookupError } = await supabase
+    let { data: existingQueueItem, error: lookupError } = await supabase
       .from("id_maker_queue")
-      .select("control_no, date_issued")
+      .select("control_no, date_issued, completed_at, print_status")
       .eq("application_id", applicationId)
       .limit(1)
       .maybeSingle();
+
+    let completionTimestampAvailable = true;
+    if (isMissingCompletedAtColumn(lookupError)) {
+      completionTimestampAvailable = false;
+      const fallbackLookup = await supabase
+        .from("id_maker_queue")
+        .select("control_no, date_issued, print_status")
+        .eq("application_id", applicationId)
+        .limit(1)
+        .maybeSingle();
+      existingQueueItem = fallbackLookup.data;
+      lookupError = fallbackLookup.error;
+    }
 
     if (lookupError) {
       throw lookupError;
     }
 
+    const queuePayload = {
+      application_id: applicationId,
+      print_status: print_status ?? existingQueueItem?.print_status ?? "Queued",
+      control_no: control_no ?? existingQueueItem?.control_no ?? null,
+      date_issued: date_issued ?? existingQueueItem?.date_issued ?? null,
+      updated_at: updateData.updated_at,
+    };
+    if (completionTimestampAvailable) {
+      queuePayload.completed_at = print_status === "Completed"
+        ? (existingQueueItem?.completed_at || updateData.updated_at)
+        : (existingQueueItem?.completed_at ?? null);
+    }
+
     const { data, error } = await supabase
       .from("id_maker_queue")
       .upsert(
-        {
-          application_id: applicationId,
-          print_status: print_status ?? "Queued",
-          control_no: control_no ?? existingQueueItem?.control_no ?? null,
-          date_issued: date_issued ?? existingQueueItem?.date_issued ?? null,
-          updated_at: updateData.updated_at,
-        },
+        queuePayload,
         { onConflict: "application_id" }
       )
       .select()

@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-bold-rounded/css/uicons-bold-rounded.css" />
 
   <link rel="stylesheet" href="base.css?v=35" />
-  <link rel="stylesheet" href="idmaker.css?v=27" />
+  <link rel="stylesheet" href="idmaker.css?v=29" />
   <script src="skeleton.js?v=2"></script>
 </head>
 
@@ -120,12 +120,12 @@
         </header>
 
         <!-- System Alert Banner -->
-        <div class="alert-banner" id="system-alert-banner" style="margin-bottom:18px">
+        <div class="alert-banner" id="system-alert-banner" style="margin-bottom:18px" role="status" aria-live="polite">
           <div class="alert-banner__icon"><i class="fi fi-rr-triangle-warning"></i></div>
           <div class="alert-banner__content">
-            <strong class="alert-banner__title">Operational blockers</strong>
+            <strong class="alert-banner__title">Queue status</strong>
             <ul class="alert-banner__list">
-              <li style="list-style:none;padding:4px 0;color:var(--text-muted)">No alerts to display yet. They will appear once connected to the live system.</li>
+              <li style="list-style:none;padding:4px 0;color:var(--text-muted)">Loading queue status…</li>
             </ul>
           </div>
           <button class="alert-banner__dismiss" onclick="dismissSystemAlert()" aria-label="Dismiss alerts">
@@ -280,7 +280,7 @@
                 </select>
               </div>
               <div class="queue-filter-dropdown" id="queue-filter-wrap">
-                <button class="queue-filter-trigger" onclick="toggleQueueFilter()">
+                <button class="queue-filter-trigger" onclick="toggleQueueFilter(event)">
                   <span class="queue-filter-icon"><svg viewBox="0 0 20 20" fill="currentColor">
                       <path
                         d="M2 4.5A.5.5 0 012.5 4h15a.5.5 0 010 1h-15A.5.5 0 012 4.5zm2 4A.5.5 0 014.5 8h11a.5.5 0 010 1h-11A.5.5 0 014 8.5zm3 4a.5.5 0 01.5-.5h5a.5.5 0 010 1h-5a.5.5 0 01-.5-.5z" />
@@ -370,6 +370,7 @@
           <span class="page-header__badge purple">
             Live
           </span>
+          <span id="analytics-last-updated" class="analytics-updated" aria-live="polite">Last updated: waiting for data</span>
 
         </div>
 
@@ -379,6 +380,10 @@
 
       </div>
       <div class="page-header__controls">
+        <button class="btn btn--ghost analytics-report-button" type="button" onclick="downloadIdMakerAnalyticsReport()" title="Print this analytics page or save it as a PDF">
+          <i class="fi fi-rr-download" aria-hidden="true"></i>
+          Download report (PDF)
+        </button>
         <button class="theme-toggle theme-toggle--header" type="button" data-theme-toggle aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false">
           <svg data-theme-icon="light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
           <svg data-theme-icon="dark" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"/></svg>
@@ -389,17 +394,12 @@
 
 
     <!-- =======================================================
-        THREE ANALYTICS CARDS
+        ID MAKER ANALYTICS CARDS
         ======================================================= -->
 
     <div
       class="an-grid-main"
-      style="
-        display:grid;
-        grid-template-columns:repeat(3,minmax(0,1fr));
-        gap:16px;
-        align-items:stretch;
-      ">
+      >
 
 
       <!-- =====================================================
@@ -412,8 +412,8 @@
 
           <div>
 
-            <div class="an-card__title">
-              Production Queue Status
+            <div class="an-card__title" title="Count of all ID Maker queue records in each current status.">
+              Production Queue Status <span class="analytics-info" title="Queued: waiting for production. In Production: being produced. Printed: printing is complete. In Transit: on the way. Completed: release or delivery is marked complete." aria-label="Definitions for queue stages">ⓘ</span>
             </div>
 
             <div class="an-card__sub">
@@ -450,6 +450,11 @@
             <canvas
               id="chart-idmaker-status">
             </canvas>
+            <div class="donut-center" aria-hidden="true">
+              <strong id="idm-total-count">0</strong>
+              <span>Total applications</span>
+            </div>
+            <div class="chart-state" id="status-chart-state" style="display:flex">Loading live data…</div>
 
           </div>
 
@@ -459,89 +464,70 @@
           <div
             style="
               display:grid;
-              grid-template-columns:repeat(2,1fr);
+              grid-template-columns:repeat(2,minmax(0,1fr));
               gap:12px 18px;
               width:100%;
             ">
 
 
-            <div>
-
-              <strong>
-                Queued
-              </strong>
+            <div class="analytics-stage-count" style="--stage-color:#94A3B8">
+              <strong title="Waiting to enter production."><i class="analytics-stage-dot"></i>Queued</strong>
 
               <br>
 
-              <span
-                id="idm-awaiting-count"
-                style="
-                  color:var(--text-muted);
-                  font-size:12px;
-                ">
-                0
-              </span>
+              <span class="analytics-stage-value" id="idm-awaiting-count">0</span>
+              <span class="analytics-stage-share" id="idm-awaiting-share">0% of total</span>
 
             </div>
 
 
-            <div>
-
-              <strong>
-                In Production
-              </strong>
+            <div class="analytics-stage-count" style="--stage-color:#3B82F6">
+              <strong title="Currently being produced."><i class="analytics-stage-dot"></i>In Production</strong>
 
               <br>
 
-              <span
-                id="idm-production-count"
-                style="
-                  color:var(--text-muted);
-                  font-size:12px;
-                ">
-                0
-              </span>
+              <span class="analytics-stage-value" id="idm-production-count">0</span>
+              <span class="analytics-stage-share" id="idm-production-share">0% of total</span>
 
             </div>
 
 
-            <div>
-
-              <strong>
-                Printed
-              </strong>
+            <div class="analytics-stage-count" style="--stage-color:#6366F1">
+              <strong title="Printing is complete."><i class="analytics-stage-dot"></i>Printed</strong>
 
               <br>
 
-              <span
-                id="idm-completed-count"
-                style="
-                  color:var(--text-muted);
-                  font-size:12px;
-                ">
-                0
-              </span>
+              <span class="analytics-stage-value" id="idm-completed-count">0</span>
+              <span class="analytics-stage-share" id="idm-printed-share">0% of total</span>
 
             </div>
 
 
-            <div>
-
-              <strong>
-                In Transit
-              </strong>
+            <div class="analytics-stage-count" style="--stage-color:#14B8A6">
+              <strong title="On the way to its destination."><i class="analytics-stage-dot"></i>In Transit</strong>
 
               <br>
 
-              <span
-                id="idm-transit-count"
-                style="
-                  color:var(--text-muted);
-                  font-size:12px;
-                ">
-                0
-              </span>
+              <span class="analytics-stage-value" id="idm-transit-count">0</span>
+              <span class="analytics-stage-share" id="idm-transit-share">0% of total</span>
 
+            </div>
+
+            <div class="analytics-stage-count" style="--stage-color:#22C55E">
+              <strong title="Release or delivery is marked complete."><i class="analytics-stage-dot"></i>Completed</strong>
+
+              <br>
+
+              <span class="analytics-stage-value" id="idm-done-count">0</span>
+              <span class="analytics-stage-share" id="idm-done-share">0% of total</span>
+
+            </div>
+
+            <div class="analytics-stage-count analytics-stage-count--unknown" id="idm-unknown-row" style="--stage-color:#64748B;display:none">
+              <strong title="Records whose saved status is not one of the five configured production stages."><i class="analytics-stage-dot"></i>Unrecognized</strong>
+              <br>
+              <span class="analytics-stage-value" id="idm-unknown-count">0</span>
+              <span class="analytics-stage-share" id="idm-unknown-share">0% of total</span>
             </div>
 
           </div>
@@ -553,6 +539,7 @@
 
         <div
           class="analytics-insight"
+          data-insight-card="production"
           id="idmaker-status-insight">
 
           <div class="analytics-insight__icon">
@@ -564,15 +551,13 @@
 
           <div class="analytics-insight__content">
 
-            <div class="analytics-insight__label">
-              Insight
-            </div>
+            <div class="analytics-insight__meta"><span class="analytics-status-label" id="idmaker-status-status">Loading</span><span class="analytics-insight-source" id="idmaker-status-source">Generated from live data</span></div>
 
             <div
               class="analytics-insight__text"
-              id="idmaker-status-insight-text">
+              id="idmaker-status-insight-text" aria-live="polite">
 
-              Analyzing production status...
+              Loading live data…
 
             </div>
 
@@ -594,8 +579,8 @@
 
           <div>
 
-            <div class="an-card__title">
-              Queue by Barangay
+            <div class="an-card__title" title="Count of all ID Maker queue records grouped by the applicant’s barangay.">
+              Queue by Barangay <span class="analytics-info" title="Barangay share is each barangay’s application count divided by total ID Maker queue applications." aria-label="Barangay analytics definition">ⓘ</span>
             </div>
 
             <div class="an-card__sub">
@@ -650,7 +635,7 @@
                   color:var(--text-secondary);
                 ">
 
-                No Queue Data
+                Loading live data…
 
               </span>
 
@@ -661,8 +646,7 @@
                   margin-top:4px;
                 ">
 
-                Barangay workload will appear here
-                when applications enter the queue.
+                Queue-by-barangay data is loading.
 
               </span>
 
@@ -677,6 +661,7 @@
 
         <div
           class="analytics-insight"
+          data-insight-card="barangay"
           id="idmaker-barangay-insight">
 
           <div class="analytics-insight__icon">
@@ -688,15 +673,13 @@
 
           <div class="analytics-insight__content">
 
-            <div class="analytics-insight__label">
-              Insight
-            </div>
+            <div class="analytics-insight__meta"><span class="analytics-status-label" id="idmaker-barangay-status">Loading</span><span class="analytics-insight-source" id="idmaker-barangay-source">Generated from live data</span></div>
 
             <div
               class="analytics-insight__text"
-              id="idmaker-barangay-insight-text">
+              id="idmaker-barangay-insight-text" aria-live="polite">
 
-              Analyzing barangay workload...
+              Loading live data…
 
             </div>
 
@@ -712,18 +695,18 @@
           3. QUEUE AGING / SLA
           ===================================================== -->
 
-      <div class="an-card an-card--metric">
+      <div class="an-card an-card--sla">
 
         <div class="an-card__header">
 
           <div>
 
-            <div class="an-card__title">
-              Queue Aging / SLA
+            <div class="an-card__title" title="Queue aging is elapsed time since sent_at. SLA is grouped as within 24 hours, 24–48 hours, or over 48 hours.">
+              Queue Aging / SLA <span class="analytics-info" title="Queue age is calculated from the recorded sent_at timestamp. Active queue includes Queued and In Production only." aria-label="Queue aging and SLA definition">ⓘ</span>
             </div>
 
             <div class="an-card__sub">
-              Active applications grouped by actual queue age
+              Active queue (Queued + In Production), grouped by sent time
             </div>
 
           </div>
@@ -739,6 +722,7 @@
           ">
 
           <div class="sla-tracker">
+            <div class="sla-data-state" id="sla-data-state" style="display:none">Loading live data…</div>
 
 
             <!-- MAIN SLA NUMBER -->
@@ -747,7 +731,7 @@
 
               <div
                 class="sla-big__value"
-                id="sla-24h">
+                id="sla-active">
 
                 0
 
@@ -756,7 +740,7 @@
 
               <div class="sla-big__label">
 
-                waiting &gt; 24h
+                active applications
 
               </div>
 
@@ -786,6 +770,7 @@
                 class="sla-segment sla-segment--48h"
                 id="sla-bar-48h">
               </span>
+              <span class="sla-segment sla-segment--unknown" id="sla-bar-unknown"></span>
 
             </div>
 
@@ -811,7 +796,7 @@
                   class="sla-legend-dot sla-legend-dot--24h">
                 </i>
 
-                &gt;24h
+                24–48h
 
               </span>
 
@@ -826,6 +811,11 @@
 
               </span>
 
+              <span>
+                <i class="sla-legend-dot sla-legend-dot--unknown"></i>
+                Unknown time
+              </span>
+
             </div>
 
 
@@ -834,10 +824,35 @@
             <div class="sla-row">
 
 
-              <div
-                class="sla-row__box sla-warn">
+              <div class="sla-row__box sla-bucket sla-within24">
 
-                <strong id="sla-48h">
+                <strong id="sla-within24">
+                  0
+                </strong>
+
+                <span>
+                  within 24h
+                </span>
+
+              </div>
+
+
+              <div class="sla-row__box sla-bucket sla-24to48">
+
+                <strong id="sla-24to48">
+                  0
+                </strong>
+
+                <span>
+                  24–48h
+                </span>
+
+              </div>
+
+
+              <div class="sla-row__box sla-bucket sla-over48">
+
+                <strong id="sla-over48">
                   0
                 </strong>
 
@@ -847,35 +862,9 @@
 
               </div>
 
-
-              <div
-                class="sla-row__box sla-ok">
-
-                <strong id="sla-on-time">
-                  0
-                </strong>
-
-                <span>
-                  on time
-                </span>
-
-              </div>
-
-
-              <div
-                class="sla-row__box sla-total">
-
-                <strong id="sla-total">
-                  0
-                </strong>
-
-                <span>
-                  active queue
-                </span>
-
-              </div>
-
             </div>
+
+            <div class="sla-unknown-note" id="sla-unknown-note" hidden></div>
 
 
             <!-- SLA NOTE -->
@@ -887,8 +876,7 @@
                 style="margin-right:5px">
               </i>
 
-              Queue age is calculated from the
-              record's actual sent time.
+              Aging percentages use the active queue as their denominator.
 
             </div>
 
@@ -901,6 +889,7 @@
 
         <div
           class="analytics-insight"
+          data-insight-card="aging"
           id="idmaker-sla-insight">
 
           <div class="analytics-insight__icon">
@@ -912,16 +901,14 @@
 
           <div class="analytics-insight__content">
 
-            <div class="analytics-insight__label">
-              Insight
-            </div>
+            <div class="analytics-insight__meta"><span class="analytics-status-label" id="idmaker-aging-status">Loading</span><span class="analytics-insight-source" id="idmaker-aging-source">Generated from live data</span></div>
 
 
             <div
               class="analytics-insight__text"
-              id="idmaker-sla-insight-text">
+              id="idmaker-aging-insight-text" aria-live="polite">
 
-              Analyzing queue aging...
+              Loading live data…
 
             </div>
 
@@ -929,6 +916,39 @@
 
         </div>
 
+      </div>
+
+      <!-- =====================================================
+          4. MONTHLY ID OUTPUT
+          ===================================================== -->
+
+      <div class="an-card">
+        <div class="an-card__header">
+          <div>
+            <div class="an-card__title" title="Counts queue items using the first recorded completed_at timestamp in the selected six-month window.">Monthly ID Output <span class="analytics-info" title="Only completion timestamps recorded by the current system are included. Older records without a reliable completion time are not backfilled." aria-label="Monthly output definition">ⓘ</span></div>
+            <div class="an-card__sub">Completed IDs recorded in the last six months</div>
+          </div>
+        </div>
+
+        <div class="an-card__body--nop" style="padding:0 18px 18px">
+            <div class="chart-wrap chart-wrap--analytics" style="height:260px;position:relative">
+            <canvas id="chart-idmaker-monthly-output"></canvas>
+            <div
+              class="chart-empty-state"
+              id="empty-idmaker-monthly-output"
+              style="display:flex;flex-direction:column;align-items:center;justify-content:center;position:absolute;inset:0;font-size:13px;text-align:center;padding:20px;pointer-events:none">
+              Loading live data…
+            </div>
+          </div>
+        </div>
+
+        <div class="analytics-insight" data-insight-card="monthly" id="idmaker-monthly-insight">
+          <div class="analytics-insight__icon"><i class="fi fi-rr-lightbulb-on" aria-hidden="true"></i></div>
+          <div class="analytics-insight__content">
+            <div class="analytics-insight__meta"><span class="analytics-status-label" id="idmaker-monthly-status">Loading</span><span class="analytics-insight-source" id="idmaker-monthly-source">Generated from live data</span></div>
+            <div class="analytics-insight__text" id="idmaker-monthly-insight-text" aria-live="polite">Loading live data…</div>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -1222,7 +1242,7 @@
 
 <script src="theme.js?v=1"></script>
 <script src="app.js?v=25"></script>
-  <script src="idmaker.js?v=16"></script>
+  <script src="idmaker.js?v=17"></script>
 </body>
 
 </html>
