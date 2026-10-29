@@ -223,8 +223,8 @@ function updateQueueFooterCount(visible, total){
   if(!total){ footer.style.display = 'none'; return; }
   footer.style.display = '';
   footerCount.textContent = visible === total
-    ? 'Showing ' + total + ' print-ready application' + (total !== 1 ? 's' : '')
-    : 'Showing ' + visible + ' of ' + total + ' print-ready application' + (total !== 1 ? 's' : '');
+    ? 'Showing ' + total + ' application' + (total !== 1 ? 's' : '')
+    : 'Showing ' + visible + ' of ' + total + ' applications';
 }
 
 function filterIdMakerQueue(q){

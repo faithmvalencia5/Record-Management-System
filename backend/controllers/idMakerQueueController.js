@@ -132,21 +132,20 @@ const getIdMakerQueue = async (req, res) => {
       throw queueError;
     }
 
-    // Include applications already sent to ID production even if an earlier
-    // workflow did not create their id_maker_queue row. Pending and rejected
-    // applicants are intentionally excluded from the production queue.
-    const { data: productionApplications, error: productionError } = await supabase
+    // Show every database application in the ID Maker table, including older
+    // demo records that have no id_maker_queue row yet.
+    const { data: allApplications, error: applicationsListError } = await supabase
       .from("applications")
       .select("application_id")
-      .in("status", ["In Process", "Ready for Release"]);
+      .order("created_at", { ascending: false });
 
-    if (productionError) {
-      throw productionError;
+    if (applicationsListError) {
+      throw applicationsListError;
     }
 
     const applicationIds = Array.from(new Set([
       ...(queueRecords || []).map((item) => String(item.application_id)),
-      ...(productionApplications || []).map((item) => String(item.application_id)),
+      ...(allApplications || []).map((item) => String(item.application_id)),
     ]));
 
     if (applicationIds.length === 0) {
@@ -215,9 +214,7 @@ const getIdMakerQueue = async (req, res) => {
         queueItem: queueMap.get(applicationId),
         application: applicationMap.get(applicationId),
       }))
-      .filter(({ queueItem, application }) =>
-        queueItem || ["In Process", "Ready for Release"].includes(application?.status)
-      );
+      .filter(({ queueItem, application }) => queueItem || application);
 
     // 4. BUILD LIGHTWEIGHT QUEUE RESPONSE
     const completeQueue =
@@ -295,7 +292,9 @@ const getIdMakerQueue = async (req, res) => {
 
             printStatus:
               queueItem?.print_status ||
-              (application?.status === "Ready for Release" ? "Completed" : "Queued"),
+              (["Ready for Release", "ID Issued"].includes(application?.status)
+                ? "Completed"
+                : "Queued"),
 
             sentAt:
               queueItem?.sent_at ||
