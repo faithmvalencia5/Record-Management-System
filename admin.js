@@ -1501,16 +1501,15 @@ function renderAuditSummaryFromLiveData() {
             );
 
 
-          const periods =
-            getAuditSummaryPeriods(
-              log
-            );
+          const createdAt = log.createdAt instanceof Date
+            ? log.createdAt.getTime()
+            : new Date(log.createdAt || '').getTime();
 
 
           return `
 
             <tr
-              data-period="${escHtml(periods.join(','))}"
+              data-created-at="${Number.isFinite(createdAt) ? createdAt : ''}"
             >
 
               <td data-label="Time">
@@ -1557,106 +1556,6 @@ function renderAuditSummaryFromLiveData() {
       instant: true
     }
   );
-
-}
-
-
-/**
- * Determine which Audit Summary periods an event
- * belongs to.
- */
-function getAuditSummaryPeriods(
-  log
-) {
-
-  const periods = [];
-
-  const timestamp =
-    log.createdAt ||
-    log.ts;
-
-
-  const eventTime =
-    new Date(
-      timestamp
-    );
-
-
-  if (
-    Number.isNaN(
-      eventTime.getTime()
-    )
-  ) {
-
-    return periods;
-
-  }
-
-
-  const now =
-    Date.now();
-
-
-  const diff =
-    now -
-    eventTime.getTime();
-
-
-  /*
-   * Last 24 hours.
-   */
-  if (
-    diff >= 0 &&
-    diff <=
-      24 * 60 * 60 * 1000
-  ) {
-
-    periods.push(
-      '24h'
-    );
-
-  }
-
-
-  /*
-   * Last 7 days.
-   */
-  if (
-    diff >= 0 &&
-    diff <=
-      7 * 24 * 60 * 60 * 1000
-  ) {
-
-    periods.push(
-      '7d'
-    );
-
-  }
-
-
-  /*
-   * The "5" range represents the
-   * five most recent sensitive actions.
-   */
-  const index =
-    AUDIT_LOG_DATA.indexOf(
-      log
-    );
-
-
-  if (
-    index >= 0 &&
-    index < 5
-  ) {
-
-    periods.push(
-      '5'
-    );
-
-  }
-
-
-  return periods;
 
 }
 
@@ -3732,11 +3631,18 @@ function determineAuditActionType(
   action
 ) {
 
-  const a =
-    String(
-      action ||
-      ''
-    ).toLowerCase();
+  const normalizedAction = String(action || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, '_');
+
+  // Keep all authentication outcomes together, but don't classify unrelated
+  // failures (for example PASSWORD_RESET_FAILED) as login attempts.
+  if (/(^|_)(LOGIN|SIGN_IN|SIGNIN)(_|$)/.test(normalizedAction)) {
+    return 'login';
+  }
+
+  const a = normalizedAction.toLowerCase();
 
 
   if (
@@ -3772,16 +3678,6 @@ function determineAuditActionType(
   ) {
 
     return 'export';
-
-  }
-
-
-  if (
-    a.includes('login') ||
-    a.includes('failed')
-  ) {
-
-    return 'login';
 
   }
 
@@ -4302,13 +4198,13 @@ function auditEventMatches(
 const AUDIT_SUMMARY_RANGES = {
 
   '5':
-    'Last 5 sensitive actions',
+    'Last 5 actions',
 
   '24h':
-    'Sensitive actions (last 24 hours)',
+    'Actions (last 24 hours)',
 
   '7d':
-    'Sensitive actions (last 7 days)'
+    'Actions (last 7 days)'
 
 };
 
@@ -4510,28 +4406,18 @@ function filterAuditLog(
         );
 
 
-      rows.forEach(
-        r => {
-
-          const tags =
-            (
-              r.dataset.period ||
-              ''
-            ).split(',');
-
-
-          r.style.display =
-            (
-              !r.dataset.period ||
-              tags.includes(
-                range
-              )
-            )
-              ? ''
-              : 'none';
-
-        }
-      );
+      rows.forEach((row, index) => {
+        const timestamp = Number(row.dataset.createdAt);
+        const age = Date.now() - timestamp;
+        const matches = range === '5'
+          ? index < 5
+          : Number.isFinite(timestamp) && age >= 0 && (
+              range === '24h'
+                ? age <= 24 * 60 * 60 * 1000
+                : age <= 7 * 24 * 60 * 60 * 1000
+            );
+        row.style.display = matches ? '' : 'none';
+      });
 
 
       const label =
