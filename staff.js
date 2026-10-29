@@ -3596,27 +3596,52 @@ function openLinkedApplication(button) {
 }
 
 function getApplicationRequestType(application) {
-  if (!application) return 'New';
-  const savedType =
-    application.application_type ||
-    application.request_type ||
-    application.applicationType ||
-    application.type;
+  if (!application) return 'Unspecified';
 
-  if (savedType && String(savedType).trim()) {
-    const norm = String(savedType).trim();
-    if (/replace/i.test(norm)) return 'Replacement';
-    if (/first|new/i.test(norm)) return 'New';
-    return norm;
+  const typeFields = [
+    application.request_category,
+    application.request_kind,
+    application.request_type,
+    application.application_type,
+    application.applicationType,
+    application.type,
+    application.request_for,
+    application.id_request_type
+  ];
+
+  for (const value of typeFields) {
+    if (
+      value === null ||
+      value === undefined ||
+      !String(value).trim()
+    ) {
+      continue;
+    }
+
+    const normalized = String(value)
+      .trim()
+      .toLowerCase()
+      .replace(/[_-]+/g, ' ');
+
+    if (
+      /\b(id|card)\s*request\b|\brequest\s*(for\s*)?(an?\s*)?(id|card)\b|\brenewal\b|\breissuance\b/.test(normalized)
+    ) {
+      return 'ID Request';
+    }
+
+    if (/replace|replacement/.test(normalized)) {
+      return 'Replacement';
+    }
+
+    if (/first|new application|^new$/.test(normalized)) {
+      return 'New';
+    }
+
+    return String(value).trim();
   }
 
-  // Deterministically assign New vs Replacement if not stored in DB
-  const idStr = String(application.application_id || application.id || '');
-  let hash = 0;
-  for (let i = 0; i < idStr.length; i++) {
-    hash = (hash * 31 + idStr.charCodeAt(i)) >>> 0;
-  }
-  return (hash % 4 === 0) ? 'Replacement' : 'New';
+  // Do not guess the request type from the application ID.
+  return 'Unspecified';
 }
 
 function renderApplicationTypePill(application) {
