@@ -7,10 +7,16 @@ const {
   getIdMakerQueue,
   updateIdMakerQueue,
 } = require("../controllers/idMakerQueueController");
+const {
+  generateIdMakerAnalyticsInsights,
+} = require("../controllers/idMakerAnalyticsController");
 
 
 // GET ID MAKER QUEUE
 router.get("/", getIdMakerQueue);
+
+// Generate validated descriptive text from aggregate statistics only.
+router.post("/analytics-insights", generateIdMakerAnalyticsInsights);
 
 
 // ADD APPLICANT TO ID MAKER QUEUE
