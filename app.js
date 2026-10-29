@@ -3583,7 +3583,46 @@ async function sendToIdMaker() {
   // --------------------------------------------------
 
   try {
-    const response = await fetch(
+    const queueEntry = {
+      id: app.id || appId,
+
+      name: editedName,
+
+      firstName: app.firstName || '',
+      middleName: app.middleName || '',
+      surname: app.surname || editedName,
+
+      address: editedAddress,
+      barangay: app.barangay || '—',
+
+      dob: editedDob,
+      gender: editedSex,
+
+      photo:
+        app.photo ||
+        app.documents?.photo ||
+        fallbackMedia(editedName),
+
+      signature:
+        app.signature ||
+        app.documents?.signature ||
+        '',
+
+      controlNo: editedControlNo,
+      dateIssued: editedDateIssued,
+
+      printStatus: 'Queued',
+
+      regDate: app.regDate || ''
+    };
+    // Remember the current status so we can restore it if queue saving fails.
+    const previousStatus =
+      APP_DB[appId]?.status ||
+      app.status ||
+      'Under Review';
+
+    // 1. Update the application status in the database first.
+    const statusResponse = await fetch(
       `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(appId)}/status`,
       {
         method: 'PUT',
@@ -3596,19 +3635,100 @@ async function sendToIdMaker() {
       }
     );
 
-    const result = await response.json();
+    const statusResult = await statusResponse.json();
 
-    if (!response.ok || !result.success) {
+    if (!statusResponse.ok || !statusResult.success) {
       throw new Error(
-        result.message || 'Failed to update application status.'
+        statusResult.message ||
+        'Failed to update application status. The applicant was not added to the queue.'
       );
     }
 
-    // 2. UPDATE LOCAL APPLICATION DATA
+    const savedStatus = statusResult.status || 'In Process';
 
-    const savedStatus = result.status || 'In Process';
+    // 2. Save the applicant to the database queue.
+    let queueResult;
 
-    // UPDATE ALL LOCAL APPLICATION DATA SOURCES
+    try {
+      const queueResponse = await fetch(
+        'https://management-backend-3cij.onrender.com/api/id-maker-queue',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            application_id: appId,
+            control_no: editedControlNo,
+            date_issued: editedDateIssued,
+            print_status: 'Queued'
+          })
+        }
+      );
+
+      queueResult = await queueResponse.json();
+
+      if (!queueResponse.ok || !queueResult.success) {
+        throw new Error(
+          queueResult.message ||
+          'Failed to save applicant to the ID Maker queue.'
+        );
+      }
+    } catch (queueError) {
+      // 3. Queue saving failed. Try to restore the previous database status.
+      try {
+        const rollbackResponse = await fetch(
+          `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(appId)}/status`,
+          {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              status: previousStatus
+            })
+          }
+        );
+
+        const rollbackResult = await rollbackResponse.json();
+
+        if (!rollbackResponse.ok || !rollbackResult.success) {
+          throw new Error(
+            rollbackResult.message ||
+            'The previous status could not be restored.'
+          );
+        }
+
+        throw new Error(
+          `${queueError.message} The application status was restored to ${previousStatus}.`
+        );
+      } catch (rollbackError) {
+        if (
+          rollbackError.message.includes(
+            'The application status was restored to'
+          )
+        ) {
+          throw rollbackError;
+        }
+
+        throw new Error(
+          `${queueError.message} WARNING: The status rollback also failed. ` +
+          `Please check application ${appId} in the database. ` +
+          `Rollback error: ${rollbackError.message}`
+        );
+      }
+    }
+
+    // 4. Both database requests succeeded. Update the local queue now.
+    const existingIndex = ID_MAKER_QUEUE.findIndex(
+      item => String(item.id) === String(queueEntry.id)
+    );
+
+    if (existingIndex >= 0) {
+      ID_MAKER_QUEUE[existingIndex] = queueEntry;
+    } else {
+      ID_MAKER_QUEUE.push(queueEntry);
+    }
 
     if (APP_DB[appId]) {
       APP_DB[appId].status = savedStatus;
@@ -3662,9 +3782,6 @@ async function sendToIdMaker() {
         savedStatus;
     }
 
-
-    // REFRESH THE LIVE APPLICATIONS TABLE
-
     if (
       typeof renderLiveApplications ===
       'function' &&
@@ -3674,9 +3791,6 @@ async function sendToIdMaker() {
         LIVE_APPLICATIONS
       );
     }
-
-
-    // REFRESH DASHBOARD / SUMMARY COUNTS
 
     if (
       typeof updateLiveAnalyticsData ===
@@ -3688,85 +3802,67 @@ async function sendToIdMaker() {
       );
     }
 
-
-    // Update the status counter tabs
     updateStatusTabCounts();
 
-    // 3. CREATE ID MAKER QUEUE ENTRY
-
-    const queueEntry = {
-      id: app.id || appId,
-
-      name: editedName,
-
-      firstName: app.firstName || '',
-      middleName: app.middleName || '',
-      surname: app.surname || editedName,
-
-      address: editedAddress,
-      barangay: app.barangay || '—',
-
-      dob: editedDob,
-      gender: editedSex,
-
-      photo:
-        app.photo ||
-        app.documents?.photo ||
-        fallbackMedia(editedName),
-
-      signature:
-        app.signature ||
-        app.documents?.signature ||
-        '',
-
-      controlNo: editedControlNo,
-      dateIssued: editedDateIssued,
-
-      printStatus: 'Queued',
-
-      regDate: app.regDate || ''
-    };
-
-    // Add or replace the applicant in the queue
-    const existingIndex = ID_MAKER_QUEUE.findIndex(
-      item => item.id === queueEntry.id
+    console.log('ID Maker queue saved to database:', queueResult.queue);
+    
+    // Update the linked ID request status in the database too.
+    const requestsResponse = await fetch(
+      'https://management-backend-3cij.onrender.com/api/replacements',
+      { cache: 'no-store' }
     );
 
-    if (existingIndex >= 0) {
-      ID_MAKER_QUEUE[existingIndex] = queueEntry;
-    } else {
-      ID_MAKER_QUEUE.push(queueEntry);
-    }
+    const requestsResult = await requestsResponse.json();
 
-    // 4. SAVE TO ID MAKER DATABASE QUEUE
-
-    const queueResponse = await fetch(
-      'https://management-backend-3cij.onrender.com/api/id-maker-queue',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          application_id: appId,
-          control_no: editedControlNo,
-          date_issued: editedDateIssued,
-          print_status: 'Queued'
-        })
-      }
-    );
-
-    const queueResult = await queueResponse.json();
-
-    if (!queueResponse.ok || !queueResult.success) {
+    if (!requestsResponse.ok || !requestsResult.success) {
       throw new Error(
-        queueResult.message || 'Failed to save applicant to ID Maker queue.'
+        requestsResult.message ||
+        'Could not load the linked ID request.'
       );
     }
 
-    console.log('ID Maker queue saved to database:', queueResult.queue);
+    const linkedRequest = (requestsResult.requests || []).find(
+      request =>
+        String(request.application_id) === String(appId)
+    );
 
-    // 5. UPDATE ID MAKER UI IF AVAILABLE
+    if (linkedRequest) {
+      const requestStatusResponse = await fetch(
+        `https://management-backend-3cij.onrender.com/api/replacements/${linkedRequest.id}/decision`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            status: 'In Process'
+          })
+        }
+      );
+
+      const requestStatusResult =
+        await requestStatusResponse.json();
+
+      if (
+        !requestStatusResponse.ok ||
+        !requestStatusResult.success
+      ) {
+        throw new Error(
+          requestStatusResult.message ||
+          'The ID request status could not be updated.'
+        );
+      }
+
+      console.log(
+        'Linked ID request status saved:',
+        requestStatusResult.request
+      );
+    } else {
+      console.warn(
+        'No linked ID request found for application:',
+        appId
+      );
+    }
 
     if (typeof initIdMakerQueue === 'function') {
       initIdMakerQueue();
@@ -3775,8 +3871,6 @@ async function sendToIdMaker() {
     if (typeof updateIdMakerKPIs === 'function') {
       updateIdMakerKPIs();
     }
-
-    // 6. AUDIT / NOTIFICATION
 
     appendAudit(
       CURRENT_USER?.displayName || 'Staff',
@@ -3791,12 +3885,8 @@ async function sendToIdMaker() {
       'Delivered'
     );
 
-    // 7. CLOSE BOTH MODALS
-
     closeDigitalIssuance();
     closeModal();
-
-    // 8. SUCCESS MESSAGE
 
     showToast(
       `${editedName} sent to ID Maker (In Process)`,
@@ -3810,7 +3900,6 @@ async function sendToIdMaker() {
       error
     );
 
-    // Do NOT close the modals if saving failed
     showToast(
       error.message || 'Failed to send application to ID Maker.',
       'error'
