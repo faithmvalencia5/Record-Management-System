@@ -3900,11 +3900,9 @@ function renderLiveApplications(applications) {
     const avatarBg = avatarColors[index % avatarColors.length];
     const barangay = application.barangay_district || application.barangay || '';
     const days = getApplicationDaysPending(application);
-    const reqType = getApplicationRequestType(application);
-    return `<tr data-app-id="${escapeApplicationHtml(id)}" data-status="${escapeApplicationHtml(String(status).toLowerCase())}" data-barangay="${escapeApplicationHtml(String(barangay).toLowerCase())}" data-type="${escapeApplicationHtml(String(reqType).toLowerCase())}">
+    return `<tr data-app-id="${escapeApplicationHtml(id)}" data-status="${escapeApplicationHtml(String(status).toLowerCase())}" data-barangay="${escapeApplicationHtml(String(barangay).toLowerCase())}" >
       <td style="width:36px;text-align:center"><input type="checkbox" class="row-check" data-app-id="${escapeApplicationHtml(id)}" aria-label="Select ${escapeApplicationHtml(name)}" onchange="updateBatchState()" /></td>
       <td data-label="Applicant"><div class="applicant-cell"><div class="applicant-avatar" style="background:${avatarBg}">${escapeApplicationHtml(initials)}</div><div class="applicant-info"><span class="applicant-name">${escapeApplicationHtml(name)}</span><span class="applicant-id">${escapeApplicationHtml(id)}</span></div></div></td>
-      <td data-label="Req. Type">${renderApplicationTypePill(application)}</td>
       <td data-label="Submitted"><span class="cell-text">${escapeApplicationHtml(formatStaffDate(getApplicationSubmittedDate(application)))}</span></td>
       <td data-label="Documents">${docs}</td><td data-label="Stage">${statusHtml}</td><td data-label="Membership">${membershipHtml}</td>
       <td data-label="Days Pending" style="text-align:center"><span class="cell-text">${days === null ? '—' : Math.floor(days).toLocaleString()}</span></td>

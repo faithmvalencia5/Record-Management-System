@@ -848,13 +848,6 @@
 
               <!-- Request Type Filter -->
               <div class="filter-select-wrap relative shrink-0">
-                <select id="filter-request-type"
-                  class="filter-select app-filter-control appearance-none shrink-0 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 pr-7 text-xs font-medium text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/15"
-                  onchange="filterApplicationsByType(this.value)" aria-label="Filter applications by request type">
-                  <option value="all">Type</option>
-                  <option value="New">New</option>
-                  <option value="Replacement">Replacement</option>
-                </select>
                 <svg
                   class="select-chevron pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400"
                   viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
@@ -971,7 +964,6 @@
                     aria-label="Select all" onchange="toggleSelectAllApps(this.checked)" />
                 </th>
                 <th onclick="sortTable('applications-tbody',1,this)">Applicant <span class="sort-icon">↕</span></th>
-                <th onclick="sortTable('applications-tbody',2,this)">Req. Type <span class="sort-icon">↕</span></th>
                 <th onclick="sortTable('applications-tbody',3,this)">Submitted <span class="sort-icon">↕</span></th>
                 <th>Documents</th>
                 <th>Stage</th>
