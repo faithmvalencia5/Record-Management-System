@@ -4890,18 +4890,22 @@ async function setDocStatus(doc, state, options = {}) {
     const result =
       await response.json();
 
-    if (
-      !response.ok ||
-      !result.success
-    ) {
-      throw new Error(
-        result.message ||
-        'Failed to save document status.'
-      );
-    }
+    
+  if (!response.ok || !result.success) {
+    console.error('Document authentication API error:', {
+      httpStatus: response.status,
+      message: result.message,
+      databaseError: result.error
+    });
 
-    // Keep the saved authentication in
-    // the current application object
+    throw new Error(
+      result.error ||
+      result.message ||
+      'Failed to save document status.'
+    );
+  }
+
+    // Keep the saved authentication in the current application object
     if (APP_DB[CURRENT_APP_ID]) {
       if (!Array.isArray(
         APP_DB[CURRENT_APP_ID]
