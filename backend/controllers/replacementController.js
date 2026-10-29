@@ -159,8 +159,9 @@ const getReplacementRequestById = async (req, res) => {
 const decideReplacementRequest = async (req, res) => {
   try {
     const requestId = Number(req.params.id);
-    const { decision } = req.body;
+    const { status } = req.body;
 
+    // 1. Validate the request ID.
     if (!Number.isInteger(requestId) || requestId <= 0) {
       return res.status(400).json({
         success: false,
@@ -168,106 +169,111 @@ const decideReplacementRequest = async (req, res) => {
       });
     }
 
-    const normalizedDecision = String(decision || "")
-      .trim()
-      .toLowerCase();
+    // 2. Use the same statuses as the Applications module.
+    const allowedStatuses = [
+      "Pending",
+      "Under Review",
+      "In Process",
+      "Ready for Release",
+      "Completed",
+      "Rejected",
+    ];
 
-    const statusMap = {
-      accept: "Accepted",
-      accepted: "Accepted",
-      reject: "Rejected",
-      rejected: "Rejected",
-    };
-
-    const newStatus = statusMap[normalizedDecision];
-
-    if (!newStatus) {
+    if (!allowedStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Decision must be Accept or Reject.",
+        message: "Invalid application status.",
       });
     }
 
-    // Only a pending request can receive a new decision.
-    const { data: updatedRequest, error } = await supabase
-      .from("id_requests")
-      .update({ request_status: newStatus })
-      .eq("id", requestId)
-      .eq("request_status", "Pending")
-      .select(`
-        id,
-        application_id,
-        reason,
-        other_reason,
-        request_status,
-        requested_at
-      `)
-      .maybeSingle();
+    // 3. Find the ID request.
+    const { data: existingRequest, error: findError } =
+      await supabase
+        .from("id_requests")
+        .select("id, application_id, request_status")
+        .eq("id", requestId)
+        .maybeSingle();
 
-    if (error) throw error;
+    if (findError) throw findError;
 
-    if (!updatedRequest) {
-      return res.status(409).json({
+    if (!existingRequest) {
+      return res.status(404).json({
         success: false,
-        message:
-          "The request was not found or is no longer pending. Refresh the list and try again.",
+        message: "ID request not found.",
       });
     }
-    
-    if (newStatus === "Accepted") {
-      const applicationId = updatedRequest.application_id;
-      const now = new Date().toISOString();
 
-      const {
-        data: historyRecords,
-        error: historyReadError,
-      } = await supabase
+    const applicationId = existingRequest.application_id;
+
+    if (!applicationId) {
+      return res.status(400).json({
+        success: false,
+        message: "This request has no linked application.",
+      });
+    }
+
+    // 4. Update the linked application's processing stage.
+    const now = new Date().toISOString();
+
+    const { data: historyRecords, error: historyReadError } =
+      await supabase
         .from("application_status_history")
         .select("application_id")
         .eq("application_id", applicationId);
 
-      if (historyReadError) {
-        throw historyReadError;
-      }
+    if (historyReadError) throw historyReadError;
 
-      if (historyRecords && historyRecords.length > 0) {
-        const { error: historyUpdateError } = await supabase
-          .from("application_status_history")
-          .update({
-            status: "Under Review",
-            updated_at: now,
-          })
-          .eq("application_id", applicationId);
+    if (historyRecords && historyRecords.length > 0) {
+      const { error: historyUpdateError } = await supabase
+        .from("application_status_history")
+        .update({
+          status: status,
+          updated_at: now,
+        })
+        .eq("application_id", applicationId);
 
-        if (historyUpdateError) {
-          throw historyUpdateError;
-        }
-      } else {
-        const { error: historyInsertError } = await supabase
-          .from("application_status_history")
-          .insert({
-            application_id: applicationId,
-            status: "Under Review",
-            updated_at: now,
-          });
+      if (historyUpdateError) throw historyUpdateError;
+    } else {
+      const { error: historyInsertError } = await supabase
+        .from("application_status_history")
+        .insert({
+          application_id: applicationId,
+          status: status,
+          updated_at: now,
+        });
 
-        if (historyInsertError) {
-          throw historyInsertError;
-        }
-      }
+      if (historyInsertError) throw historyInsertError;
     }
+
+    // 5. Update the ID request's status too.
+    const { data: updatedRequest, error: requestUpdateError } =
+      await supabase
+        .from("id_requests")
+        .update({ request_status: status })
+        .eq("id", requestId)
+        .select(`
+          id,
+          application_id,
+          reason,
+          other_reason,
+          request_status,
+          requested_at
+        `)
+        .single();
+
+    if (requestUpdateError) throw requestUpdateError;
 
     return res.json({
       success: true,
-      message: `ID request ${newStatus.toLowerCase()} successfully.`,
+      message: `Request status updated to ${status}.`,
       request: updatedRequest,
     });
   } catch (error) {
-    console.error("Failed to decide ID request:", error);
+    console.error("Failed to update ID request status:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Failed to update ID request.",
+      message: "Failed to update ID request status.",
       error: error.message,
     });
   }

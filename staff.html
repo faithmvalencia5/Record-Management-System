@@ -2262,15 +2262,14 @@
         </label>
         <select id="replacement-decision-select"
                 style="width:100%;padding:12px;border:1px solid var(--border-color,#dbe3ef);border-radius:10px">
-          <option value="">Select decision</option>
-          <option value="accept">Accept request</option>
-          <option value="reject">Reject request</option>
+          <option value="">Select status</option>
+          <option value="Pending">Pending</option>
+          <option value="Under Review">Under Review</option>
+          <option value="In Process">In Process</option>
+          <option value="Ready for Release">Ready for Release</option>
+          <option value="Completed">Completed</option>
+          <option value="Rejected">Rejected</option>
         </select>
-
-        <p style="font-size:12px;color:var(--text-muted);margin-top:9px">
-          Accepting moves the linked record into the standard application
-          processing workflow.
-        </p>
 
         <div id="replacement-decision-error"
             role="alert"

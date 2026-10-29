@@ -4352,8 +4352,17 @@ async function submitReplacementDecision() {
 
   const decision = select.value;
 
-  if (!['accept', 'reject'].includes(decision)) {
-    error.textContent = 'Please select Accept request or Reject request.';
+  const allowedStatuses = [
+    'Pending',
+    'Under Review',
+    'In Process',
+    'Ready for Release',
+    'Completed',
+    'Rejected'
+  ];
+
+  if (!allowedStatuses.includes(decision)) {
+    error.textContent = 'Please select a valid application status.';
     error.style.display = 'block';
     return;
   }
@@ -4371,7 +4380,7 @@ async function submitReplacementDecision() {
       {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision })
+        body: JSON.stringify({ status: decision })
       }
     );
 
