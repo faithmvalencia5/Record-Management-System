@@ -71,6 +71,90 @@ window.Skeleton = (function () {
     document.body.removeAttribute('aria-busy');
   }
 
+  /** Returns HTML for a set of KPI skeleton cards matching Staff Dashboard structure. */
+  function kpiCardsHtml(count, type) {
+    let html = '';
+    const num = count || 4;
+    for (let i = 0; i < num; i++) {
+      if (type === 'analytics') {
+        html +=
+          '<article class="analytics-kpi analytics-kpi--skeleton is-loading animate-pulse" aria-hidden="true">' +
+            '<span class="analytics-kpi__label skeleton" style="width: 55%; height: 12px; border-radius: 4px; display: block;"></span>' +
+            '<strong class="skeleton" style="width: 42%; height: 28px; border-radius: 6px; display: block; margin: 8px 0 4px;"></strong>' +
+            '<span class="skeleton" style="width: 68%; height: 12px; border-radius: 4px; display: block;"></span>' +
+          '</article>';
+      } else {
+        html +=
+          '<article class="stat-card stat-card--skeleton is-loading animate-pulse" aria-hidden="true">' +
+            '<div class="stat-card__top">' +
+              '<div class="stat-card__icon-wrap skeleton" style="width: 32px; height: 32px; border-radius: 8px;"></div>' +
+              '<div class="stat-card__meta">' +
+                '<div class="skeleton" style="width: 44px; height: 18px; border-radius: 6px;"></div>' +
+              '</div>' +
+            '</div>' +
+            '<div class="stat-card__body">' +
+              '<span class="stat-card__label skeleton" style="width: 68%; height: 13px; border-radius: 4px; display: block;"></span>' +
+              '<span class="stat-card__value skeleton" style="width: 44%; height: 26px; border-radius: 6px; display: block; margin: 6px 0 3px;"></span>' +
+              '<span class="stat-card__sub skeleton" style="width: 58%; height: 12px; border-radius: 4px; display: block;"></span>' +
+            '</div>' +
+          '</article>';
+      }
+    }
+    return html;
+  }
+
+  /** Renders KPI skeleton cards into a target container. */
+  function renderKpiSkeletons(target, count, type) {
+    const el = resolveEl(target);
+    if (!el) return;
+    el.innerHTML = kpiCardsHtml(count, type);
+    el.setAttribute('aria-busy', 'true');
+  }
+
+  /** Toggles loading shimmer and pulse on a KPI strip or card set. */
+  function setKpiLoading(target, isLoading) {
+    const list = typeof target === 'string'
+      ? document.querySelectorAll(target)
+      : (target instanceof Element ? [target] : (target || []));
+    list.forEach(function (el) {
+      if (!el) return;
+      el.classList.toggle('is-loading', Boolean(isLoading));
+      if (isLoading) {
+        el.setAttribute('aria-busy', 'true');
+      } else {
+        el.removeAttribute('aria-busy');
+      }
+    });
+  }
+
+  function setDashboardKpisLoading(isLoading) {
+    setKpiLoading('#staff-kpi-strip', isLoading);
+  }
+
+  function setApplicantKpisLoading(isLoading) {
+    setKpiLoading('#applicants-kpi-strip, #mod-applicants .cards-grid', isLoading);
+  }
+
+  function setApplicationKpisLoading(isLoading) {
+    setKpiLoading('#applications-kpi-strip, #mod-applications .cards-grid', isLoading);
+  }
+
+  function setIssuanceKpisLoading(isLoading) {
+    setKpiLoading('#issuance-kpi-strip, #mod-id-issuance .cards-grid', isLoading);
+  }
+
+  function setAnalyticsKpisLoading(isLoading) {
+    setKpiLoading('#analytics-kpi-strip, #mod-analytics .analytics-hero__stats', isLoading);
+  }
+
+  function setAllKpisLoading(isLoading) {
+    setDashboardKpisLoading(isLoading);
+    setApplicantKpisLoading(isLoading);
+    setApplicationKpisLoading(isLoading);
+    setIssuanceKpisLoading(isLoading);
+    setAnalyticsKpisLoading(isLoading);
+  }
+
   return {
     rowsHtml: rowsHtml,
     setTable: setTable,
@@ -79,7 +163,16 @@ window.Skeleton = (function () {
     clearBusy: clearBusy,
     pageReady: pageReady,
     startLoading: startLoading,
-    endLoading: endLoading
+    endLoading: endLoading,
+    kpiCardsHtml: kpiCardsHtml,
+    renderKpiSkeletons: renderKpiSkeletons,
+    setKpiLoading: setKpiLoading,
+    setDashboardKpisLoading: setDashboardKpisLoading,
+    setApplicantKpisLoading: setApplicantKpisLoading,
+    setApplicationKpisLoading: setApplicationKpisLoading,
+    setIssuanceKpisLoading: setIssuanceKpisLoading,
+    setAnalyticsKpisLoading: setAnalyticsKpisLoading,
+    setAllKpisLoading: setAllKpisLoading
   };
 
   function startLoading(el) {

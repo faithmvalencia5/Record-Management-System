@@ -1,5 +1,17 @@
 const supabase = require("../config/supabase");
 
+const createSignedFileUrl = async (filePath) => {
+  if (!filePath) return "";
+  const { data, error } = await supabase.storage
+    .from("documents")
+    .createSignedUrl(filePath, 60 * 30);
+  if (error) {
+    console.error("Unable to create ID Maker media URL:", error);
+    return "";
+  }
+  return data?.signedUrl || "";
+};
+
 // ============================================
 // CREATE / ADD APPLICANT TO ID MAKER QUEUE
 // ============================================
@@ -43,6 +55,7 @@ const addToIdMakerQueue = async (req, res) => {
       "In Production",
       "Printed",
       "In Transit",
+      "Completed",
     ];
 
     const queueStatus = print_status || "Queued";
@@ -158,6 +171,16 @@ const getIdMakerQueue = async (req, res) => {
       throw applicationsError;
     }
 
+    const { data: applicationFiles, error: filesError } = await supabase
+      .from("application_files")
+      .select("application_id, latest_photo_url, signature_url")
+      .in("application_id", applicationIds);
+
+    if (filesError) throw filesError;
+    const fileMap = new Map((applicationFiles || []).map(file => [
+      String(file.application_id), file
+    ]));
+
     // 3. CREATE A FAST LOOKUP MAP
     const applicationMap =
       new Map(
@@ -182,6 +205,11 @@ const getIdMakerQueue = async (req, res) => {
                 queueItem.application_id
               )
             );
+          const files = fileMap.get(String(queueItem.application_id)) || {};
+          const [photo, signature] = await Promise.all([
+            createSignedFileUrl(files.latest_photo_url),
+            createSignedFileUrl(files.signature_url),
+          ]);
 
           const fullName = [
             application?.first_name,
@@ -242,10 +270,10 @@ const getIdMakerQueue = async (req, res) => {
               "",
 
             photo:
-              "",
+              photo,
 
             signature:
-              "",
+              signature,
 
             printStatus:
               queueItem.print_status ||
@@ -312,6 +340,7 @@ const updateIdMakerQueue = async (req, res) => {
       "In Production",
       "Printed",
       "In Transit",
+      "Completed",
     ];
 
     if (

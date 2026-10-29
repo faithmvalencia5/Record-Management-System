@@ -289,3 +289,12 @@
   .qsd-menu{min-width:150px}
   .queue-filter-menu{min-width:0}
 }
+body.portal-mode .admin-kpi-strip {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+@media (max-width: 768px) {
+  body.portal-mode .admin-kpi-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

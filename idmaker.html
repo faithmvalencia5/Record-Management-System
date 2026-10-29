@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-bold-rounded/css/uicons-bold-rounded.css" />
 
   <link rel="stylesheet" href="base.css?v=35" />
-  <link rel="stylesheet" href="idmaker.css?v=26" />
+  <link rel="stylesheet" href="idmaker.css?v=27" />
   <script src="skeleton.js?v=2"></script>
 </head>
 
@@ -188,6 +188,17 @@
               <div class="stat-card__sub">Ready for Release</div>
             </div>
           </div>
+          <div class="stat-card stat-card--success">
+            <div class="stat-card__top">
+              <div class="stat-card__icon-wrap iwrap-green"><i class="fi fi-rr-check ic-green"></i></div>
+              <div class="stat-card__meta"><div class="stat-card__trend trend-good">0</div></div>
+            </div>
+            <div class="stat-card__body">
+              <div class="stat-card__label">Completed</div>
+              <div class="stat-card__value">0</div>
+              <div class="stat-card__sub">Ready for Release in Staff</div>
+            </div>
+          </div>
           <div class="stat-card stat-card--danger">
             <div class="stat-card__top">
               <div class="stat-card__icon-wrap iwrap-red"><i class="fi fi-rr-x ic-red"></i></div>
@@ -307,6 +318,11 @@
                     <span class="qfo-dot" style="background:var(--success)"></span>
                     <span class="qfo-label">In Transit</span>
                     <span class="qfo-count" id="qf-count-transit">0</span>
+                  </button>
+                  <button class="queue-filter-option" data-filter="Completed" onclick="selectQueueFilter(this,'Completed')">
+                    <span class="qfo-dot" style="background:var(--success)"></span>
+                    <span class="qfo-label">Completed</span>
+                    <span class="qfo-count" id="qf-count-completed">0</span>
                   </button>
                 </div>
               </div>
@@ -1206,7 +1222,7 @@
 
 <script src="theme.js?v=1"></script>
 <script src="app.js?v=25"></script>
-  <script src="idmaker.js?v=15"></script>
+  <script src="idmaker.js?v=16"></script>
 </body>
 
 </html>

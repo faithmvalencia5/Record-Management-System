@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <script>(function(){try{var t=localStorage.getItem('senioridTheme');document.documentElement.setAttribute('data-theme',t==='dark'?'dark':'light');document.documentElement.style.colorScheme=t==='dark'?'dark':'light';}catch(e){document.documentElement.setAttribute('data-theme','light');}})();</script>
+  <script>(function () { try { var t = localStorage.getItem('senioridTheme'); document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light'); document.documentElement.style.colorScheme = t === 'dark' ? 'dark' : 'light'; } catch (e) { document.documentElement.setAttribute('data-theme', 'light'); } })();</script>
   <title>Staff Portal – Senior Citizens Bureau</title>
 
   <!-- Fonts (unchanged) -->
@@ -22,8 +22,8 @@
   <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-solid-rounded/css/uicons-solid-rounded.css" />
   <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-bold-rounded/css/uicons-bold-rounded.css" />
 
-  <link rel="stylesheet" href="base.css?v=35" />
-  <link rel="stylesheet" href="staff.css?v=19" />
+  <link rel="stylesheet" href="base.css?v=36" />
+  <link rel="stylesheet" href="staff.css?v=30" />
   <script src="skeleton.js?v=2"></script>
 </head>
 
@@ -130,13 +130,8 @@
                 <circle cx="6.5" cy="6.5" r="4.5" />
                 <path d="M11 11l3 3" />
               </svg>
-              <input
-                type="search"
-                id="dashboard-quick-search"
-                placeholder="Quick search…"
-                oninput="handleDashboardQuickSearch(this.value)"
-                autocomplete="off"
-              />
+              <input type="search" id="dashboard-quick-search" placeholder="Quick search…"
+                oninput="handleDashboardQuickSearch(this.value)" autocomplete="off" />
             </label>
             <div class="date-pill" id="dashboard-date-pill" onclick="toggleDateFilter(event)">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7">
@@ -166,15 +161,22 @@
                 </div>
               </div>
             </div>
-            <button class="theme-toggle theme-toggle--header" type="button" data-theme-toggle aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false">
-              <svg data-theme-icon="light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
-              <svg data-theme-icon="dark" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"/></svg>
+            <button class="theme-toggle theme-toggle--header" type="button" data-theme-toggle
+              aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false">
+              <svg data-theme-icon="light" viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="4" />
+                <path
+                  d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
+              </svg>
+              <svg data-theme-icon="dark" viewBox="0 0 24 24" aria-hidden="true" hidden>
+                <path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z" />
+              </svg>
             </button>
           </div>
         </header>
 
         <!-- Staff KPI Strip (Place here so it always appears for Staff) -->
-        <div class="admin-kpi-strip" id="staff-kpi-strip">
+        <div class="admin-kpi-strip" id="staff-kpi-strip" data-kpi-module="dashboard">
           <!-- Card 1 -->
           <div class="stat-card">
             <div class="stat-card__top">
@@ -256,17 +258,13 @@
                 <div class="chart-card__title">Senior Registrations by Barangay (Top 6)</div>
                 <p class="chart-card__subtitle">Highest registration areas</p>
               </div>
-              <select
-                class="filter-select"
-                id="barangay-year-filter"
-                style="height:34px"
-                onchange="filterBarangayYear(this.value)"
-                aria-label="Filter registrations by year"
-              >
+              <select class="filter-select" id="barangay-year-filter" style="height:34px"
+                onchange="filterBarangayYear(this.value)" aria-label="Filter registrations by year">
               </select>
             </div>
             <div class="bar-chart-wrap">
-              <div class="chart-empty-note" id="barangay-empty-note">No registration data available for 2026 yet. Connect the live system to populate this chart.</div>
+              <div class="chart-empty-note" id="barangay-empty-note">No registration data available for 2026 yet.
+                Connect the live system to populate this chart.</div>
               <div class="bar-chart">
 
                 <div class="bar-col">
@@ -315,8 +313,8 @@
               <svg class="donut-svg" viewBox="0 0 134 134">
                 <circle class="track" cx="67" cy="67" r="54" />
               </svg>
-              <div class="donut-inner"><span class="donut-inner__pct">0%</span><span
-                  class="donut-inner__tag">No data</span></div>
+              <div class="donut-inner"><span class="donut-inner__pct">0%</span><span class="donut-inner__tag">No
+                  data</span></div>
             </div>
             <div class="donut-legend">
               <div class="donut-legend__item">
@@ -355,7 +353,7 @@
                 </svg>
                 <select class="filter-select" id="recent-barangay-filter" onchange="filterRecentSubmissions()"
                   aria-label="Filter recent submissions by barangay">
-                  <option value="">Barangay: All</option>
+                  <option value="">All Barangay</option>
                   <option value="Alagao">Barangay: Alagao</option>
                   <option value="Aplaya">Barangay: Aplaya</option>
                   <option value="As-Is">Barangay: As-Is</option>
@@ -410,9 +408,12 @@
           <table class="data-table">
             <thead>
               <tr>
-                <th onclick="sortTable('recent-submissions-tbody',0,this)">Applicant Name <span class="sort-icon">↕</span></th>
-                <th onclick="sortTable('recent-submissions-tbody',1,this)">Submission Date <span class="sort-icon">↕</span></th>
-                <th onclick="sortTable('recent-submissions-tbody',2,this)">Barangay <span class="sort-icon">↕</span></th>
+                <th onclick="sortTable('recent-submissions-tbody',0,this)">Applicant Name <span
+                    class="sort-icon">↕</span></th>
+                <th onclick="sortTable('recent-submissions-tbody',1,this)">Submission Date <span
+                    class="sort-icon">↕</span></th>
+                <th onclick="sortTable('recent-submissions-tbody',2,this)">Barangay <span class="sort-icon">↕</span>
+                </th>
                 <th onclick="sortTable('recent-submissions-tbody',3,this)">Status <span class="sort-icon">↕</span></th>
                 <th>Action</th>
               </tr>
@@ -476,7 +477,8 @@
         <header class="page-header">
           <div class="page-header__left">
             <div class="page-header__eyebrow">
-              <h1 class="page-header__title">Applicants</h1> <span class="page-header__badge" id="applicants-total-badge">0 Profiles</span>
+              <h1 class="page-header__title">Applicants</h1> <span class="page-header__badge"
+                id="applicants-total-badge">0 Profiles</span>
             </div>
             <p class="page-header__sub">Manage and review all registered senior citizen applicants</p>
           </div>
@@ -497,7 +499,7 @@
           </div>
         </header>
 
-        <div class="cards-grid">
+        <div class="cards-grid" id="applicants-kpi-strip" data-kpi-module="applicants">
           <article class="stat-card stat-card--danger">
             <div class="stat-card__top">
               <div class="stat-card__icon-wrap iwrap-blue"><svg class="stat-card__icon ic-blue" viewBox="0 0 20 20"
@@ -508,7 +510,9 @@
               <div class="stat-card__meta"><span class="stat-card__trend trend-good">0</span></div>
             </div>
             <div class="stat-card__body"><span class="stat-card__label">Total Registered Seniors</span>
-              <span class="stat-card__value" id="applicants-total-count">0</span><span class="stat-card__sub">Unique citizens with completed registration</span></div>
+              <span class="stat-card__value" id="applicants-total-count">0</span><span class="stat-card__sub">Unique
+                citizens with completed registration</span>
+            </div>
           </article>
           <article class="stat-card stat-card--success">
             <div class="stat-card__top">
@@ -521,7 +525,9 @@
               <div class="stat-card__meta"><span class="stat-card__trend trend-good">0</span></div>
             </div>
             <div class="stat-card__body"><span class="stat-card__label">Active Applicants</span>
-              <span class="stat-card__value" id="applicants-verified-count">0</span><span class="stat-card__sub">Unique citizens with open requests</span></div>
+              <span class="stat-card__value" id="applicants-verified-count">0</span><span class="stat-card__sub">Unique
+                citizens with open requests</span>
+            </div>
           </article>
           <article class="stat-card">
             <div class="stat-card__top">
@@ -534,7 +540,9 @@
               <div class="stat-card__meta"><span class="stat-card__period">This month</span></div>
             </div>
             <div class="stat-card__body"><span class="stat-card__label">New Registrations</span>
-              <span class="stat-card__value" id="applicants-unverified-count">0</span><span class="stat-card__sub">Completed registrations this month</span></div>
+              <span class="stat-card__value" id="applicants-unverified-count">0</span><span
+                class="stat-card__sub">Completed registrations this month</span>
+            </div>
           </article>
           <article class="stat-card stat-card--purple">
             <div class="stat-card__top">
@@ -546,7 +554,9 @@
               <div class="stat-card__meta"><span class="stat-card__trend trend-neutral">0</span></div>
             </div>
             <div class="stat-card__body"><span class="stat-card__label">Duplicate Profiles</span>
-              <span class="stat-card__value" id="applicants-issued-count">0</span><span class="stat-card__sub">Flagged for staff review</span></div>
+              <span class="stat-card__value" id="applicants-issued-count">0</span><span class="stat-card__sub">Flagged
+                for staff review</span>
+            </div>
           </article>
         </div>
 
@@ -569,7 +579,7 @@
                 </svg>
                 <select class="filter-select" onchange="filterApplicantsByBarangay(this.value)"
                   aria-label="Filter applicants by barangay">
-                  <option value="">Barangay: All</option>
+                  <option value="">All Barangay</option>
                   <option value="Alagao">Barangay: Alagao</option>
                   <option value="Aplaya">Barangay: Aplaya</option>
                   <option value="As-Is">Barangay: As-Is</option>
@@ -612,7 +622,8 @@
                   <option value="Sinala">Barangay: Sinala</option>
                 </select>
               </div>
-              <select class="filter-select" onchange="filterApplicantsByStatus(this.value)" aria-label="Filter applicants by status">
+              <select class="filter-select" onchange="filterApplicantsByStatus(this.value)"
+                aria-label="Filter applicants by status">
                 <option value="">All Statuses</option>
                 <option value="Registered">Registered</option>
                 <option value="Pending">Pending</option>
@@ -632,13 +643,14 @@
                 <th>Application ID</th>
                 <th onclick="sortTable('applicants-tbody',2,this)">Barangay <span class="sort-icon">↕</span></th>
                 <th>Age</th>
-                <th onclick="sortTable('applicants-tbody',4,this)">Registration Date <span class="sort-icon">↕</span></th>
+                <th onclick="sortTable('applicants-tbody',4,this)">Registration Date <span class="sort-icon">↕</span>
+                </th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody id="applicants-tbody">
-                <!-- Applicant rows are loaded from the database -->
+              <!-- Applicant rows are loaded from the database -->
             </tbody>
           </table>
 
@@ -654,7 +666,8 @@
         <header class="page-header">
           <div class="page-header__left">
             <div class="page-header__eyebrow">
-              <h1 class="page-header__title">Applications</h1><span class="page-header__badge amber" id="urgent-count">0 Urgent</span>
+              <h1 class="page-header__title">Applications</h1><span class="page-header__badge amber" id="urgent-count">0
+                Urgent</span>
             </div>
             <p class="page-header__sub">Review, approve, or reject senior citizen applications</p>
           </div>
@@ -707,7 +720,8 @@
             </svg>
             <div class="alert-content">
               <div class="alert-title" id="urgent-alert-title">No urgent applications</div>
-              <div class="alert-desc" id="urgent-alert-desc">Applications pending for more than 5 days will appear here.</div>
+              <div class="alert-desc" id="urgent-alert-desc">Applications pending for more than 5 days will appear here.
+              </div>
             </div>
           </div>
           <button type="button" onclick="dismissUrgentAlert()" aria-label="Dismiss alert"
@@ -718,7 +732,7 @@
           </button>
         </div>
 
-        <div class="cards-grid applications-summary-cards">
+        <div class="cards-grid applications-summary-cards" id="applications-kpi-strip" data-kpi-module="applications">
           <article class="stat-card stat-card--warn">
             <div class="stat-card__top">
               <div class="stat-card__icon-wrap iwrap-warn"><svg class="stat-card__icon ic-warn" viewBox="0 0 20 20"
@@ -728,9 +742,11 @@
                     clip-rule="evenodd" />
                 </svg></div><span class="stat-card__trend trend-up"><svg viewBox="0 0 10 10" fill="currentColor">
                   <path d="M5 2l4 5H1z" />
-                  </svg>0</span>
+                </svg>0</span>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Awaiting Review</span><span class="stat-card__value" id="summary-pending">0</span><span class="stat-card__sub">Pending staff review</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Awaiting Review</span><span
+                class="stat-card__value" id="summary-pending">0</span><span class="stat-card__sub">Pending staff
+                review</span></div>
           </article>
           <article class="stat-card">
             <div class="stat-card__top">
@@ -742,7 +758,9 @@
                     clip-rule="evenodd" />
                 </svg></div><span class="stat-card__trend trend-neutral">0</span>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Incomplete Documents</span><span class="stat-card__value" id="summary-incomplete">0</span><span class="stat-card__sub">Required files still missing</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Incomplete Documents</span><span
+                class="stat-card__value" id="summary-incomplete">0</span><span class="stat-card__sub">Required files
+                still missing</span></div>
           </article>
           <article class="stat-card stat-card--warn">
             <div class="stat-card__top">
@@ -753,7 +771,9 @@
                     clip-rule="evenodd" />
                 </svg></div><span class="stat-card__trend trend-neutral">0</span>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Overdue Applications</span><span class="stat-card__value" id="summary-overdue">0</span><span class="stat-card__sub">Open for more than 5 days</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Overdue Applications</span><span
+                class="stat-card__value" id="summary-overdue">0</span><span class="stat-card__sub">Open for more than 5
+                days</span></div>
           </article>
           <article class="stat-card stat-card--danger">
             <div class="stat-card__top">
@@ -766,7 +786,9 @@
                   <path d="M5 8L1 3h8z" />
                 </svg>Needs action</span>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Ready for Release</span><span class="stat-card__value" id="summary-ready">0</span><span class="stat-card__sub">Approved and awaiting pickup</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Ready for Release</span><span
+                class="stat-card__value" id="summary-ready">0</span><span class="stat-card__sub">Approved and awaiting
+                pickup</span></div>
           </article>
           <article class="stat-card stat-card--success">
             <div class="stat-card__top">
@@ -777,164 +799,178 @@
                     clip-rule="evenodd" />
                 </svg></div><span class="stat-card__trend trend-good">0</span>
             </div>
-            <div class="stat-card__body"><span class="stat-card__label">Completed This Month</span><span class="stat-card__value" id="summary-completed-month">0</span><span class="stat-card__sub">Requests completed this month</span></div>
+            <div class="stat-card__body"><span class="stat-card__label">Completed This Month</span><span
+                class="stat-card__value" id="summary-completed-month">0</span><span class="stat-card__sub">Requests
+                completed this month</span></div>
           </article>
         </div>
 
         <div class="data-table-card">
-          <div class="filter-bar">
-            <div class="status-tabs" role="tablist">
-              <button class="status-tab active" role="tab" data-key="all" data-count="0"
-                onclick="filterByStatus(this,'all')">
-                <span class="tab-count chip-count" data-count-key="all">0</span>
-                All
-              </button>
-              <button class="status-tab" role="tab" data-key="pending" data-count="0"
-                onclick="filterByStatus(this,'pending')">
-                <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd"
-                    d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16zm1-12a1 1 0 1 0-2 0v4a1 1 0 0 0 .293.707l2.828 2.829a1 1 0 1 0 1.415-1.415L11 9.586V6z"
-                    clip-rule="evenodd" />
-                </svg>
-                Pending
-                <span class="tab-count chip-count" data-count-key="pending">0</span>
-              </button>
-              <button class="status-tab" role="tab" data-key="review" data-count="0"
-                onclick="filterByStatus(this,'review')">
-                <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M9 2a1 1 0 0 0 0 2h2a1 1 0 1 0 0-2H9z" />
-                  <path fill-rule="evenodd"
-                    d="M4 5a2 2 0 0 1 2-2 3 3 0 0 0 3 3h2a3 3 0 0 0 3-3 2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5zm3 4a1 1 0 0 0 0 2h.01a1 1 0 1 0 0-2H7zm3 0a1 1 0 0 0 0 2h3a1 1 0 1 0 0-2h-3zm-3 4a1 1 0 1 0 0 2h.01a1 1 0 1 0 0-2H7zm3 0a1 1 0 1 0 0 2h3a1 1 0 1 0 0-2h-3z"
-                    clip-rule="evenodd" />
-                </svg>
-                Under Review
-                <span class="tab-count chip-count" data-count-key="review">0</span>
-              </button>
-              <button class="status-tab" role="tab" data-key="process" data-count="0"
-                onclick="filterByStatus(this,'process')">
-                <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd"
-                    d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16zm3.707-9.293a1 1 0 0 0-1.414-1.414L9 10.586 7.707 9.293a1 1 0 0 0-1.414 1.414l2 2a1 1 0 0 0 1.414 0l4-4z"
-                    clip-rule="evenodd" />
-                </svg>
-                In Process
-                <span class="tab-count chip-count" data-count-key="process">0</span>
-              </button>
-              <button class="status-tab" role="tab" data-key="release" data-count="0"
-                onclick="filterByStatus(this,'release')">
-                <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd"
-                    d="M2.5 4.5A1.5 1.5 0 0 1 4 3h8a1.5 1.5 0 0 1 1.5 1.5V11h.75a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1 .75-.75V9.5H4.5V11h-.75a.75.75 0 0 1 0-1.5H4V4.5zM4.5 13.25a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5zm9 0a1.25 1.25 0 1 1 0 2.5 1.25 1.25 0 0 1 0-2.5z"
-                    clip-rule="evenodd" />
-                </svg>
-                Ready for Release
-                <span class="tab-count chip-count" data-count-key="release">0</span>
-              </button>
-              <button class="status-tab" role="tab" data-key="completed" data-count="0"
-                onclick="filterByStatus(this,'completed')">
-                <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd"
-                    d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16zm-1.293-4.293a1 1 0 0 1-1.414 0l-2.5-2.5a1 1 0 1 1 1.414-1.414l1.793 1.792 4.793-4.792a1 1 0 1 1 1.414 1.414l-5.5 5.5z"
-                    clip-rule="evenodd" />
-                </svg>
-                Completed
-                <span class="tab-count chip-count" data-count-key="completed">0</span>
-              </button>
-              <button class="status-tab" role="tab" data-key="rejected" data-count="0"
-                onclick="filterByStatus(this,'rejected')">
-                <svg class="tab-icon" viewBox="0 0 20 20" fill="currentColor">
-                  <path fill-rule="evenodd"
-                    d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM8.707 7.293a1 1 0 0 0-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 1 0 1.414 1.414L10 11.414l1.293 1.293a1 1 0 0 0 1.414-1.414L11.414 10l1.293-1.293a1 1 0 0 0-1.414-1.414L10 8.586 8.707 7.293z"
-                    clip-rule="evenodd" />
-                </svg>
-                Rejected
-                <span class="tab-count chip-count" data-count-key="rejected">0</span>
-              </button>
+          <div
+            class="filter-bar filter-bar--compact flex flex-row items-center justify-between gap-2.5 w-full flex-nowrap overflow-hidden">
+            <!-- Count Badge -->
+            <button type="button" class="btn-all-filter shrink-0 whitespace-nowrap bg-blue-600 text-white rounded-full"
+              onclick="filterByStatus(this,'all')">
+              ALL APPLICATIONS
+            </button>
+            <div style="display:none">
+              <span class="chip-count" data-count-key="all" id="apps-total-pill">0</span>
+              <span class="chip-count" data-count-key="pending">0</span>
+              <span class="chip-count" data-count-key="review">0</span>
+              <span class="chip-count" data-count-key="process">0</span>
+              <span class="chip-count" data-count-key="release">0</span>
+              <span class="chip-count" data-count-key="completed">0</span>
+              <span class="chip-count" data-count-key="rejected">0</span>
             </div>
-            <div class="filter-spacer"></div>
-            <label class="table-search" style="flex-shrink:0;margin-right:8px">
-              <svg viewBox="0 0 16 16" fill="currentColor">
-                <path fill-rule="evenodd"
-                  d="M10.5 3.5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm-6 5a6 6 0 1 1 11 0 6 6 0 0 1-11 0zm10.03 4.44-2.5 2.5a.75.75 0 0 1-1.06-1.06l2.5-2.5a.75.75 0 1 1 1.06 1.06z"
-                  clip-rule="evenodd" />
-              </svg>
-              <input type="search" placeholder="Search applicant or ID..." oninput="filterApplicationsTable(this.value)"
-                aria-label="Search applicant or ID" />
-            </label>
-            <div class="barangay-select-wrap">
-              <svg class="barangay-select-wrap__pin" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-              <select class="filter-select" onchange="filterApplicationsByBarangay(this.value)"
-                aria-label="Filter applications by barangay">
-                <option value="">Barangay: All</option>
-                <option value="Alagao">Barangay: Alagao</option>
-                <option value="Aplaya">Barangay: Aplaya</option>
-                <option value="As-Is">Barangay: As-Is</option>
-                <option value="Bagong Silang">Barangay: Bagong Silang</option>
-                <option value="Baguilawa">Barangay: Baguilawa</option>
-                <option value="Balayong">Barangay: Balayong</option>
-                <option value="Barangay I (Poblacion)">Barangay: Barangay I (Poblacion)</option>
-                <option value="Barangay II (Poblacion)">Barangay: Barangay II (Poblacion)</option>
-                <option value="Barangay III (Poblacion)">Barangay: Barangay III (Poblacion)</option>
-                <option value="Barangay IV (Poblacion)">Barangay: Barangay IV (Poblacion)</option>
-                <option value="Bolo">Barangay: Bolo</option>
-                <option value="Colvo">Barangay: Colvo</option>
-                <option value="Cupang">Barangay: Cupang</option>
-                <option value="Durungao">Barangay: Durungao</option>
-                <option value="Gulibay">Barangay: Gulibay</option>
-                <option value="Inicbulan">Barangay: Inicbulan</option>
-                <option value="Locloc">Barangay: Locloc</option>
-                <option value="Magalang-Galang">Barangay: Magalang-Galang</option>
-                <option value="Malindig">Barangay: Malindig</option>
-                <option value="Manalupang">Barangay: Manalupang</option>
-                <option value="Manghinao Proper">Barangay: Manghinao Proper</option>
-                <option value="Manghinao Uno">Barangay: Manghinao Uno</option>
-                <option value="New Danglayan">Barangay: New Danglayan</option>
-                <option value="Orense">Barangay: Orense</option>
-                <option value="Pitugo">Barangay: Pitugo</option>
-                <option value="Rizal">Barangay: Rizal</option>
-                <option value="Sampaguita">Barangay: Sampaguita</option>
-                <option value="San Agustin">Barangay: San Agustin</option>
-                <option value="San Andres Proper">Barangay: San Andres Proper</option>
-                <option value="San Andres Uno">Barangay: San Andres Uno</option>
-                <option value="San Diego">Barangay: San Diego</option>
-                <option value="San Miguel">Barangay: San Miguel</option>
-                <option value="San Pablo">Barangay: San Pablo</option>
-                <option value="San Pedro">Barangay: San Pedro</option>
-                <option value="San Roque">Barangay: San Roque</option>
-                <option value="San Teodoro">Barangay: San Teodoro</option>
-                <option value="San Vicente">Barangay: San Vicente</option>
-                <option value="Santa Maria">Barangay: Santa Maria</option>
-                <option value="Santo Domingo">Barangay: Santo Domingo</option>
-                <option value="Sinala">Barangay: Sinala</option>
-              </select>
+
+            <!-- Controls Group: aligned in single row, no wrap -->
+            <div class="filter-bar-right-group flex flex-row items-center gap-2.5 shrink-0 flex-nowrap">
+              <!-- Search Input with flexible min-w-[130px] -->
+              <div class="table-search-wrap min-w-[130px] shrink-0">
+                <svg class="table-search-icon" viewBox="0 0 16 16" fill="currentColor">
+                  <path fill-rule="evenodd"
+                    d="M10.5 3.5a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm-6 5a6 6 0 1 1 11 0 6 6 0 0 1-11 0zm10.03 4.44-2.5 2.5a.75.75 0 0 1-1.06-1.06l2.5-2.5a.75.75 0 1 1 1.06 1.06z"
+                    clip-rule="evenodd" />
+                </svg>
+                <input type="search" placeholder="Search applicant or ID..."
+                  oninput="filterApplicationsTable(this.value)"
+                  class="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 pl-7 text-xs font-medium text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/15"
+                  aria-label="Search applicant or ID" />
+              </div>
+
+              <!-- Request Type Filter -->
+              <div class="filter-select-wrap relative shrink-0">
+                <select id="filter-request-type"
+                  class="filter-select app-filter-control appearance-none shrink-0 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 pr-7 text-xs font-medium text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/15"
+                  onchange="filterApplicationsByType(this.value)" aria-label="Filter applications by request type">
+                  <option value="all">Type</option>
+                  <option value="New">New</option>
+                  <option value="Replacement">Replacement</option>
+                </select>
+                <svg
+                  class="select-chevron pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400"
+                  viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" aria-hidden="true">
+                  <path d="M4 6l4 4 4-4" />
+                </svg>
+              </div>
+
+              <!-- Stage / Status Filter -->
+              <div class="filter-select-wrap relative shrink-0">
+                <select id="filter-application-stage"
+                  class="filter-select app-filter-control appearance-none shrink-0 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 pr-7 text-xs font-medium text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/15"
+                  onchange="filterApplicationsByStage(this.value)" aria-label="Filter applications by stage">
+                  <option value="all">Stage</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Under Review">Under Review</option>
+                  <option value="In Process">In Process</option>
+                  <option value="Ready for Release">Ready for Release</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+                <svg
+                  class="select-chevron pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400"
+                  viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" aria-hidden="true">
+                  <path d="M4 6l4 4 4-4" />
+                </svg>
+              </div>
+
+              <!-- Barangay Filter -->
+              <div class="barangay-select-wrap relative shrink-0">
+                <svg class="barangay-select-wrap__pin" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                <select
+                  class="filter-select appearance-none shrink-0 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 pl-7 pr-7 text-xs font-medium text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/15"
+                  onchange="filterApplicationsByBarangay(this.value)" aria-label="Filter applications by barangay">
+                  <option value="">All Barangay</option>
+                  <option value="Alagao">Alagao</option>
+                  <option value="Aplaya">Aplaya</option>
+                  <option value="As-Is">As-Is</option>
+                  <option value="Bagong Silang">Bagong Silang</option>
+                  <option value="Baguilawa">Baguilawa</option>
+                  <option value="Balayong">Balayong</option>
+                  <option value="Barangay I (Poblacion)">Barangay I (Poblacion)</option>
+                  <option value="Barangay II (Poblacion)">Barangay II (Poblacion)</option>
+                  <option value="Barangay III (Poblacion)">Barangay III (Poblacion)</option>
+                  <option value="Barangay IV (Poblacion)">Barangay IV (Poblacion)</option>
+                  <option value="Bolo">Bolo</option>
+                  <option value="Colvo">Colvo</option>
+                  <option value="Cupang">Cupang</option>
+                  <option value="Durungao">Durungao</option>
+                  <option value="Gulibay">Gulibay</option>
+                  <option value="Inicbulan">Inicbulan</option>
+                  <option value="Locloc">Locloc</option>
+                  <option value="Magalang-Galang">Magalang-Galang</option>
+                  <option value="Malindig">Malindig</option>
+                  <option value="Manalupang">Manalupang</option>
+                  <option value="Manghinao Proper">Manghinao Proper</option>
+                  <option value="Manghinao Uno">Manghinao Uno</option>
+                  <option value="New Danglayan">New Danglayan</option>
+                  <option value="Orense">Orense</option>
+                  <option value="Pitugo">Pitugo</option>
+                  <option value="Rizal">Rizal</option>
+                  <option value="Sampaguita">Sampaguita</option>
+                  <option value="San Agustin">San Agustin</option>
+                  <option value="San Andres Proper">San Andres Proper</option>
+                  <option value="San Andres Uno">San Andres Uno</option>
+                  <option value="San Diego">San Diego</option>
+                  <option value="San Miguel">San Miguel</option>
+                  <option value="San Pablo">San Pablo</option>
+                  <option value="San Pedro">San Pedro</option>
+                  <option value="San Roque">San Roque</option>
+                  <option value="San Teodoro">San Teodoro</option>
+                  <option value="San Vicente">San Vicente</option>
+                  <option value="Santa Maria">Santa Maria</option>
+                  <option value="Santo Domingo">Santo Domingo</option>
+                  <option value="Sinala">Sinala</option>
+                </select>
+                <svg
+                  class="select-chevron pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400"
+                  viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" aria-hidden="true">
+                  <path d="M4 6l4 4 4-4" />
+                </svg>
+              </div>
+
+              <!-- Sort Filter -->
+              <div class="sort-select-wrap relative shrink-0">
+                <select
+                  class="filter-select sort-select appearance-none shrink-0 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 pr-7 text-xs font-medium text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/15"
+                  onchange="handleApplicationsSort(this.value)" aria-label="Sort applications">
+                  <option value="newest">Sort: </option>
+                  <option value="newest">Sort: Newest First</option>
+                  <option value="oldest">Sort: Oldest First</option>
+                </select>
+                <svg
+                  class="select-chevron pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400"
+                  viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                  stroke-linejoin="round" aria-hidden="true">
+                  <path d="M4 6l4 4 4-4" />
+                </svg>
+              </div>
             </div>
-            <select class="filter-select">
-              <option>Sort: Newest First</option>
-              <option>Sort: Oldest First</option>
-              <option>Sort: Name A–Z</option>
-            </select>
           </div>
 
           <table class="data-table">
             <thead>
               <tr>
-                <th style="width:40px">
+                <th style="width:34px">
                   <input type="checkbox" class="row-check" id="select-all-apps" title="Select all"
                     aria-label="Select all" onchange="toggleSelectAllApps(this.checked)" />
                 </th>
-                <th onclick="sortTable('applications-tbody',1,this)">Application ID <span class="sort-icon">↕</span></th>
-                <th onclick="sortTable('applications-tbody',2,this)">Applicant <span class="sort-icon">↕</span></th>
-                <th>Request Type</th>
-                <th onclick="sortTable('applications-tbody',4,this)">Date Submitted <span class="sort-icon">↕</span></th>
-                <th>Documents Status</th>
-                <th>Processing Stage</th>
-                <th>Membership Status</th>
-                <th onclick="sortTable('applications-tbody',7,this)">Days Pending <span class="sort-icon">↕</span></th>
-                <th>Actions</th>
+                <th onclick="sortTable('applications-tbody',1,this)">Applicant <span class="sort-icon">↕</span></th>
+                <th onclick="sortTable('applications-tbody',2,this)">Req. Type <span class="sort-icon">↕</span></th>
+                <th onclick="sortTable('applications-tbody',3,this)">Submitted <span class="sort-icon">↕</span></th>
+                <th>Documents</th>
+                <th>Stage</th>
+                <th>Membership</th>
+                <th onclick="sortTable('applications-tbody',7,this)" style="text-align:center">Days Pending <span
+                    class="sort-icon">↕</span></th>
+                <th style="text-align:center">Actions</th>
               </tr>
             </thead>
             <tbody id="applications-tbody">
@@ -962,28 +998,30 @@
               control number</p>
           </div>
           <div class="page-header__controls">
-            <button class="btn btn--primary" id="btn-send-idmaker-issuance" onclick="sendFromIssuanceToIdMaker()"
-              style="display:none"></button>
+            
           </div>
         </header>
 
-        <section class="cards-grid">
+        <section class="cards-grid" id="issuance-kpi-strip" data-kpi-module="issuance">
+          <!-- Card 0: Ready to Process -->
           <article class="stat-card">
             <div class="stat-card__top">
               <div class="stat-card__icon-wrap iwrap-blue">
                 <svg class="stat-card__icon ic-blue" viewBox="0 0 20 20" fill="currentColor">
-                  <path
-                    d="M4 4a2 2 0 0 1 2-2h4.586A2 2 0 0 1 12 2.586L15.414 6A2 2 0 0 1 16 7.414V16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4z" />
+                  <path fill-rule="evenodd"
+                    d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16zm1-12a1 1 0 1 0-2 0v4a1 1 0 0 0 .293.707l2.828 2.829a1 1 0 1 0 1.415-1.415L11 9.586V6z"
+                    clip-rule="evenodd" />
                 </svg>
               </div>
-              <div class="stat-card__meta"><span class="stat-card__period">Today</span></div>
+              <div class="stat-card__meta"><span class="stat-card__period">Now</span></div>
             </div>
             <div class="stat-card__body">
-              <span class="stat-card__label">Forms Generated</span>
+              <span class="stat-card__label">Ready to Process</span>
               <span class="stat-card__value">0</span>
-              <span class="stat-card__sub">0 from yesterday</span>
+              <span class="stat-card__sub">In Process, not yet sent</span>
             </div>
           </article>
+          <!-- Card 1: Queued for Print -->
           <article class="stat-card stat-card--warn">
             <div class="stat-card__top">
               <div class="stat-card__icon-wrap iwrap-warn">
@@ -1001,6 +1039,7 @@
               <span class="stat-card__sub">Awaiting operator release</span>
             </div>
           </article>
+          <!-- Card 2: IDs Issued Today -->
           <article class="stat-card stat-card--success">
             <div class="stat-card__top">
               <div class="stat-card__icon-wrap iwrap-green">
@@ -1013,11 +1052,12 @@
               <div class="stat-card__meta"><span class="stat-card__trend trend-good">0</span></div>
             </div>
             <div class="stat-card__body">
-              <span class="stat-card__label">Released IDs</span>
+              <span class="stat-card__label">IDs Issued Today</span>
               <span class="stat-card__value">0</span>
-              <span class="stat-card__sub">Same-day completion rate 82%</span>
+              <span class="stat-card__sub">Sent to ID Maker today</span>
             </div>
           </article>
+          <!-- Card 3: Not Yet Picked Up -->
           <article class="stat-card stat-card--danger">
             <div class="stat-card__top">
               <div class="stat-card__icon-wrap iwrap-red">
@@ -1030,9 +1070,9 @@
               <div class="stat-card__meta"><span class="stat-card__trend trend-down">0</span></div>
             </div>
             <div class="stat-card__body">
-              <span class="stat-card__label">Print Errors</span>
+              <span class="stat-card__label">Not Yet Picked Up</span>
               <span class="stat-card__value">0</span>
-              <span class="stat-card__sub">Needs template or data check</span>
+              <span class="stat-card__sub">Ready for Release, unclaimed</span>
             </div>
           </article>
         </section>
@@ -1126,10 +1166,11 @@
         <header class="page-header">
           <div class="page-header__left">
             <div class="page-header__eyebrow">
-              <h1 class="page-header__title" id="analytics-title">Staff Analytics</h1><span class="page-header__badge purple"
-                id="analytics-scope-badge">Staff Scope</span>
+              <h1 class="page-header__title" id="analytics-title">Staff Analytics</h1><span
+                class="page-header__badge purple" id="analytics-scope-badge">Staff Scope</span>
             </div>
-            <p class="page-header__sub" id="analytics-subtitle">Queue health, barangay workload, and review performance for frontline staff</p>
+            <p class="page-header__sub" id="analytics-subtitle">Queue health, barangay workload, and review performance
+              for frontline staff</p>
           </div>
           <div class="page-header__controls">
             <select class="filter-select range" id="report-range"
@@ -1156,7 +1197,7 @@
             <h2>Workflow Control</h2>
             <p>Real-time visibility into staff workload and ID processing status</p>
           </div>
-          <div class="analytics-hero__stats">
+          <div class="analytics-hero__stats" id="analytics-kpi-strip" data-kpi-module="analytics">
             <article class="analytics-kpi">
               <span class="analytics-kpi__label">Pending Review</span>
               <strong id="analytics-kpi-pending">0</strong>
@@ -1216,15 +1257,22 @@
                 <div class="chart-wrap" style="height:160px;width:160px">
                   <canvas id="chart-status"></canvas>
                 </div>
-                <div id="queue-mix-empty-ring" style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
-                  <div style="width:120px;height:120px;border-radius:50%;border:18px solid var(--border-subtle);opacity:0.55"></div>
+                <div id="queue-mix-empty-ring"
+                  style="display:none;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none">
+                  <div
+                    style="width:120px;height:120px;border-radius:50%;border:18px solid var(--border-subtle);opacity:0.55">
+                  </div>
                 </div>
               </div>
               <div class="analytics-status-list">
-                <div class="analytics-status-item"><span style="background:#059669"></span><strong>Approved</strong><em id="analytics-status-approved">0</em></div>
-                <div class="analytics-status-item"><span style="background:#D97706"></span><strong>Pending</strong><em id="analytics-status-pending">0</em></div>
-                <div class="analytics-status-item"><span style="background:#2563EB"></span><strong>In Review</strong><em id="analytics-status-review">0</em></div>
-                <div class="analytics-status-item"><span style="background:#E11D48"></span><strong>Rejected</strong><em id="analytics-status-rejected">0</em></div>
+                <div class="analytics-status-item"><span style="background:#059669"></span><strong>Approved</strong><em
+                    id="analytics-status-approved">0</em></div>
+                <div class="analytics-status-item"><span style="background:#D97706"></span><strong>Pending</strong><em
+                    id="analytics-status-pending">0</em></div>
+                <div class="analytics-status-item"><span style="background:#2563EB"></span><strong>In Review</strong><em
+                    id="analytics-status-review">0</em></div>
+                <div class="analytics-status-item"><span style="background:#E11D48"></span><strong>Rejected</strong><em
+                    id="analytics-status-rejected">0</em></div>
               </div>
             </div>
           </div>
@@ -1308,717 +1356,816 @@
             </div>
             <div class="an-card__body" style="align-items:center;gap:18px;flex-wrap:wrap;padding:18px">
               <div class="chart-wrap" style="height:240px;width:190px"><canvas id="chart-age"></canvas></div>
-              <div id="age-distribution-legend" style="display:flex;flex-direction:column;gap:12px;align-items:flex-start;"></div>
-                <div style="display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.3">
-                  <span
-                    style="width:10px;height:10px;border-radius:50%;background:rgba(147,197,253,1);flex-shrink:0"></span>
-                  <span><strong style="font-size:13px">60–70 yrs</strong><br /><span
-                      style="color:var(--text-muted);font-size:12px">42% · 5.2K</span></span>
-                </div>
-                <div style="display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.3">
-                  <span
-                    style="width:10px;height:10px;border-radius:50%;background:rgba(61,111,232,1);flex-shrink:0"></span>
-                  <span><strong style="font-size:13px">71–80 yrs</strong><br /><span
-                      style="color:var(--text-muted);font-size:12px">35% · 4.4K</span></span>
-                </div>
-                <div style="display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.3">
-                  <span
-                    style="width:10px;height:10px;border-radius:50%;background:rgba(10,42,124,1);flex-shrink:0"></span>
-                  <span><strong style="font-size:13px">81+ yrs</strong><br /><span
-                      style="color:var(--text-muted);font-size:12px">23% · 2.9K</span></span>
-                </div>
+              <div id="age-distribution-legend"
+                style="display:flex;flex-direction:column;gap:12px;align-items:flex-start;"></div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.3">
+                <span
+                  style="width:10px;height:10px;border-radius:50%;background:rgba(147,197,253,1);flex-shrink:0"></span>
+                <span><strong style="font-size:13px">60–70 yrs</strong><br /><span
+                    style="color:var(--text-muted);font-size:12px">42% · 5.2K</span></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.3">
+                <span
+                  style="width:10px;height:10px;border-radius:50%;background:rgba(61,111,232,1);flex-shrink:0"></span>
+                <span><strong style="font-size:13px">71–80 yrs</strong><br /><span
+                    style="color:var(--text-muted);font-size:12px">35% · 4.4K</span></span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;font-size:13px;line-height:1.3">
+                <span
+                  style="width:10px;height:10px;border-radius:50%;background:rgba(10,42,124,1);flex-shrink:0"></span>
+                <span><strong style="font-size:13px">81+ yrs</strong><br /><span
+                    style="color:var(--text-muted);font-size:12px">23% · 2.9K</span></span>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        <div class="an-card analytics-legacy-issuance">
-          <div class="an-card__header">
+      <div class="an-card analytics-legacy-issuance">
+        <div class="an-card__header">
+          <div>
+            <div class="an-card__title">ID Issuance Over Time</div>
+            <div class="an-card__sub">Cumulative IDs issued per month</div>
+          </div>
+          <span class="small-pill">Live</span>
+        </div>
+        <div class="an-card__body--nop" style="padding:0 22px 22px">
+          <div class="chart-wrap" style="height:220px"><canvas id="chart-issuance"></canvas></div>
+        </div>
+      </div>
+
+      <div class="an-card" id="analytics-turnaround-time">
+        <div class="an-card__header">
+          <div>
+            <div class="an-card__title">Turnaround Time</div>
+            <div class="an-card__sub">Average review days per month</div>
+          </div>
+        </div>
+        <div class="an-card__body--nop" style="padding:0 22px 22px">
+          <div class="chart-wrap" style="height:200px"><canvas id="chart-processing"></canvas></div>
+        </div>
+      </div>
+
+  </div>
+
+  </main>
+
+  <!-- MODALS (UNCHANGED) -->
+  <!-- APPLICATION DETAIL MODAL -->
+  <div class="modal-backdrop" id="app-modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal__header">
+        <div>
+          <div class="modal__title" id="modal-title">Application Detail</div>
+          <div class="modal__sub" id="modal-sub">–</div>
+        </div>
+        <button class="modal__close" onclick="closeModal()">
+          <svg viewBox="0 0 16 16" fill="currentColor">
+            <path
+              d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal__body" id="modal-body-content">
+        <!-- Applicant summary header -->
+        <div class="content-card modal-applicant-head">
+          <div class="content-card__body"
+            style="display:flex;align-items:center;gap:14px;padding:14px 18px;flex-wrap:wrap">
+            <div class="modal-app-head-avatar">
+              <img id="detail-photo" alt="Applicant photo"
+                style="display:none;width:100%;height:100%;object-fit:cover;border-radius:var(--r-xl)">
+              <span id="detail-photo-fb" style="font-weight:800;font-size:20px;color:var(--text-muted)">--</span>
+            </div>
+            <div style="flex:1;min-width:200px">
+              <div id="detail-name" style="font-size:16px;font-weight:800;color:var(--text-primary);line-height:1.2">–
+              </div>
+              <div id="detail-id" style="font-size:12px;color:var(--text-muted);margin-top:3px">–</div>
+              <div id="detail-barangay" style="font-size:12px;color:var(--text-muted);margin-top:2px">–</div>
+            </div>
+            <span class="badge" id="detail-status" style="font-size:11px">–</span>
+          </div>
+        </div>
+
+        <!-- AI Duplicate banner -->
+        <div class="alert alert-info" id="dup-alert" style="display:none">
+          <svg viewBox="0 0 16 16" fill="currentColor">
+            <path
+              d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zM7.25 4.75a.75.75 0 1 1 1.5 0v4.25a.75.75 0 1 1-1.5 0V4.75zm.75 7a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" />
+          </svg>
+          <div class="alert-content">
+            <div class="alert-title">Duplicate Detected (AI)</div>
+            <div class="alert-desc" id="dup-text">–</div>
+          </div>
+        </div>
+
+        <!-- Workflow steps -->
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+            <div
+              style="font-family:var(--font-data);font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted)">
+              Workflow</div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <select class="filter-select" style="height:34px" id="status-select" onchange="updateStatus(this.value)">
+                <option value="Pending">Pending</option>
+                <option value="Under Review">Under Review</option>
+                <option value="In Process">In Process</option>
+                <option value="Ready for Release">Ready for Release</option>
+                <option value="Completed">Completed</option>
+                <option value="Rejected">Rejected</option>
+              </select>
+            </div>
+          </div>
+          <div class="workflow" style="margin-top:10px" id="workflow-steps">
+            <div class="step active" data-step="Pending"><span class="bubble">1</span>Pending</div>
+            <div class="step" data-step="Under Review"><span class="bubble">2</span>Under Review</div>
+            <div class="step" data-step="In Process"><span class="bubble">3</span>In Process</div>
+            <div class="step" data-step="Ready for Release"><span class="bubble">4</span>Ready for Release</div>
+            <div class="step" data-step="Completed"><span class="bubble">5</span>Completed</div>
+            <div class="step" data-step="Rejected"><span class="bubble">6</span>Rejected</div>
+          </div>
+        </div>
+
+        <!-- Applicant Information -->
+        <div class="content-card">
+          <div class="content-card__header">
             <div>
-              <div class="an-card__title">ID Issuance Over Time</div>
-              <div class="an-card__sub">Cumulative IDs issued per month</div>
+              <div class="content-card__title">Applicant Information</div>
+              <div class="content-card__desc">Personal details from the application form</div>
             </div>
-            <span class="small-pill">Live</span>
           </div>
-          <div class="an-card__body--nop" style="padding:0 22px 22px">
-            <div class="chart-wrap" style="height:220px"><canvas id="chart-issuance"></canvas></div>
+          <div class="content-card__body" id="applicant-info-body">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Full Name</div>
+                <div id="info-fullname" style="font-size:13px;font-weight:600">–</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Date of Birth</div>
+                <div id="info-dob" style="font-size:13px">–</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Age</div>
+                <div id="info-age" style="font-size:13px">–</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Sex</div>
+                <div id="info-sex" style="font-size:13px">–</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Place of Birth</div>
+                <div id="info-birthplace" style="font-size:13px">–</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Civil Status</div>
+                <div id="info-civilstatus" style="font-size:13px">–</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Address</div>
+                <div id="info-address" style="font-size:13px">–</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Barangay</div>
+                <div id="info-barangay" style="font-size:13px">–</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Educational Attainment</div>
+                <div id="info-education" style="font-size:13px">–</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Religion</div>
+                <div id="info-religion" style="font-size:13px">–</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Occupation</div>
+                <div id="info-occupation" style="font-size:13px">–</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Contact Number</div>
+                <div id="info-contact" style="font-size:13px">–</div>
+              </div>
+            </div>
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-light)">
+              <div
+                style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">
+                Government IDs</div>
+              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
+                <div>
+                  <div style="font-size:11px;color:var(--text-muted)">OSCA</div>
+                  <div id="info-id-osca" style="font-size:12px">–</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:var(--text-muted)">SSS</div>
+                  <div id="info-id-sss" style="font-size:12px">–</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:var(--text-muted)">PhilHealth</div>
+                  <div id="info-id-philhealth" style="font-size:12px">–</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:var(--text-muted)">GSIS</div>
+                  <div id="info-id-gsis" style="font-size:12px">–</div>
+                </div>
+                <div>
+                  <div style="font-size:11px;color:var(--text-muted)">TIN</div>
+                  <div id="info-id-tin" style="font-size:12px">–</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="an-card" id="analytics-turnaround-time">
-            <div class="an-card__header">
-              <div>
-                <div class="an-card__title">Turnaround Time</div>
-                <div class="an-card__sub">Average review days per month</div>
-              </div>
-            </div>
-            <div class="an-card__body--nop" style="padding:0 22px 22px">
-              <div class="chart-wrap" style="height:200px"><canvas id="chart-processing"></canvas></div>
+        <!-- Family Composition -->
+        <div class="content-card">
+          <div class="content-card__header">
+            <div>
+              <div class="content-card__title">Family Composition</div>
+              <div class="content-card__desc">Household members and relatives</div>
             </div>
           </div>
+          <div class="content-card__body" id="family-body" style="padding:0;overflow-x:auto">
+            <table class="data-table" id="family-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Relationship</th>
+                  <th>Age</th>
+                  <th>Civil Status</th>
+                  <th>Occupation</th>
+                  <th>Income</th>
+                </tr>
+              </thead>
+              <tbody id="family-tbody">
+                <tr>
+                  <td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">No family composition
+                    data</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Membership -->
+        <div class="content-card">
+          <div class="content-card__header">
+            <div>
+              <div class="content-card__title">Senior Citizens Association Membership</div>
+              <div class="content-card__desc">Association affiliation details</div>
+            </div>
+          </div>
+          <div class="content-card__body" id="membership-body">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Association Name</div>
+                <div id="info-assoc-name" style="font-size:13px">–</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Address</div>
+                <div id="info-assoc-address" style="font-size:13px">–</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Date Joined</div>
+                <div id="info-assoc-date" style="font-size:13px">–</div>
+              </div>
+              <div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Position</div>
+                <div id="info-assoc-position" style="font-size:13px">–</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Personal Background -->
+        <div class="content-card">
+          <div class="content-card__header">
+            <div>
+              <div class="content-card__title">Personal Background</div>
+              <div class="content-card__desc">Income, assets, living situation, skills, and involvement</div>
+            </div>
+          </div>
+          <div class="content-card__body" id="personal-bg-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+              <div>
+                <div
+                  style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
+                  Source of Income</div>
+                <div id="info-income-sources" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
+              </div>
+              <div>
+                <div
+                  style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
+                  Assets &amp; Properties</div>
+                <div id="info-assets" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
+              </div>
+              <div>
+                <div
+                  style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
+                  Monthly Income</div>
+                <div id="info-monthly-income" style="font-size:13px">–</div>
+              </div>
+              <div>
+                <div
+                  style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
+                  Living / Residing With</div>
+                <div id="info-living-with" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
+              </div>
+              <div>
+                <div
+                  style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
+                  Skills / Specialization</div>
+                <div id="info-skills" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
+              </div>
+              <div>
+                <div
+                  style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
+                  Community Involvement</div>
+                <div id="info-involvement" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Problems & Needs -->
+        <div class="content-card">
+          <div class="content-card__header">
+            <div>
+              <div class="content-card__title">Problems &amp; Needs Assessment</div>
+              <div class="content-card__desc">Commonly encountered problems by category</div>
+            </div>
+          </div>
+          <div class="content-card__body" id="problems-body">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+              <div>
+                <div
+                  style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
+                  Economic</div>
+                <div id="info-problems-economic" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
+              </div>
+              <div>
+                <div
+                  style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
+                  Social / Emotional</div>
+                <div id="info-problems-social" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
+              </div>
+              <div>
+                <div
+                  style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
+                  Health</div>
+                <div id="info-problems-health" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
+              </div>
+              <div>
+                <div
+                  style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
+                  Housing</div>
+                <div id="info-problems-housing" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
+              </div>
+              <div>
+                <div
+                  style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
+                  Community Service</div>
+                <div id="info-problems-community" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
+              </div>
+              <div>
+                <div
+                  style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
+                  Other Specific Needs</div>
+                <div id="info-problems-other" style="font-size:13px">–</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Rule-based validation -->
+        <div class="content-card">
+          <div class="content-card__header">
+            <div>
+              <div class="content-card__title">Eligibility Validation (Rules + AI)</div>
+              <div class="content-card__desc">Auto-check age (60+), residency, document completeness</div>
+            </div>
+            <button class="btn btn--ghost" style="height:34px;font-size:12px" onclick="runValidation()">Run
+              Validation</button>
+          </div>
+          <div class="content-card__body" id="validation-body">
+            <div style="display:flex;flex-wrap:wrap;gap:8px">
+              <span class="badge badge-approved">Age 60+</span>
+              <span class="badge badge-review">Residency: Needs check</span>
+              <span class="badge badge-pending">Docs: Incomplete</span>
+            </div>
+            <div style="margin-top:10px;font-size:12.5px;color:var(--text-muted);line-height:1.5">
+              Validation uses rule checks and similarity matching for duplicates (name/DOB/address).</div>
+          </div>
+        </div>
+
+        <!-- Document Verification -->
+        <div class="content-card">
+          <div class="content-card__header">
+            <div>
+              <div class="content-card__title">Verify Documents</div>
+              <div class="content-card__desc">Valid ID (Front/Back), Photo, Birth Certificate, Cedula, Signature</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn--secondary" style="height:30px;font-size:11px;padding:0 12px"
+                onclick="approveAllDocs()">Approve All</button>
+              <button class="btn btn--ghost" style="height:30px;font-size:11px;padding:0 12px"
+                onclick="requestReupload()">Request Re-upload</button>
+            </div>
+          </div>
+          <div class="content-card__body">
+            <div class="doc-grid">
+              <div class="doc-card">
+                <div class="doc-card__top">
+                  <div class="doc-card__name">Valid ID (Front)</div><span class="doc-card__status ok"
+                    id="doc-id-front-status">Pending</span>
+                </div>
+                <div class="doc-card__body">
+                  <div class="doc-preview" id="doc-id-front-preview" onclick="viewDocument('idFront')"
+                    title="Click to view document"><svg class="doc-preview__icon" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="1.5">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+                    </svg>No document uploaded</div>
+                  <div class="doc-actions">
+                    <button class="btn btn--secondary" onclick="viewDocument('idFront')"><svg viewBox="0 0 16 16"
+                        fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" />
+                        <circle cx="8" cy="8" r="2.5" />
+                      </svg>View</button>
+                    <button class="btn btn--secondary" onclick="setDocStatus('idFront','ok')">Approve</button>
+                    <button class="btn btn--secondary" onclick="setDocStatus('idFront','warn')">Re-upload</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="doc-card">
+                <div class="doc-card__top">
+                  <div class="doc-card__name">Valid ID (Back)</div><span class="doc-card__status ok"
+                    id="doc-id-back-status">Pending</span>
+                </div>
+                <div class="doc-card__body">
+                  <div class="doc-preview" id="doc-id-back-preview" onclick="viewDocument('idBack')"
+                    title="Click to view document"><svg class="doc-preview__icon" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="1.5">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+                    </svg>No document uploaded</div>
+                  <div class="doc-actions">
+                    <button class="btn btn--secondary" onclick="viewDocument('idBack')"><svg viewBox="0 0 16 16"
+                        fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" />
+                        <circle cx="8" cy="8" r="2.5" />
+                      </svg>View</button>
+                    <button class="btn btn--secondary" onclick="setDocStatus('idBack','ok')">Approve</button>
+                    <button class="btn btn--secondary" onclick="setDocStatus('idBack','warn')">Re-upload</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="doc-card">
+                <div class="doc-card__top">
+                  <div class="doc-card__name">Latest Photo</div><span class="doc-card__status ok"
+                    id="doc-photo-status">Pending</span>
+                </div>
+                <div class="doc-card__body">
+                  <div class="doc-preview" id="doc-photo-preview" onclick="viewDocument('photo')"
+                    title="Click to view document"><svg class="doc-preview__icon" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="1.5">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+                    </svg>No document uploaded</div>
+                  <div class="doc-actions">
+                    <button class="btn btn--secondary" onclick="viewDocument('photo')"><svg viewBox="0 0 16 16"
+                        fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" />
+                        <circle cx="8" cy="8" r="2.5" />
+                      </svg>View</button>
+                    <button class="btn btn--secondary" onclick="setDocStatus('photo','ok')">Approve</button>
+                    <button class="btn btn--secondary" onclick="setDocStatus('photo','warn')">Re-upload</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="doc-card">
+                <div class="doc-card__top">
+                  <div class="doc-card__name">Birth Certificate</div><span class="doc-card__status warn"
+                    id="doc-bc-status">Pending</span>
+                </div>
+                <div class="doc-card__body">
+                  <div class="doc-preview" id="doc-bc-preview" onclick="viewDocument('bc')"
+                    title="Click to view document"><svg class="doc-preview__icon" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="1.5">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+                    </svg>No document uploaded</div>
+                  <div class="doc-actions">
+                    <button class="btn btn--secondary" onclick="viewDocument('bc')"><svg viewBox="0 0 16 16" fill="none"
+                        stroke="currentColor" stroke-width="1.8">
+                        <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" />
+                        <circle cx="8" cy="8" r="2.5" />
+                      </svg>View</button>
+                    <button class="btn btn--secondary" onclick="setDocStatus('bc','ok')">Approve</button>
+                    <button class="btn btn--secondary" onclick="setDocStatus('bc','warn')">Re-upload</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="doc-card">
+                <div class="doc-card__top">
+                  <div class="doc-card__name">Community Tax Certificate</div><span class="doc-card__status ok"
+                    id="doc-cedula-status">Pending</span>
+                </div>
+                <div class="doc-card__body">
+                  <div class="doc-preview" id="doc-cedula-preview" onclick="viewDocument('cedula')"
+                    title="Click to view document"><svg class="doc-preview__icon" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="1.5">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+                    </svg>No document uploaded</div>
+                  <div class="doc-actions">
+                    <button class="btn btn--secondary" onclick="viewDocument('cedula')"><svg viewBox="0 0 16 16"
+                        fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" />
+                        <circle cx="8" cy="8" r="2.5" />
+                      </svg>View</button>
+                    <button class="btn btn--secondary" onclick="setDocStatus('cedula','ok')">Approve</button>
+                    <button class="btn btn--secondary" onclick="setDocStatus('cedula','warn')">Re-upload</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="doc-card">
+                <div class="doc-card__top">
+                  <div class="doc-card__name">Signature</div><span class="doc-card__status ok"
+                    id="doc-signature-status">Pending</span>
+                </div>
+                <div class="doc-card__body">
+                  <div class="doc-preview" id="doc-signature-preview" onclick="viewDocument('signature')"
+                    title="Click to view document"><svg class="doc-preview__icon" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="1.5">
+                      <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+                    </svg>No document uploaded</div>
+                  <div class="doc-actions">
+                    <button class="btn btn--secondary" onclick="viewDocument('signature')"><svg viewBox="0 0 16 16"
+                        fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" />
+                        <circle cx="8" cy="8" r="2.5" />
+                      </svg>View</button>
+                    <button class="btn btn--secondary" onclick="setDocStatus('signature','ok')">Approve</button>
+                    <button class="btn btn--secondary" onclick="setDocStatus('signature','warn')">Re-upload</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin-top:12px;font-size:12.5px;color:var(--text-muted)">
+              Status: <strong id="docs-summary">All documents pending review</strong>
+            </div>
+          </div>
+        </div>
 
       </div>
 
-    </main>
+      <div class="modal__footer">
+        <button class="btn btn--danger" id="btn-reject" onclick="rejectCurrent()">Reject</button>
+        <button class="btn btn--secondary" id="btn-save" onclick="saveCurrent()">Save</button>
+        <button class="btn btn--primary" id="btn-approve" onclick="generateIssuanceForm()">Generate Issuance
+          Form</button>
+      </div>
+    </div>
+  </div>
 
-    <!-- MODALS (UNCHANGED) -->
-    <!-- APPLICATION DETAIL MODAL -->
-    <div class="modal-backdrop" id="app-modal">
-      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-        <div class="modal__header">
-          <div>
-            <div class="modal__title" id="modal-title">Application Detail</div>
-            <div class="modal__sub" id="modal-sub">–</div>
-          </div>
-          <button class="modal__close" onclick="closeModal()">
+  <!-- DOCUMENT VIEWER LIGHTBOX -->
+  <div class="doc-viewer-backdrop" id="doc-viewer-backdrop" onclick="closeDocViewer()">
+    <div class="doc-viewer" onclick="event.stopPropagation()">
+      <div class="doc-viewer__header">
+        <div class="doc-viewer__title" id="doc-viewer-title">Document Preview</div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="doc-viewer__nav" id="doc-viewer-prev" onclick="navDocViewer(-1)">
+            <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
+              <path
+                d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z" />
+            </svg>
+          </button>
+          <span class="doc-viewer__counter" id="doc-viewer-counter">1 / 6</span>
+          <button class="doc-viewer__nav" id="doc-viewer-next" onclick="navDocViewer(1)">
+            <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
+              <path
+                d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z" />
+            </svg>
+          </button>
+          <button class="modal__close" onclick="closeDocViewer()">
             <svg viewBox="0 0 16 16" fill="currentColor">
               <path
                 d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />
             </svg>
           </button>
         </div>
+      </div>
+      <div class="doc-viewer__body">
+        <img class="doc-viewer__img" id="doc-viewer-img" src="" alt="Document" />
+        <div class="doc-viewer__empty" id="doc-viewer-empty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+            style="width:48px;height:48px;color:var(--text-muted)">
+            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+            <polyline points="14,2 14,8 20,8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <polyline points="10,9 9,9 8,9" />
+          </svg>
+          <div>No document uploaded yet</div>
+        </div>
+      </div>
+      <div class="doc-viewer__footer">
+        <span class="doc-viewer__docname" id="doc-viewer-docname">—</span>
+        <span class="doc-viewer__applicant" id="doc-viewer-applicant">—</span>
+      </div>
+    </div>
+  </div>
 
-        <div class="modal__body" id="modal-body-content">
-          <!-- Applicant summary header -->
-          <div class="content-card modal-applicant-head">
-            <div class="content-card__body"
-              style="display:flex;align-items:center;gap:14px;padding:14px 18px;flex-wrap:wrap">
-              <div class="modal-app-head-avatar">
-                <img id="detail-photo" alt="Applicant photo"
-                  style="display:none;width:100%;height:100%;object-fit:cover;border-radius:var(--r-xl)">
-                <span id="detail-photo-fb" style="font-weight:800;font-size:20px;color:var(--text-muted)">--</span>
-              </div>
-              <div style="flex:1;min-width:200px">
-                <div id="detail-name" style="font-size:16px;font-weight:800;color:var(--text-primary);line-height:1.2">–
-                </div>
-                <div id="detail-id" style="font-size:12px;color:var(--text-muted);margin-top:3px">–</div>
-                <div id="detail-barangay" style="font-size:12px;color:var(--text-muted);margin-top:2px">–</div>
-              </div>
-              <span class="badge" id="detail-status" style="font-size:11px">–</span>
-            </div>
-          </div>
-
-          <!-- AI Duplicate banner -->
-          <div class="alert alert-info" id="dup-alert" style="display:none">
+  <!-- DIGITAL ISSUANCE FORM MODAL -->
+  <div class="modal-backdrop" id="digital-issuance-modal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="di-modal-title" style="width:min(640px,100%)">
+      <div class="modal__header">
+        <div>
+          <div class="modal__title" id="di-modal-title">Digital Issuance Form</div>
+          <div class="modal__sub">Review small form details and update production status</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="btn btn--ghost" style="height:32px;font-size:12px;padding:0 12px"
+            onclick="downloadDigitalIssuanceDocs()">
+            <i class="fi fi-rr-download" style="margin-right:5px"></i>Download as Docs
+          </button>
+          <button class="modal__close" onclick="closeDigitalIssuance()">
             <svg viewBox="0 0 16 16" fill="currentColor">
               <path
-                d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zM7.25 4.75a.75.75 0 1 1 1.5 0v4.25a.75.75 0 1 1-1.5 0V4.75zm.75 7a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" />
+                d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />
             </svg>
-            <div class="alert-content">
-              <div class="alert-title">Duplicate Detected (AI)</div>
-              <div class="alert-desc" id="dup-text">–</div>
-            </div>
-          </div>
-
-          <!-- Workflow steps -->
-          <div>
-            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-              <div
-                style="font-family:var(--font-data);font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted)">
-                Workflow</div>
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-                <select class="filter-select" style="height:34px" id="status-select"
-                  onchange="updateStatus(this.value)">
-                  <option value="Pending">Pending</option>
-                  <option value="Unverified">Unverified</option>
-                  <option value="Under Review">Under Review</option>
-                  <option value="Verified">Verified</option>
-                  <option value="In Process">In Process</option>
-                  <option value="Ready for Release">Ready for Release</option>
-                  <option value="ID Issued">ID Issued</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Rejected">Rejected</option>
-                </select>
-              </div>
-            </div>
-            <div class="workflow" style="margin-top:10px" id="workflow-steps">
-              <div class="step active" data-step="Pending"><span class="bubble">1</span>Pending</div>
-              <div class="step" data-step="Under Review"><span class="bubble">2</span>Under Review</div>
-              <div class="step" data-step="Verified"><span class="bubble">3</span>Verified</div>
-              <div class="step" data-step="In Process"><span class="bubble">4</span>In Process</div>
-              <div class="step" data-step="Ready for Release"><span class="bubble">5</span>Ready for Release</div>
-              <div class="step" data-step="ID Issued"><span class="bubble">6</span>ID Issued</div>
-            </div>
-          </div>
-
-          <!-- Applicant Information -->
-          <div class="content-card">
-            <div class="content-card__header">
-              <div>
-                <div class="content-card__title">Applicant Information</div>
-                <div class="content-card__desc">Personal details from the application form</div>
-              </div>
-            </div>
-            <div class="content-card__body" id="applicant-info-body">
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Full Name</div>
-                  <div id="info-fullname" style="font-size:13px;font-weight:600">–</div>
-                </div>
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Date of Birth</div>
-                  <div id="info-dob" style="font-size:13px">–</div>
-                </div>
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Age</div>
-                  <div id="info-age" style="font-size:13px">–</div>
-                </div>
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Sex</div>
-                  <div id="info-sex" style="font-size:13px">–</div>
-                </div>
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Place of Birth</div>
-                  <div id="info-birthplace" style="font-size:13px">–</div>
-                </div>
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Civil Status</div>
-                  <div id="info-civilstatus" style="font-size:13px">–</div>
-                </div>
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Address</div>
-                  <div id="info-address" style="font-size:13px">–</div>
-                </div>
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Barangay</div>
-                  <div id="info-barangay" style="font-size:13px">–</div>
-                </div>
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Educational Attainment</div>
-                  <div id="info-education" style="font-size:13px">–</div>
-                </div>
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Religion</div>
-                  <div id="info-religion" style="font-size:13px">–</div>
-                </div>
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Occupation</div>
-                  <div id="info-occupation" style="font-size:13px">–</div>
-                </div>
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Contact Number</div>
-                  <div id="info-contact" style="font-size:13px">–</div>
-                </div>
-              </div>
-              <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-light)">
-                <div
-                  style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">
-                  Government IDs</div>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px">
-                  <div>
-                    <div style="font-size:11px;color:var(--text-muted)">OSCA</div>
-                    <div id="info-id-osca" style="font-size:12px">–</div>
-                  </div>
-                  <div>
-                    <div style="font-size:11px;color:var(--text-muted)">SSS</div>
-                    <div id="info-id-sss" style="font-size:12px">–</div>
-                  </div>
-                  <div>
-                    <div style="font-size:11px;color:var(--text-muted)">PhilHealth</div>
-                    <div id="info-id-philhealth" style="font-size:12px">–</div>
-                  </div>
-                  <div>
-                    <div style="font-size:11px;color:var(--text-muted)">GSIS</div>
-                    <div id="info-id-gsis" style="font-size:12px">–</div>
-                  </div>
-                  <div>
-                    <div style="font-size:11px;color:var(--text-muted)">TIN</div>
-                    <div id="info-id-tin" style="font-size:12px">–</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Family Composition -->
-          <div class="content-card">
-            <div class="content-card__header">
-              <div>
-                <div class="content-card__title">Family Composition</div>
-                <div class="content-card__desc">Household members and relatives</div>
-              </div>
-            </div>
-            <div class="content-card__body" id="family-body" style="padding:0;overflow-x:auto">
-              <table class="data-table" id="family-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Relationship</th>
-                    <th>Age</th>
-                    <th>Civil Status</th>
-                    <th>Occupation</th>
-                    <th>Income</th>
-                  </tr>
-                </thead>
-                <tbody id="family-tbody">
-                  <tr>
-                    <td colspan="6" style="text-align:center;color:var(--text-muted);padding:16px">No family composition
-                      data</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <!-- Membership -->
-          <div class="content-card">
-            <div class="content-card__header">
-              <div>
-                <div class="content-card__title">Senior Citizens Association Membership</div>
-                <div class="content-card__desc">Association affiliation details</div>
-              </div>
-            </div>
-            <div class="content-card__body" id="membership-body">
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px">
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Association Name</div>
-                  <div id="info-assoc-name" style="font-size:13px">–</div>
-                </div>
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Address</div>
-                  <div id="info-assoc-address" style="font-size:13px">–</div>
-                </div>
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Date Joined</div>
-                  <div id="info-assoc-date" style="font-size:13px">–</div>
-                </div>
-                <div>
-                  <div style="font-size:11px;color:var(--text-muted);margin-bottom:2px">Position</div>
-                  <div id="info-assoc-position" style="font-size:13px">–</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Personal Background -->
-          <div class="content-card">
-            <div class="content-card__header">
-              <div>
-                <div class="content-card__title">Personal Background</div>
-                <div class="content-card__desc">Income, assets, living situation, skills, and involvement</div>
-              </div>
-            </div>
-            <div class="content-card__body" id="personal-bg-body">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-                <div>
-                  <div
-                    style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
-                    Source of Income</div>
-                  <div id="info-income-sources" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
-                </div>
-                <div>
-                  <div
-                    style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
-                    Assets &amp; Properties</div>
-                  <div id="info-assets" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
-                </div>
-                <div>
-                  <div
-                    style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
-                    Monthly Income</div>
-                  <div id="info-monthly-income" style="font-size:13px">–</div>
-                </div>
-                <div>
-                  <div
-                    style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
-                    Living / Residing With</div>
-                  <div id="info-living-with" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
-                </div>
-                <div>
-                  <div
-                    style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
-                    Skills / Specialization</div>
-                  <div id="info-skills" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
-                </div>
-                <div>
-                  <div
-                    style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
-                    Community Involvement</div>
-                  <div id="info-involvement" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Problems & Needs -->
-          <div class="content-card">
-            <div class="content-card__header">
-              <div>
-                <div class="content-card__title">Problems &amp; Needs Assessment</div>
-                <div class="content-card__desc">Commonly encountered problems by category</div>
-              </div>
-            </div>
-            <div class="content-card__body" id="problems-body">
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-                <div>
-                  <div
-                    style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
-                    Economic</div>
-                  <div id="info-problems-economic" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
-                </div>
-                <div>
-                  <div
-                    style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
-                    Social / Emotional</div>
-                  <div id="info-problems-social" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
-                </div>
-                <div>
-                  <div
-                    style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
-                    Health</div>
-                  <div id="info-problems-health" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
-                </div>
-                <div>
-                  <div
-                    style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
-                    Housing</div>
-                  <div id="info-problems-housing" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
-                </div>
-                <div>
-                  <div
-                    style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
-                    Community Service</div>
-                  <div id="info-problems-community" style="display:flex;flex-wrap:wrap;gap:4px">–</div>
-                </div>
-                <div>
-                  <div
-                    style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">
-                    Other Specific Needs</div>
-                  <div id="info-problems-other" style="font-size:13px">–</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Rule-based validation -->
-          <div class="content-card">
-            <div class="content-card__header">
-              <div>
-                <div class="content-card__title">Eligibility Validation (Rules + AI)</div>
-                <div class="content-card__desc">Auto-check age (60+), residency, document completeness</div>
-              </div>
-              <button class="btn btn--ghost" style="height:34px;font-size:12px" onclick="runValidation()">Run
-                Validation</button>
-            </div>
-            <div class="content-card__body" id="validation-body">
-              <div style="display:flex;flex-wrap:wrap;gap:8px">
-                <span class="badge badge-approved">Age 60+</span>
-                <span class="badge badge-review">Residency: Needs check</span>
-                <span class="badge badge-pending">Docs: Incomplete</span>
-              </div>
-              <div style="margin-top:10px;font-size:12.5px;color:var(--text-muted);line-height:1.5">
-                Validation uses rule checks and similarity matching for duplicates (name/DOB/address).</div>
-            </div>
-          </div>
-
-          <!-- Document Verification -->
-          <div class="content-card">
-            <div class="content-card__header">
-              <div>
-                <div class="content-card__title">Verify Documents</div>
-                <div class="content-card__desc">Valid ID (Front/Back), Photo, Birth Certificate, Cedula, Signature</div>
-              </div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button class="btn btn--secondary" style="height:30px;font-size:11px;padding:0 12px" onclick="approveAllDocs()">Approve All</button>
-                <button class="btn btn--ghost" style="height:30px;font-size:11px;padding:0 12px" onclick="requestReupload()">Request Re-upload</button>
-              </div>
-            </div>
-            <div class="content-card__body">
-              <div class="doc-grid">
-                <div class="doc-card">
-                  <div class="doc-card__top">
-                    <div class="doc-card__name">Valid ID (Front)</div><span class="doc-card__status ok"
-                      id="doc-id-front-status">Pending</span>
-                  </div>
-                  <div class="doc-card__body">
-                    <div class="doc-preview" id="doc-id-front-preview" onclick="viewDocument('idFront')"
-                      title="Click to view document"><svg class="doc-preview__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>No document uploaded</div>
-                    <div class="doc-actions">
-                      <button class="btn btn--secondary" onclick="viewDocument('idFront')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" /><circle cx="8" cy="8" r="2.5" /></svg>View</button>
-                      <button class="btn btn--secondary" onclick="setDocStatus('idFront','ok')">Approve</button>
-                      <button class="btn btn--secondary" onclick="setDocStatus('idFront','warn')">Re-upload</button>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="doc-card">
-                  <div class="doc-card__top">
-                    <div class="doc-card__name">Valid ID (Back)</div><span class="doc-card__status ok"
-                      id="doc-id-back-status">Pending</span>
-                  </div>
-                  <div class="doc-card__body">
-                    <div class="doc-preview" id="doc-id-back-preview" onclick="viewDocument('idBack')"
-                      title="Click to view document"><svg class="doc-preview__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>No document uploaded</div>
-                    <div class="doc-actions">
-                      <button class="btn btn--secondary" onclick="viewDocument('idBack')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" /><circle cx="8" cy="8" r="2.5" /></svg>View</button>
-                      <button class="btn btn--secondary" onclick="setDocStatus('idBack','ok')">Approve</button>
-                      <button class="btn btn--secondary" onclick="setDocStatus('idBack','warn')">Re-upload</button>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="doc-card">
-                  <div class="doc-card__top">
-                    <div class="doc-card__name">Latest Photo</div><span class="doc-card__status ok"
-                      id="doc-photo-status">Pending</span>
-                  </div>
-                  <div class="doc-card__body">
-                    <div class="doc-preview" id="doc-photo-preview" onclick="viewDocument('photo')"
-                      title="Click to view document"><svg class="doc-preview__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>No document uploaded</div>
-                    <div class="doc-actions">
-                      <button class="btn btn--secondary" onclick="viewDocument('photo')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" /><circle cx="8" cy="8" r="2.5" /></svg>View</button>
-                      <button class="btn btn--secondary" onclick="setDocStatus('photo','ok')">Approve</button>
-                      <button class="btn btn--secondary" onclick="setDocStatus('photo','warn')">Re-upload</button>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="doc-card">
-                  <div class="doc-card__top">
-                    <div class="doc-card__name">Birth Certificate</div><span class="doc-card__status warn"
-                      id="doc-bc-status">Pending</span>
-                  </div>
-                  <div class="doc-card__body">
-                    <div class="doc-preview" id="doc-bc-preview" onclick="viewDocument('bc')"
-                      title="Click to view document"><svg class="doc-preview__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>No document uploaded</div>
-                    <div class="doc-actions">
-                      <button class="btn btn--secondary" onclick="viewDocument('bc')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" /><circle cx="8" cy="8" r="2.5" /></svg>View</button>
-                      <button class="btn btn--secondary" onclick="setDocStatus('bc','ok')">Approve</button>
-                      <button class="btn btn--secondary" onclick="setDocStatus('bc','warn')">Re-upload</button>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="doc-card">
-                  <div class="doc-card__top">
-                    <div class="doc-card__name">Community Tax Certificate</div><span class="doc-card__status ok"
-                      id="doc-cedula-status">Pending</span>
-                  </div>
-                  <div class="doc-card__body">
-                    <div class="doc-preview" id="doc-cedula-preview" onclick="viewDocument('cedula')"
-                      title="Click to view document"><svg class="doc-preview__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>No document uploaded</div>
-                    <div class="doc-actions">
-                      <button class="btn btn--secondary" onclick="viewDocument('cedula')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" /><circle cx="8" cy="8" r="2.5" /></svg>View</button>
-                      <button class="btn btn--secondary" onclick="setDocStatus('cedula','ok')">Approve</button>
-                      <button class="btn btn--secondary" onclick="setDocStatus('cedula','warn')">Re-upload</button>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="doc-card">
-                  <div class="doc-card__top">
-                    <div class="doc-card__name">Signature</div><span class="doc-card__status ok"
-                      id="doc-signature-status">Pending</span>
-                  </div>
-                  <div class="doc-card__body">
-                    <div class="doc-preview" id="doc-signature-preview" onclick="viewDocument('signature')"
-                      title="Click to view document"><svg class="doc-preview__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg>No document uploaded</div>
-                    <div class="doc-actions">
-                      <button class="btn btn--secondary" onclick="viewDocument('signature')"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M1 8s2.5-5 7-5 7 5 7 5-2.5 5-7 5-7-5-7-5z" /><circle cx="8" cy="8" r="2.5" /></svg>View</button>
-                      <button class="btn btn--secondary" onclick="setDocStatus('signature','ok')">Approve</button>
-                      <button class="btn btn--secondary" onclick="setDocStatus('signature','warn')">Re-upload</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div style="margin-top:12px;font-size:12.5px;color:var(--text-muted)">
-                Status: <strong id="docs-summary">All documents pending review</strong>
-              </div>
-            </div>
-          </div>
-
-        </div>
-
-        <div class="modal__footer">
-          <button class="btn btn--danger" id="btn-reject" onclick="rejectCurrent()">Reject</button>
-          <button class="btn btn--secondary" id="btn-save" onclick="saveCurrent()">Save</button>
-          <button class="btn btn--primary" id="btn-approve" onclick="generateIssuanceForm()">Generate Issuance
-            Form</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- DOCUMENT VIEWER LIGHTBOX -->
-    <div class="doc-viewer-backdrop" id="doc-viewer-backdrop" onclick="closeDocViewer()">
-      <div class="doc-viewer" onclick="event.stopPropagation()">
-        <div class="doc-viewer__header">
-          <div class="doc-viewer__title" id="doc-viewer-title">Document Preview</div>
-          <div style="display:flex;align-items:center;gap:10px">
-            <button class="doc-viewer__nav" id="doc-viewer-prev" onclick="navDocViewer(-1)">
-              <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
-                <path
-                  d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z" />
-              </svg>
-            </button>
-            <span class="doc-viewer__counter" id="doc-viewer-counter">1 / 6</span>
-            <button class="doc-viewer__nav" id="doc-viewer-next" onclick="navDocViewer(1)">
-              <svg viewBox="0 0 16 16" fill="currentColor" width="16" height="16">
-                <path
-                  d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z" />
-              </svg>
-            </button>
-            <button class="modal__close" onclick="closeDocViewer()">
-              <svg viewBox="0 0 16 16" fill="currentColor">
-                <path
-                  d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />
-              </svg>
-            </button>
-          </div>
-        </div>
-        <div class="doc-viewer__body">
-          <img class="doc-viewer__img" id="doc-viewer-img" src="" alt="Document" />
-          <div class="doc-viewer__empty" id="doc-viewer-empty">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
-              style="width:48px;height:48px;color:var(--text-muted)">
-              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-              <polyline points="14,2 14,8 20,8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-              <polyline points="10,9 9,9 8,9" />
-            </svg>
-            <div>No document uploaded yet</div>
-          </div>
-        </div>
-        <div class="doc-viewer__footer">
-          <span class="doc-viewer__docname" id="doc-viewer-docname">—</span>
-          <span class="doc-viewer__applicant" id="doc-viewer-applicant">—</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- DIGITAL ISSUANCE FORM MODAL -->
-    <div class="modal-backdrop" id="digital-issuance-modal">
-      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="di-modal-title" style="width:min(640px,100%)">
-        <div class="modal__header">
-          <div>
-            <div class="modal__title" id="di-modal-title">Digital Issuance Form</div>
-            <div class="modal__sub">Review small form details and update production status</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <button class="btn btn--ghost" style="height:32px;font-size:12px;padding:0 12px"
-              onclick="downloadDigitalIssuanceDocs()">
-              <i class="fi fi-rr-download" style="margin-right:5px"></i>Download as Docs
-            </button>
-            <button class="modal__close" onclick="closeDigitalIssuance()">
-              <svg viewBox="0 0 16 16" fill="currentColor">
-                <path
-                  d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />
-              </svg>
-            </button>
-          </div>
-        </div>
-        <div class="modal__body">
-          <div class="small-form-preview" style="margin:0 auto 18px">
-            <div class="small-form-head">
-              <div>REPUBLIC OF THE PHILIPPINES</div>
-              <div>OFFICE OF THE SENIOR CITIZEN AFFAIRS - OSCA</div>
-              <div>MUNICIPALITY OF BAUAN</div>
-            </div>
-            <div class="small-form-photo">
-              <img id="di-preview-photo" alt="Citizen photo" />
-              <div class="small-form-photo-fallback" id="di-preview-photo-fallback">--</div>
-            </div>
-            <div class="small-form-lines">
-              <div class="small-form-line"><strong>NAME:</strong><span id="di-preview-name">________________</span>
-              </div>
-              <div class="small-form-line"><strong>ADDRESS:</strong><span
-                  id="di-preview-address">________________</span></div>
-              <div class="small-form-line"><strong>DATE OF BIRTH:</strong><span
-                  id="di-preview-dob">________________</span></div>
-              <div class="small-form-line"><strong>SEX:</strong><span id="di-preview-sex">________________</span></div>
-              <div class="small-form-line"><strong>DATE ISSUED:</strong><span
-                  id="di-preview-date-issued">________________</span></div>
-              <div class="small-form-line"><strong>CONTROL NO.:</strong><span
-                  id="di-preview-control-no">________________</span></div>
-            </div>
-            <div class="small-form-foot">
-              <div class="small-form-sign-wrap">
-                <div class="small-form-sign-box">
-                  <img id="di-preview-signature" alt="Signature" />
-                  <div class="small-form-sign-fallback" id="di-preview-sign-fallback">No signature image</div>
-                </div>
-                <div class="small-form-sign-label">Signature</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="modal__footer" id="di-modal-footer"
-            style="display:none;border-top:1px solid var(--border);padding-top:14px;margin-top:6px">
-            <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
-              <span class="small-pill" style="font-size:11px;color:var(--text-muted)"><i class="fi fi-rr-info"
-                  style="margin-right:4px"></i>Edit fields directly to correct typos before sending</span>
-              <button class="btn btn--primary" onclick="sendToIdMaker()" id="btn-send-idmaker">
-                <i class="fi fi-rr-paper-plane" style="margin-right:6px"></i>Send to ID Maker
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- APPLICANT PROFILE AND APPLICATION HISTORY -->
-    <div class="modal-backdrop" id="applicant-profile-modal">
-      <div class="modal applicant-profile-modal" role="dialog" aria-modal="true" aria-labelledby="applicant-profile-title">
-        <div class="modal__header">
-          <div>
-            <div class="modal__title" id="applicant-profile-title">Senior Citizen Profile</div>
-            <div class="modal__sub" id="applicant-profile-sub">Applicant record and request history</div>
-          </div>
-          <button class="modal__close" type="button" onclick="closeApplicantProfile()" aria-label="Close profile">
-            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/></svg>
           </button>
         </div>
-        <div class="modal__body">
-          <section class="applicant-profile-summary" aria-label="Senior citizen information">
-            <div><span>Name</span><strong id="applicant-profile-name">—</strong></div>
-            <div><span>Senior Citizen ID</span><strong id="applicant-profile-id">—</strong></div>
-            <div><span>Barangay</span><strong id="applicant-profile-barangay">—</strong></div>
-            <div><span>Age</span><strong id="applicant-profile-age">—</strong></div>
-            <div><span>Registration Date</span><strong id="applicant-profile-registration-date">—</strong></div>
-            <div><span>Status</span><strong id="applicant-profile-status">—</strong></div>
-          </section>
-          <section class="applicant-profile-history">
-            <div class="content-card__title">Application History</div>
-            <div class="applicant-profile-history__list" id="applicant-profile-history-list"></div>
-          </section>
-        </div>
       </div>
-    </div>
-
-    <!-- LOGOUT CONFIRMATION MODAL -->
-    <div class="modal-backdrop" id="logout-confirm-modal">
-      <div class="modal confirm-modal" role="dialog" aria-modal="true" aria-labelledby="logout-confirm-title">
-        <div class="confirm-hero">
-          <div class="confirm-icon"><i class="fi fi-rr-sign-out-alt"></i></div>
-          <div>
-            <div class="confirm-title" id="logout-confirm-title">Sign out of portal?</div>
-            <div class="confirm-desc">Your current session will end and protected pages will require login again.</div>
+      <div class="modal__body">
+        <div class="small-form-preview" style="margin:0 auto 18px">
+          <div class="small-form-head">
+            <div>REPUBLIC OF THE PHILIPPINES</div>
+            <div>OFFICE OF THE SENIOR CITIZEN AFFAIRS - OSCA</div>
+            <div>MUNICIPALITY OF BAUAN</div>
           </div>
-        </div>
-        <div class="confirm-body">
-          <div class="confirm-user">
-            <div>
-              <div class="applicant-name" id="confirm-logout-user">Current user</div>
-              <div class="applicant-id" id="confirm-logout-role">Role</div>
+          <div class="small-form-photo">
+            <img id="di-preview-photo" alt="Citizen photo" />
+            <div class="small-form-photo-fallback" id="di-preview-photo-fallback">--</div>
+          </div>
+          <div class="small-form-lines">
+            <div class="small-form-line"><strong>NAME:</strong><span id="di-preview-name">________________</span>
             </div>
-            <span class="small-pill">Secure logout</span>
+            <div class="small-form-line"><strong>ADDRESS:</strong><span id="di-preview-address">________________</span>
+            </div>
+            <div class="small-form-line"><strong>DATE OF BIRTH:</strong><span
+                id="di-preview-dob">________________</span></div>
+            <div class="small-form-line"><strong>SEX:</strong><span id="di-preview-sex">________________</span></div>
+            <div class="small-form-line"><strong>DATE ISSUED:</strong><span
+                id="di-preview-date-issued">________________</span></div>
+            <div class="small-form-line"><strong>CONTROL NO.:</strong><span
+                id="di-preview-control-no">________________</span></div>
+          </div>
+          <div class="small-form-foot">
+            <div class="small-form-sign-wrap">
+              <div class="small-form-sign-box">
+                <img id="di-preview-signature" alt="Signature" />
+                <div class="small-form-sign-fallback" id="di-preview-sign-fallback">No signature image</div>
+              </div>
+              <div class="small-form-sign-label">Signature</div>
+            </div>
           </div>
         </div>
-        <div class="confirm-actions">
-          <button class="btn btn--ghost" onclick="closeLogoutConfirm()">Cancel</button>
-          <button class="btn btn--danger" onclick="confirmLogout()">Yes, Sign Out</button>
+
+        <div class="modal__footer" id="di-modal-footer"
+          style="display:none;border-top:1px solid var(--border);padding-top:14px;margin-top:6px">
+          <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+            <span class="small-pill" style="font-size:11px;color:var(--text-muted)"><i class="fi fi-rr-info"
+                style="margin-right:4px"></i>Edit fields directly to correct typos before sending</span>
+            <button class="btn btn--primary" onclick="sendToIdMaker()" id="btn-send-idmaker">
+              <i class="fi fi-rr-paper-plane" style="margin-right:6px"></i>Send to ID Maker
+            </button>
+          </div>
         </div>
       </div>
     </div>
+  </div>
 
-    <!-- TOAST CONTAINER -->
-    <div class="toast-container" id="toast-container"></div>
+  <!-- APPLICANT PROFILE AND APPLICATION HISTORY -->
+  <div class="modal-backdrop" id="applicant-profile-modal">
+    <div class="modal applicant-profile-modal" role="dialog" aria-modal="true"
+      aria-labelledby="applicant-profile-title">
 
-    <!-- SCRIPTS -->
-    <script src="theme.js?v=1"></script>
-    <script src="app.js?v=26"></script>
-    <script src="staff.js?v=18"></script>
+      <!-- Header -->
+      <header class="applicant-profile-header">
+        <div class="applicant-profile-header__identity">
+          <div class="applicant-profile-avatar" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </div>
+          <div class="applicant-profile-header__text">
+            <h2 class="applicant-profile-title" id="applicant-profile-title">—</h2>
+            <p class="applicant-profile-sub" id="applicant-profile-sub">0 linked applications</p>
+          </div>
+        </div>
+
+        <button class="applicant-profile-close" type="button" onclick="closeApplicantProfile()"
+          aria-label="Close profile">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 3l10 10M13 3L3 13" />
+          </svg>
+        </button>
+      </header>
+
+      <!-- Modal Body -->
+      <div class="applicant-profile-body">
+
+        <!-- Applicant Information Grid -->
+        <section class="applicant-profile-grid" aria-label="Applicant information">
+
+          <div class="applicant-profile-card">
+            <p class="applicant-profile-card__label">Name</p>
+            <p class="applicant-profile-card__val" id="applicant-profile-name">—</p>
+          </div>
+
+          <div class="applicant-profile-card">
+            <p class="applicant-profile-card__label">Application ID</p>
+            <p class="applicant-profile-card__val" id="applicant-profile-id">—</p>
+          </div>
+
+          <div class="applicant-profile-card">
+            <p class="applicant-profile-card__label">Barangay</p>
+            <p class="applicant-profile-card__val" id="applicant-profile-barangay">—</p>
+          </div>
+
+          <div class="applicant-profile-card">
+            <p class="applicant-profile-card__label">Age</p>
+            <p class="applicant-profile-card__val" id="applicant-profile-age">—</p>
+          </div>
+
+          <div class="applicant-profile-card">
+            <p class="applicant-profile-card__label">Registration Date</p>
+            <p class="applicant-profile-card__val" id="applicant-profile-registration-date">—</p>
+          </div>
+
+          <div class="applicant-profile-card applicant-profile-card--status">
+            <p class="applicant-profile-card__label">Status</p>
+            <div class="applicant-profile-card__status-wrap" id="applicant-profile-status-wrap">
+              <span class="profile-status-pill status-pill--pending" id="applicant-profile-status-pill">
+                <span class="status-dot"></span>
+                <span id="applicant-profile-status">Pending</span>
+              </span>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- Application History -->
+        <section class="applicant-profile-history-section" aria-label="Application history">
+          <div class="applicant-profile-history-header">
+            <h3 class="applicant-profile-history-title">Application History</h3>
+            <span class="applicant-profile-history-count" id="applicant-profile-history-count">0 records</span>
+          </div>
+
+          <div class="applicant-profile-history__list" id="applicant-profile-history-list"></div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- LOGOUT CONFIRMATION MODAL -->
+  <div class="modal-backdrop" id="logout-confirm-modal">
+    <div class="modal confirm-modal" role="dialog" aria-modal="true" aria-labelledby="logout-confirm-title">
+      <div class="confirm-hero">
+        <div class="confirm-icon"><i class="fi fi-rr-sign-out-alt"></i></div>
+        <div>
+          <div class="confirm-title" id="logout-confirm-title">Sign out of portal?</div>
+          <div class="confirm-desc">Your current session will end and protected pages will require login again.</div>
+        </div>
+      </div>
+      <div class="confirm-body">
+        <div class="confirm-user">
+          <div>
+            <div class="applicant-name" id="confirm-logout-user">Current user</div>
+            <div class="applicant-id" id="confirm-logout-role">Role</div>
+          </div>
+          <span class="small-pill">Secure logout</span>
+        </div>
+      </div>
+      <div class="confirm-actions">
+        <button class="btn btn--ghost" onclick="closeLogoutConfirm()">Cancel</button>
+        <button class="btn btn--danger" onclick="confirmLogout()">Yes, Sign Out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST CONTAINER -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- SCRIPTS -->
+  <script src="theme.js?v=1"></script>
+  <script src="app.js?v=28"></script>
+  <script src="staff.js?v=29"></script>
 </body>
 
 </html>

@@ -87,7 +87,21 @@ async function loadIdMakerQueueFromDatabase(showMessage = false) {
 
     }
 
-    console.log(
+        // Merge any locally queued items from localStorage
+    const localQueue = (typeof getLocalIdMakerQueue === 'function') ? getLocalIdMakerQueue() : [];
+    if (Array.isArray(localQueue)) {
+      localQueue.forEach(function(localItem) {
+        const localId = String(localItem.id || localItem.application_id);
+        const idx = ID_MAKER_QUEUE.findIndex(item => String(item.id || item.application_id) === localId);
+        if (idx === -1) {
+          ID_MAKER_QUEUE.unshift(localItem);
+        } else {
+          ID_MAKER_QUEUE[idx] = Object.assign({}, ID_MAKER_QUEUE[idx], localItem);
+        }
+      });
+    }
+
+console.log(
       'ID Maker queue loaded:',
       ID_MAKER_QUEUE.length,
       'records'
@@ -118,7 +132,10 @@ async function loadIdMakerQueueFromDatabase(showMessage = false) {
     );
 
     ID_MAKER_QUEUE.length = 0;
-
+    const localQueue = (typeof getLocalIdMakerQueue === 'function') ? getLocalIdMakerQueue() : [];
+    if (Array.isArray(localQueue) && localQueue.length > 0) {
+      localQueue.forEach(item => ID_MAKER_QUEUE.push(item));
+    }
     initIdMakerQueue();
     updateIdMakerKPIs();
 
@@ -247,7 +264,7 @@ function initIdMakerQueue(){
   if(!tbody) return;
   tbody.innerHTML = '';
   if (typeof Skeleton !== 'undefined') Skeleton.clearBusy(tbody);
-  const statuses = ['Queued','In Production','Printed','In Transit'];
+  const statuses = ['Queued','In Production','Printed','In Transit','Completed'];
   if (!ID_MAKER_QUEUE.length) {
     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">No cards in the production queue yet. They will appear here once connected to the live system.</td></tr>';
   }
@@ -256,8 +273,8 @@ function initIdMakerQueue(){
     tr.dataset.appId = app.id;
     tr.dataset.printStatus = app.printStatus;
     tr.dataset.brgy = app.barangay || '';
-    const statusColors = { 'Queued':'var(--warning)', 'In Production':'var(--primary)', 'Printed':'var(--purple)', 'In Transit':'var(--success)' };
-    const statusIcons = { 'Queued':'clock', 'In Production':'document', 'Printed':'checkmark', 'In Transit':'check-circle' };
+    const statusColors = { 'Queued':'var(--warning)', 'In Production':'var(--primary)', 'Printed':'var(--purple)', 'In Transit':'var(--success)', 'Completed':'var(--success)' };
+    const statusIcons = { 'Queued':'clock', 'In Production':'document', 'Printed':'checkmark', 'In Transit':'check-circle', 'Completed':'check-circle' };
     const curColor = statusColors[app.printStatus] || 'var(--text-muted)';
     const menuItems = statuses.map(function(s){
       const active = s === app.printStatus ? ' active' : '';
@@ -319,7 +336,8 @@ function initIdMakerStatusChart() {
     Queued: 0,
     'In Production': 0,
     Printed: 0,
-    'In Transit': 0
+    'In Transit': 0,
+    Completed: 0
   };
 
   ID_MAKER_QUEUE.forEach(
@@ -353,7 +371,8 @@ function initIdMakerStatusChart() {
         'Queued',
         'In Production',
         'Printed',
-        'In Transit'
+        'In Transit',
+        'Completed'
       ],
 
       datasets: [
@@ -362,7 +381,8 @@ function initIdMakerStatusChart() {
             counts.Queued,
             counts['In Production'],
             counts.Printed,
-            counts['In Transit']
+            counts['In Transit'],
+            counts.Completed
           ],
 
           backgroundColor: [
@@ -403,7 +423,8 @@ function initIdMakerStatusChart() {
                 counts.Queued +
                 counts['In Production'] +
                 counts.Printed +
-                counts['In Transit'];
+                counts['In Transit'] +
+                counts.Completed;
 
               var pct =
                 total
@@ -642,6 +663,9 @@ async function inlineStatusChange(appId, newStatus) {
     // ========================================
 
     queueItem.printStatus = newStatus;
+    if (typeof saveLocalIdMakerQueue === 'function') {
+      saveLocalIdMakerQueue(queueItem);
+    }
 
     const queueRow =
       document.querySelector(
@@ -659,53 +683,62 @@ async function inlineStatusChange(appId, newStatus) {
     // ========================================
 
     const applicationStatus =
-      newStatus === 'In Transit'
+      newStatus === 'Completed'
         ? 'Ready for Release'
         : 'In Process';
 
-    const applicationStatusResponse = await fetch(
-      'https://management-backend-3cij.onrender.com/api/applications/' +
-      encodeURIComponent(appId) +
-      '/status',
-      {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          status: applicationStatus
-        })
-      }
-    );
-
-    const applicationStatusResult =
-      await applicationStatusResponse.json();
-
-    if (
-      !applicationStatusResponse.ok ||
-      !applicationStatusResult.success
-    ) {
-      throw new Error(
-        applicationStatusResult.message ||
-        'Failed to update application status.'
+    // The print queue status is the primary operation. Keep it saved even if
+    // the separate application workflow sync fails (for example, if that
+    // endpoint is temporarily unavailable or rejects the transition).
+    try {
+      const applicationStatusResponse = await fetch(
+        'https://management-backend-3cij.onrender.com/api/applications/' +
+        encodeURIComponent(appId) +
+        '/status',
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            status: applicationStatus
+          })
+        }
       );
-    }
 
-    // Update local state after database update succeeds
-    if (
-      typeof APP_DB !== 'undefined' &&
-      APP_DB[appId]
-    ) {
-      APP_DB[appId].status = applicationStatus;
-    }
+      const applicationStatusResult =
+        await applicationStatusResponse.json();
 
-    if (
-      typeof syncApplicationsTableBadge ===
-      'function'
-    ) {
-      syncApplicationsTableBadge(
-        appId,
-        applicationStatus
+      if (
+        !applicationStatusResponse.ok ||
+        !applicationStatusResult.success
+      ) {
+        console.warn(
+          'Queue status saved, but application workflow status sync failed:',
+          applicationStatusResult.message || applicationStatusResponse.status
+        );
+      } else {
+        // Update local application records only after the server confirms.
+        if (typeof APP_DB !== 'undefined' && APP_DB[appId]) {
+          APP_DB[appId].status = applicationStatus;
+        }
+        if (typeof LIVE_APPLICATIONS !== 'undefined' && Array.isArray(LIVE_APPLICATIONS)) {
+          const liveApp = LIVE_APPLICATIONS.find(item => String(item.application_id || item.id) === String(appId));
+          if (liveApp) liveApp.status = applicationStatus;
+        }
+        if (typeof FULL_APPLICANTS !== 'undefined' && Array.isArray(FULL_APPLICANTS)) {
+          const fullApp = FULL_APPLICANTS.find(item => String(item.id) === String(appId));
+          if (fullApp) fullApp.status = applicationStatus;
+        }
+
+        if (typeof syncApplicationsTableBadge === 'function') {
+          syncApplicationsTableBadge(appId, applicationStatus);
+        }
+      }
+    } catch (syncError) {
+      console.warn(
+        'Queue status saved, but application workflow status sync failed:',
+        syncError
       );
     }
 
@@ -764,6 +797,7 @@ function updateIdMakerKPIs() {
   var production = 0;
   var printed = 0;
   var transit = 0;
+  var completed = 0;
   var errors = 0;
 
   ID_MAKER_QUEUE.forEach(function(app){
@@ -789,6 +823,9 @@ function updateIdMakerKPIs() {
     ) {
       transit++;
     }
+    else if (app.printStatus === 'Completed') {
+      completed++;
+    }
 
   });
 
@@ -810,7 +847,8 @@ function updateIdMakerKPIs() {
     production,
     printed,
     transit,
-    errors
+    completed,
+    ID_MAKER_QUEUE.length
   ];
 
 
@@ -846,6 +884,7 @@ function queueBadgeClass(status){
     'In Production':'badge-review',
     'Printed':'badge-issued',
     'In Transit':'badge-approved',
+    'Completed':'badge-issued',
     'Released':'badge-approved',
     'Rejected':'badge-rejected'
   };
@@ -864,7 +903,7 @@ function selectQueueFilter(btn,status){
 
 function selectRowStatus(opt, appId, newStatus){
   const root = opt.closest('.row-status-select');
-  const statusColors = { 'Queued':'var(--warning)', 'In Production':'var(--primary)', 'Printed':'var(--purple)', 'In Transit':'var(--success)' };
+  const statusColors = { 'Queued':'var(--warning)', 'In Production':'var(--primary)', 'Printed':'var(--purple)', 'In Transit':'var(--success)', 'Completed':'var(--success)' };
   root.querySelector('.qsd-label').textContent = newStatus;
   root.querySelector('.qsd-trigger .qsd-dot').style.background = statusColors[newStatus] || 'var(--text-muted)';
   root.querySelectorAll('.qsd-option').forEach(o => o.classList.toggle('active', o.dataset.status === newStatus));
@@ -885,7 +924,7 @@ function toggleRowStatus(btn, event){
 }
 
 function updateFilterCounts(){
-  const counts = { Queued:0, 'In Production':0, Printed:0, 'In Transit':0 };
+  const counts = { Queued:0, 'In Production':0, Printed:0, 'In Transit':0, Completed:0 };
   ID_MAKER_QUEUE.forEach(a => { if(counts[a.printStatus] !== undefined) counts[a.printStatus]++; });
   const total = ID_MAKER_QUEUE.length;
   const allCount = document.getElementById('qf-count-all');
@@ -893,11 +932,13 @@ function updateFilterCounts(){
   const p = document.getElementById('qf-count-production');
   const pr = document.getElementById('qf-count-printed');
   const t = document.getElementById('qf-count-transit');
+  const c = document.getElementById('qf-count-completed');
   if(allCount) allCount.textContent = total;
   if(q) q.textContent = counts.Queued;
   if(p) p.textContent = counts['In Production'];
   if(pr) pr.textContent = counts.Printed;
   if(t) t.textContent = counts['In Transit'];
+  if(c) c.textContent = counts.Completed;
 }
 
 /* ── Dashboard additions: barangay filter, quick tags, batch export ── */
@@ -927,9 +968,9 @@ function filterQueueByBarangay(value){
 }
 
 function updateQueueTagCounts(){
-  const counts = { Queued:0, 'In Production':0, Printed:0, 'In Transit':0 };
+  const counts = { Queued:0, 'In Production':0, Printed:0, 'In Transit':0, Completed:0 };
   ID_MAKER_QUEUE.forEach(a => { if(counts[a.printStatus] !== undefined) counts[a.printStatus]++; });
-  const map = { 'qt-queued': counts.Queued, 'qt-production': counts['In Production'], 'qt-printed': counts.Printed, 'qt-transit': counts['In Transit'] };
+  const map = { 'qt-queued': counts.Queued, 'qt-production': counts['In Production'], 'qt-printed': counts.Printed, 'qt-transit': counts['In Transit'], 'qt-completed': counts.Completed };
   Object.keys(map).forEach(function(id){
     const el = document.getElementById(id);
     if(el) el.textContent = map[id];
@@ -950,7 +991,7 @@ function dismissSystemAlert(){
 }
 
 function updateAlertCounts(){
-  const counts = { Queued:0, 'In Production':0, Printed:0, 'In Transit':0 };
+  const counts = { Queued:0, 'In Production':0, Printed:0, 'In Transit':0, Completed:0 };
   ID_MAKER_QUEUE.forEach(a => { if(counts[a.printStatus] !== undefined) counts[a.printStatus]++; });
 }
 
@@ -1151,7 +1192,8 @@ function updateIdMakerAnalyticsInsights() {
     Queued: 0,
     'In Production': 0,
     Printed: 0,
-    'In Transit': 0
+    'In Transit': 0,
+    Completed: 0
   };
 
 
@@ -1498,7 +1540,8 @@ function updateIdMakerKPIs() {
     Queued: 0,
     'In Production': 0,
     Printed: 0,
-    'In Transit': 0
+    'In Transit': 0,
+    Completed: 0
   };
 
   ID_MAKER_QUEUE.forEach(
@@ -1558,8 +1601,13 @@ function updateIdMakerKPIs() {
       .querySelector(
         '.stat-card__value'
       )
-      .textContent =
-      ID_MAKER_QUEUE.length;
+      .textContent = counts.Completed;
+  }
+
+  if (cards[5]) {
+    cards[5]
+      .querySelector('.stat-card__value')
+      .textContent = ID_MAKER_QUEUE.length;
   }
 
   updateFilterCounts();
@@ -1586,3 +1634,47 @@ document.addEventListener('DOMContentLoaded', async function () {
   await loadIdMakerQueueFromDatabase(false);
 
 });
+
+// Real-time synchronization with Staff Portal Small Form Generator
+window.addEventListener('storage', function(e) {
+  if (e.key === 'seniorid_id_maker_local_queue') {
+    try {
+      const updatedList = JSON.parse(e.newValue || '[]');
+      if (Array.isArray(updatedList)) {
+        updatedList.forEach(function(item) {
+          const itemId = String(item.id || item.application_id);
+          const idx = ID_MAKER_QUEUE.findIndex(q => String(q.id || q.application_id) === itemId);
+          if (idx >= 0) {
+            ID_MAKER_QUEUE[idx] = Object.assign({}, ID_MAKER_QUEUE[idx], item);
+          } else {
+            ID_MAKER_QUEUE.unshift(item);
+          }
+        });
+        initIdMakerQueue();
+        updateIdMakerKPIs();
+      }
+    } catch (err) {
+      console.warn('Storage sync error:', err);
+    }
+  }
+});
+
+if (typeof BroadcastChannel !== 'undefined') {
+  try {
+    const queueChannel = new BroadcastChannel('idmaker_queue_channel');
+    queueChannel.onmessage = function(event) {
+      if (event.data && event.data.type === 'QUEUE_UPDATED' && event.data.entry) {
+        const item = event.data.entry;
+        const itemId = String(item.id || item.application_id);
+        const idx = ID_MAKER_QUEUE.findIndex(q => String(q.id || q.application_id) === itemId);
+        if (idx >= 0) {
+          ID_MAKER_QUEUE[idx] = Object.assign({}, ID_MAKER_QUEUE[idx], item);
+        } else {
+          ID_MAKER_QUEUE.unshift(item);
+        }
+        initIdMakerQueue();
+        updateIdMakerKPIs();
+      }
+    };
+  } catch (err) {}
+}

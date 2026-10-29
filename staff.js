@@ -135,11 +135,11 @@ function isSameDay(dateValue, referenceDate = new Date()) {
 
   return (
     date.getFullYear() ===
-      referenceDate.getFullYear() &&
+    referenceDate.getFullYear() &&
     date.getMonth() ===
-      referenceDate.getMonth() &&
+    referenceDate.getMonth() &&
     date.getDate() ===
-      referenceDate.getDate()
+    referenceDate.getDate()
   );
 }
 
@@ -163,9 +163,9 @@ function isSameMonth(dateValue, referenceDate = new Date()) {
 
   return (
     date.getFullYear() ===
-      referenceDate.getFullYear() &&
+    referenceDate.getFullYear() &&
     date.getMonth() ===
-      referenceDate.getMonth()
+    referenceDate.getMonth()
   );
 }
 
@@ -435,12 +435,12 @@ function updateLiveDashboardVisuals(
   const selectedYear =
     yearFilter
       ? String(
-          yearFilter.value
-        )
+        yearFilter.value
+      )
       : String(
-          new Date()
-            .getFullYear()
-        );
+        new Date()
+          .getFullYear()
+      );
 
   const barangayCounts = {};
 
@@ -919,7 +919,7 @@ function updateApplicationSummaryCards(
         (
           duplicate &&
           typeof duplicate ===
-            'object'
+          'object'
         ) ||
         (
           duplicateRisk &&
@@ -1163,8 +1163,8 @@ function updateAgeDistributionLegend() {
         const percent =
           total > 0
             ? Math.round(
-                (group.value / total) * 100
-              )
+              (group.value / total) * 100
+            )
             : 0;
 
         return `
@@ -1208,7 +1208,7 @@ function updateAgeDistributionLegend() {
 
       }
     )
-    .join('');
+      .join('');
 }
 
 // BUILD LIVE ANALYTICS DATA
@@ -1280,7 +1280,7 @@ function updateLiveAnalyticsCharts(
           createdDate.getTime()
         ) &&
         createdDate.getFullYear() ===
-          currentYear
+        currentYear
       ) {
 
         submitted[
@@ -1319,7 +1319,7 @@ function updateLiveAnalyticsCharts(
           statusDate.getTime()
         ) &&
         statusDate.getFullYear() ===
-          currentYear
+        currentYear
       ) {
 
         const month =
@@ -1485,7 +1485,7 @@ function updateLiveAnalyticsCharts(
           statusDate.getTime()
         ) &&
         statusDate.getFullYear() ===
-          currentYear
+        currentYear
       ) {
 
         issuanceMonthly[
@@ -1667,7 +1667,7 @@ function updateLiveAnalyticsCharts(
 
       data.ageDistribution =
         [...ageDistribution];
-      
+
       updateAgeDistributionLegend();
 
 
@@ -1686,7 +1686,7 @@ function updateLiveAnalyticsCharts(
 
   if (
     typeof chartsReady !==
-      'undefined' &&
+    'undefined' &&
     chartsReady
   ) {
 
@@ -1705,7 +1705,7 @@ function updateLiveAnalyticsCharts(
 
           CHARTS.trend.data.datasets[0]
             .data =
-              submitted;
+            submitted;
 
         }
 
@@ -1715,7 +1715,7 @@ function updateLiveAnalyticsCharts(
 
           CHARTS.trend.data.datasets[1]
             .data =
-              approvedMonthly;
+            approvedMonthly;
 
         }
 
@@ -1725,7 +1725,7 @@ function updateLiveAnalyticsCharts(
 
           CHARTS.trend.data.datasets[2]
             .data =
-              rejectedMonthly;
+            rejectedMonthly;
 
         }
 
@@ -1788,7 +1788,7 @@ function updateLiveAnalyticsCharts(
 
         CHARTS.age.data.datasets[0]
           .data =
-            ageDistribution;
+          ageDistribution;
 
         CHARTS.age.update();
 
@@ -1801,7 +1801,7 @@ function updateLiveAnalyticsCharts(
 
         CHARTS.issuance.data.datasets[0]
           .data =
-            issuance;
+          issuance;
 
         CHARTS.issuance.update();
 
@@ -1814,14 +1814,14 @@ function updateLiveAnalyticsCharts(
 
         CHARTS.processing.data.datasets[0]
           .data =
-            processing;
+          processing;
 
         CHARTS.processing.update();
 
       }
     }
   }
-   updateAnalyticsHandoff(applications);
+  updateAnalyticsHandoff(applications);
 }
 
 function updateAnalyticsHandoff(applications) {
@@ -1842,8 +1842,8 @@ function updateAnalyticsHandoff(applications) {
   const percent =
     total > 0
       ? Math.round(
-          (ready / total) * 100
-        )
+        (ready / total) * 100
+      )
       : 0;
 
   const percentEl =
@@ -1911,7 +1911,7 @@ function handleDashboardQuickSearch(query) {
 
 if (
   typeof chartsReady !==
-    'undefined' &&
+  'undefined' &&
   chartsReady
 ) {
 
@@ -1970,10 +1970,9 @@ function switchKPIs(role) {
             );
 
           card.className =
-            `stat-card${
-              index === 1
-                ? ' stat-card--warn'
-                : ''
+            `stat-card${index === 1
+              ? ' stat-card--warn'
+              : ''
             }`;
 
 
@@ -2210,7 +2209,7 @@ function switchKPIs(role) {
 
 const originalSetRole =
   window.setRole ||
-  (() => {});
+  (() => { });
 
 
 window.setRole =
@@ -2432,12 +2431,12 @@ function renderLiveApplicants(applications) {
 
                   <span class="applicant-id">
                     ${escapeApplicationHtml(
-                      application.sex || 'Applicant'
-                    )}
+          application.sex || 'Applicant'
+        )}
                     ·
                     ${escapeApplicationHtml(
-                      String(age)
-                    )}
+          String(age)
+        )}
                     yrs
                   </span>
 
@@ -2464,8 +2463,8 @@ function renderLiveApplicants(applications) {
             <td>
               <span class="cell-text">
                 ${escapeApplicationHtml(
-                  String(age)
-                )}
+          String(age)
+        )}
               </span>
             </td>
 
@@ -2473,35 +2472,14 @@ function renderLiveApplicants(applications) {
             <td>
               <span class="cell-text">
                 ${escapeApplicationHtml(
-                  occupation
-                )}
+          occupation
+        )}
               </span>
             </td>
 
 
             <td>
-              ${
-                typeof buildApplicationTypePill ===
-                'function'
-                  ? (() => {
-                      try {
-                        return buildApplicationTypePill(
-                          application
-                        );
-                      } catch (error) {
-                        return `
-                          <span class="badge badge-pending">
-                            Application
-                          </span>
-                        `;
-                      }
-                    })()
-                  : `
-                    <span class="badge badge-pending">
-                      Application
-                    </span>
-                  `
-              }
+              ${renderApplicationTypePill(application)}
             </td>
 
 
@@ -2522,576 +2500,21 @@ function renderLiveApplicants(applications) {
 
       }
     )
-    .join('');
-
-    const footer = document.querySelector(
-      '#mod-applicants .table-footer__info'
-    );
-
-    if (footer) {
-      footer.textContent =
-        `Showing ${applications.length.toLocaleString()} of ${applications.length.toLocaleString()} applicants`;
-    }
-
-}
-
-// RENDER LIVE APPLICATIONS
-
-function renderLiveApplications(applications) {
-
-  const tbody =
-    document.getElementById(
-      'applications-tbody'
-    );
-
-  if (!tbody) {
-    return;
-  }
-
-  if (
-    !Array.isArray(applications) ||
-    applications.length === 0
-  ) {
-
-    tbody.innerHTML = `
-      <tr>
-        <td
-          colspan="8"
-          style="
-            text-align:center;
-            padding:32px;
-            color:var(--text-muted);
-          "
-        >
-          No applications found.
-        </td>
-      </tr>
-    `;
-
-    const shown =
-      document.getElementById(
-        'apps-shown'
-      );
-
-    const total =
-      document.getElementById(
-        'apps-total'
-      );
-
-    if (shown) {
-      shown.textContent = '0';
-    }
-
-    if (total) {
-      total.textContent = '0';
-    }
-
-    return;
-  }
-
-  tbody.innerHTML =
-    applications.map(
-      (application, index) => {
-
-        const appId =
-          application.application_id ||
-          application.id ||
-          '';
-
-
-        const fullName = [
-          application.first_name,
-          application.middle_name,
-          application.surname
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .trim() ||
-          'Unnamed Applicant';
-
-
-        const barangay =
-          application.barangay_district ||
-          '—';
-
-
-        const createdAt =
-          application.created_at ||
-          application.submitted_at ||
-          null;
-
-
-        let formattedDate =
-          '—';
-
-
-        if (createdAt) {
-
-          const date =
-            new Date(createdAt);
-
-          if (
-            !Number.isNaN(
-              date.getTime()
-            )
-          ) {
-
-            formattedDate =
-              date.toLocaleDateString(
-                'en-US',
-                {
-                  month: 'short',
-                  day: 'numeric',
-                  year: 'numeric'
-                }
-              );
-
-          }
-
-        }
-
-
-        const status =
-          application.status ||
-          'Pending';
-
-
-        // APPLICATION TYPE
-
-        let applicationTypeHtml =
-          '<span class="app-type-pill app-type-pill--first">★ First-Time</span>';
-
-        if (
-          typeof buildApplicationTypePill ===
-          'function'
-        ) {
-
-          try {
-
-            applicationTypeHtml =
-              buildApplicationTypePill(
-                application
-              );
-
-          } catch (error) {
-
-            console.warn(
-              'Unable to build application type:',
-              error
-            );
-
-          }
-
-        }
-
-
-        // DOCUMENT STATUS
-
-        let docsHtml =
-          '<span class="docs-pill">—</span>';
-
-        if (
-          typeof buildDocsStatusPill ===
-          'function'
-        ) {
-
-          try {
-
-            docsHtml =
-              buildDocsStatusPill(
-                application
-              );
-
-          } catch (error) {
-
-            console.warn(
-              'Unable to build document status:',
-              error
-            );
-
-          }
-
-        }
-
-
-        // STATUS DROPDOWN
-
-        let statusHtml =
-          `<span class="status-select__label">
-            ${escapeApplicationHtml(status)}
-          </span>`;
-
-
-        if (
-          typeof buildStatusSelect ===
-          'function'
-        ) {
-
-          try {
-
-            statusHtml =
-              buildStatusSelect(
-                appId,
-                status
-              );
-
-          } catch (error) {
-
-            console.warn(
-              'Unable to build application status:',
-              error
-            );
-
-          }
-
-        }
-
-
-        // URGENT CHECK
-
-        let daysPending =
-          Number(
-            application.days_pending
-          );
-
-        if (
-          !Number.isFinite(daysPending)
-        ) {
-
-          daysPending = 0;
-
-          if (
-            createdAt &&
-            (
-              String(status)
-                .toLowerCase() ===
-                'pending' ||
-              String(status)
-                .toLowerCase() ===
-                'under review'
-            )
-          ) {
-
-            const created =
-              new Date(createdAt);
-
-            if (
-              !Number.isNaN(
-                created.getTime()
-              )
-            ) {
-
-              daysPending =
-                Math.floor(
-                  (
-                    Date.now() -
-                    created.getTime()
-                  ) /
-                  (
-                    1000 *
-                    60 *
-                    60 *
-                    24
-                  )
-                );
-
-            }
-
-          }
-
-        }
-
-
-        const avatar =
-          fullName
-            .split(/\s+/)
-            .filter(Boolean)
-            .slice(0, 2)
-            .map(
-              part =>
-                part
-                  .charAt(0)
-                  .toUpperCase()
-            )
-            .join('');
-
-
-        const gradients = [
-          'linear-gradient(135deg,#FDE68A,#D97706)',
-          'linear-gradient(135deg,#34D399,#059669)',
-          'linear-gradient(135deg,#93C5FD,#2563EB)',
-          'linear-gradient(135deg,#F9A8D4,#DB2777)',
-          'linear-gradient(135deg,#C4B5FD,#7C3AED)',
-          'linear-gradient(135deg,#FCA5A5,#DC2626)'
-        ];
-
-        const gradient =
-          gradients[
-            index % gradients.length
-          ];
-
-
-        return `
-          <tr
-            data-app-id="${escapeApplicationHtml(appId)}"
-          >
-
-            <td style="width:40px">
-
-              <input
-                type="checkbox"
-                class="row-check"
-                data-app-id="${escapeApplicationHtml(appId)}"
-                aria-label="Select ${escapeApplicationHtml(fullName)}"
-                onchange="updateBatchState()"
-              />
-
-            </td>
-
-
-            <td data-label="Applicant">
-
-              <div class="applicant-cell">
-
-                <div
-                  class="applicant-avatar"
-                  style="background:${gradient}"
-                >
-                  ${escapeApplicationHtml(avatar)}
-                </div>
-
-                <div class="applicant-info">
-
-                  <span class="applicant-name">
-                    ${escapeApplicationHtml(fullName)}
-                  </span>
-
-                  <span class="applicant-id">
-                    ${escapeApplicationHtml(appId)}
-                  </span>
-
-                </div>
-
-              </div>
-
-            </td>
-
-
-            <td data-label="Date">
-
-              <span class="cell-text">
-                ${escapeApplicationHtml(
-                  formattedDate
-                )}
-              </span>
-
-            </td>
-
-
-            <td data-label="Application Type">
-
-              ${applicationTypeHtml}
-
-            </td>
-
-
-            <td data-label="Barangay">
-
-              <span class="cell-text">
-                ${escapeApplicationHtml(
-                  barangay
-                )}
-              </span>
-
-            </td>
-
-
-            <td data-label="Docs Status">
-
-              ${docsHtml}
-
-            </td>
-
-
-            <td data-label="Status">
-
-              ${statusHtml}
-
-            </td>
-
-
-            <td style="text-align:right">${buildViewAction(appId)}</td>
-
-          </tr>
-        `;
-
-      }
-    )
-    .join('');
-
-
-  // UPDATE TOTALS
-
-  const shown =
-    document.getElementById(
-      'apps-shown'
-    );
-
-  const total =
-    document.getElementById(
-      'apps-total'
-    );
-
-  if (shown) {
-    shown.textContent =
-      applications.length;
-  }
-
-  if (total) {
-    total.textContent =
-      applications.length;
-  }
-
-
-  // UPDATE STATUS TAB COUNTS
-
-  if (
-    typeof updateStatusTabCounts ===
-    'function'
-  ) {
-
-    updateStatusTabCounts();
-
-  }
-
-
-  // UPDATE URGENT COUNT
-
-  const urgentCount =
-    applications.filter(
-      application => {
-
-        const status =
-          String(
-            application.status ||
-            ''
-          )
-            .trim()
-            .toLowerCase();
-
-        let days =
-          Number(
-            application.days_pending
-          );
-
-        if (
-          !Number.isFinite(days) &&
-          application.created_at &&
-          (
-            status === 'pending' ||
-            status === 'under review'
-          )
-        ) {
-
-          const created =
-            new Date(
-              application.created_at
-            );
-
-          if (
-            !Number.isNaN(
-              created.getTime()
-            )
-          ) {
-
-            days =
-              Math.floor(
-                (
-                  Date.now() -
-                  created.getTime()
-                ) /
-                (
-                  1000 *
-                  60 *
-                  60 *
-                  24
-                )
-              );
-
-          }
-
-        }
-
-        return days > 5;
-
-      }
-    )
-    .length;
-
-
-  const urgentElement =
-    document.getElementById(
-      'urgent-count'
-    );
-
-  if (urgentElement) {
-
-    urgentElement.textContent =
-      `${urgentCount} Urgent`;
-
-  }
-
-
-  const urgentAlert =
-    document.getElementById(
-      'urgent-alert'
-    );
-
-  const urgentTitle =
-    document.getElementById(
-      'urgent-alert-title'
-    );
-
-  const urgentDescription =
-    document.getElementById(
-      'urgent-alert-desc'
-    );
-
-
-  if (urgentAlert) {
-
-    urgentAlert.style.display =
-      urgentCount > 0
-        ? ''
-        : 'none';
-
-  }
-
-
-  if (urgentTitle) {
-
-    urgentTitle.textContent =
-      urgentCount > 0
-        ? `${urgentCount} application${
-            urgentCount === 1
-              ? ''
-              : 's'
-          } require urgent review`
-        : 'No urgent applications';
-
-  }
-
-
-  if (urgentDescription) {
-
-    urgentDescription.textContent =
-      urgentCount > 0
-        ? 'These applications have been pending for more than 5 days and need immediate attention.'
-        : 'Applications pending for more than 5 days will appear here.';
-
+      .join('');
+
+  const footer = document.querySelector(
+    '#mod-applicants .table-footer__info'
+  );
+
+  if (footer) {
+    footer.textContent =
+      `Showing ${applications.length.toLocaleString()} of ${applications.length.toLocaleString()} applicants`;
   }
 
 }
+
+// Applicant summary cards calculation
+
 
 function updateApplicantSummaryCards(applications) {
   if (!Array.isArray(applications)) return;
@@ -3346,37 +2769,37 @@ function renderRecentSubmissions(
 
 
             return `
-              <tr>
+              <tr data-app-id="${escapeApplicationHtml(appId)}" data-status="${escapeApplicationHtml(status)}">
 
                 <td>
                   <span class="cell-text">
                     ${escapeApplicationHtml(
-                      fullName
-                    )}
+              fullName
+            )}
                   </span>
                 </td>
 
                 <td>
                   <span class="cell-text">
                     ${escapeApplicationHtml(
-                      formattedDate
-                    )}
+              formattedDate
+            )}
                   </span>
                 </td>
 
                 <td>
                   <span class="cell-text">
                     ${escapeApplicationHtml(
-                      barangay
-                    )}
+              barangay
+            )}
                   </span>
                 </td>
 
                 <td>
-                  <span class="status-select__label">
+                  <span class="cell-text status-select__label">
                     ${escapeApplicationHtml(
-                      status
-                    )}
+              status
+            )}
                   </span>
                 </td>
 
@@ -3427,8 +2850,7 @@ function renderRecentSubmissions(
       }
 
       footer.textContent =
-        `Showing ${
-          recentApplications.length
+        `Showing ${recentApplications.length
         } latest submissions`;
 
     }
@@ -3495,9 +2917,13 @@ function setStaffDashboardLoading(isLoading) {
 async function loadApplicationsFromDatabase() {
 
   // Show loading state
-  setStaffDashboardLoading(true);
+  if (typeof Skeleton !== 'undefined' && typeof Skeleton.setAllKpisLoading === 'function') {
+    Skeleton.setAllKpisLoading(true);
+  } else {
+    setStaffDashboardLoading(true);
+  }
   document.querySelectorAll('.data-table-card, .content-card').forEach(el => el.setAttribute('aria-busy', 'true'));
-  document.querySelectorAll('.admin-kpi-strip, .stat-card, .chart-card, .donut-card').forEach(el => el.classList.add('is-loading'));
+  document.querySelectorAll('.admin-kpi-strip, .cards-grid, .analytics-hero__stats, .stat-card, .analytics-kpi, .chart-card, .donut-card').forEach(el => el.classList.add('is-loading'));
 
   try {
 
@@ -3763,9 +3189,13 @@ async function loadApplicationsFromDatabase() {
 
     // Always remove loading state,
     // whether loading succeeded or failed.
-    setStaffDashboardLoading(false);
+    if (typeof Skeleton !== 'undefined' && typeof Skeleton.setAllKpisLoading === 'function') {
+      Skeleton.setAllKpisLoading(false);
+    } else {
+      setStaffDashboardLoading(false);
+    }
     document.querySelectorAll('.data-table-card, .content-card').forEach(el => el.removeAttribute('aria-busy'));
-    document.querySelectorAll('.admin-kpi-strip, .stat-card, .chart-card, .donut-card').forEach(el => el.classList.remove('is-loading'));
+    document.querySelectorAll('.admin-kpi-strip, .cards-grid, .analytics-hero__stats, .stat-card, .analytics-kpi, .chart-card, .donut-card').forEach(el => el.classList.remove('is-loading'));
     clearBusy('recent-apps-tbody');
     clearBusy('recent-submissions-tbody');
 
@@ -3899,7 +3329,7 @@ document.addEventListener(
 
 // Registry view helpers: group request rows into one profile per senior.
 var STAFF_APPLICANT_PROFILES = [];
-var APPLICATIONS_FILTER_STATE = { search: '', barangay: '', status: 'all' };
+var APPLICATIONS_FILTER_STATE = { search: '', barangay: '', type: 'all', status: 'all' };
 
 function getApplicationName(application) {
   return [application.first_name, application.middle_name, application.surname]
@@ -3959,7 +3389,7 @@ function buildApplicantProfiles(applications) {
     const dobDate = dobValue ? new Date(dobValue) : null;
     profile.nameDobKey = dobValue
       ? normalizeProfileIdentity(profile.name) + '|' +
-        (dobDate && !Number.isNaN(dobDate.getTime()) ? dobDate.toISOString().slice(0, 10) : normalizeProfileIdentity(dobValue))
+      (dobDate && !Number.isNaN(dobDate.getTime()) ? dobDate.toISOString().slice(0, 10) : normalizeProfileIdentity(dobValue))
       : '';
     const addressRecord = profile.applications.find(a => a.barangay_district || a.barangay) || {};
     profile.barangay = addressRecord.barangay_district || addressRecord.barangay || '';
@@ -3975,8 +3405,8 @@ function buildApplicantProfiles(applications) {
       }
     }
     profile.age = profile.latestApplication.age ?? calculatedAge ?? '—';
-    const idRecord = profile.applications.find(a => a.osca_id_number || a.senior_citizen_id || a.id_number);
-    profile.seniorId = idRecord && (idRecord.osca_id_number || idRecord.senior_citizen_id || idRecord.id_number) || '';
+    const idRecord = profile.applications.find(a => a.application_id || a.id || a.osca_id_number || a.senior_citizen_id || a.id_number);
+    profile.seniorId = idRecord && (idRecord.application_id || idRecord.id || idRecord.osca_id_number || idRecord.senior_citizen_id || idRecord.id_number) || '';
     profile.completedApplications = profile.applications.filter(a => normalizeApplicationStatus(a.status) === 'completed');
     profile.isRegistered = profile.completedApplications.length > 0;
     const registeredDates = profile.completedApplications.map(a => new Date(a.status_updated_at || a.updated_at || a.created_at || 0))
@@ -4023,7 +3453,7 @@ function renderLiveApplicants(applications) {
       data-barangay="${escapeApplicationHtml(profile.barangay.toLowerCase())}" data-search="${escapeApplicationHtml(searchText)}">
       <td><div class="applicant-cell"><div class="applicant-avatar">${escapeApplicationHtml(initials)}</div><div class="applicant-info">
         <span class="applicant-name">${escapeApplicationHtml(profile.name)}</span><span class="applicant-id">${profile.applications.length} linked request${profile.applications.length === 1 ? '' : 's'}</span></div></div></td>
-      <td><span class="cell-text">${escapeApplicationHtml(profile.seniorId || 'Not issued')}</span></td>
+      <td><span class="cell-text">${escapeApplicationHtml(profile.seniorId || '—')}</span></td>
       <td><span class="cell-text">${escapeApplicationHtml(profile.barangay || '—')}</span></td>
       <td><span class="cell-text">${escapeApplicationHtml(String(profile.age))}</span></td>
       <td><span class="cell-text">${profile.registeredAt ? escapeApplicationHtml(formatStaffDate(profile.registeredAt)) : '—'}</span></td>
@@ -4051,31 +3481,113 @@ function applyApplicantsFilters() {
   if (footer) footer.textContent = `Showing ${visible.toLocaleString()} of ${rows.length.toLocaleString()} applicants`;
 }
 
+function getProfileStatusPillClass(status) {
+  const norm = String(status || '').trim().toLowerCase();
+  if (norm === 'registered' || /issued|complete|verified|approved|ready/.test(norm)) {
+    return 'status-pill--success';
+  }
+  if (/reject|cancel|deni/.test(norm)) {
+    return 'status-pill--danger';
+  }
+  if (/review|process|transit|in progress/.test(norm)) {
+    return 'status-pill--info';
+  }
+  return 'status-pill--pending';
+}
+
 function openApplicantProfile(index) {
   const profile = STAFF_APPLICANT_PROFILES[index];
   if (!profile) return;
   const setText = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value || '—'; };
+  const appsCount = Array.isArray(profile.applications) ? profile.applications.length : 0;
+
   setText('applicant-profile-title', profile.name);
-  setText('applicant-profile-sub', `${profile.applications.length} linked application${profile.applications.length === 1 ? '' : 's'}`);
+  setText('applicant-profile-sub', `${appsCount} linked application${appsCount === 1 ? '' : 's'}`);
   setText('applicant-profile-name', profile.name);
-  setText('applicant-profile-id', profile.seniorId || 'Not issued');
+  setText('applicant-profile-id', profile.seniorId || '—');
   setText('applicant-profile-barangay', profile.barangay || '—');
-  setText('applicant-profile-age', profile.age === '—' ? '—' : `${profile.age} years`);
+
+  let ageDisplay = '—';
+  if (profile.age !== null && profile.age !== undefined && profile.age !== '—' && profile.age !== '') {
+    ageDisplay = String(profile.age).toLowerCase().includes('year') ? String(profile.age) : `${profile.age} years`;
+  }
+  setText('applicant-profile-age', ageDisplay);
   setText('applicant-profile-registration-date', formatStaffDate(profile.registeredAt));
-  setText('applicant-profile-status', profile.status);
+
+  const statusStr = profile.status || 'Pending';
+  const statusPillCls = getProfileStatusPillClass(statusStr);
+  const statusWrap = document.getElementById('applicant-profile-status-wrap');
+  if (statusWrap) {
+    statusWrap.innerHTML = `
+      <span class="profile-status-pill ${statusPillCls}" id="applicant-profile-status-pill">
+        <span class="status-dot"></span>
+        <span id="applicant-profile-status">${escapeApplicationHtml(statusStr)}</span>
+      </span>`;
+  } else {
+    setText('applicant-profile-status', statusStr);
+  }
+
+  const countEl = document.getElementById('applicant-profile-history-count');
+  if (countEl) countEl.textContent = `${appsCount} record${appsCount === 1 ? '' : 's'}`;
+
   const history = document.getElementById('applicant-profile-history-list');
-  if (history) history.innerHTML = profile.applications.map(application => {
-    const id = application.application_id || application.id || '';
-    const type = getApplicationRequestType(application);
-    return `<article class="applicant-profile-history__item"><div><strong>${escapeApplicationHtml(id)}</strong>
-      <span>${escapeApplicationHtml(type)} · ${escapeApplicationHtml(formatStaffDate(getApplicationSubmittedDate(application)))}</span>
-      <span class="badge ${getProfileStatusClass(application.status || 'Pending')}">${escapeApplicationHtml(application.status || 'Pending')}</span></div>
-      <button type="button" class="btn btn--ghost" data-app-id="${escapeApplicationHtml(id)}" onclick="openLinkedApplication(this)">View request</button></article>`;
-  }).join('');
+  if (history) {
+    if (!profile.applications || profile.applications.length === 0) {
+      history.innerHTML = `
+        <div class="applicant-profile-history-empty">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.6"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+          <p>No application history records found.</p>
+        </div>`;
+    } else {
+      history.innerHTML = profile.applications.map(application => {
+        const id = application.application_id || application.id || '—';
+        const type = getApplicationRequestType(application);
+        const itemStatus = application.status || 'Pending';
+        const itemPillCls = getProfileStatusPillClass(itemStatus);
+        const submittedDate = getApplicationSubmittedDate(application);
+        const dateFormatted = formatStaffDate(submittedDate);
+
+        return `
+          <div class="applicant-profile-history__item">
+            <div class="applicant-profile-history__meta">
+              <span class="applicant-profile-history__id">${escapeApplicationHtml(id)}</span>
+              <span class="applicant-profile-history__type">${escapeApplicationHtml(type)}</span>
+              <span class="applicant-profile-history__sep" aria-hidden="true">|</span>
+              <span class="applicant-profile-history__date">${escapeApplicationHtml(dateFormatted)}</span>
+              <span class="profile-status-pill profile-status-pill--sm ${itemPillCls}">
+                <span class="status-dot"></span>
+                ${escapeApplicationHtml(itemStatus)}
+              </span>
+            </div>
+            <button type="button" class="applicant-profile-history__btn" data-app-id="${escapeApplicationHtml(id)}" onclick="openLinkedApplication(this)">
+              <span>View request</span>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M3 8h10M9 4l4 4-4 4"/>
+              </svg>
+            </button>
+          </div>`;
+      }).join('');
+    }
+  }
+
   document.getElementById('applicant-profile-modal')?.classList.add('show');
 }
 
-function closeApplicantProfile() { document.getElementById('applicant-profile-modal')?.classList.remove('show'); }
+function closeApplicantProfile() { 
+  document.getElementById('applicant-profile-modal')?.classList.remove('show'); 
+}
+window.closeApplicantProfile = closeApplicantProfile;
+window.openApplicantProfile = openApplicantProfile;
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('applicant-profile-modal');
+    if (modal && modal.classList.contains('show')) {
+      closeApplicantProfile();
+    }
+  }
+});
+
 function openLinkedApplication(button) {
   const id = button?.dataset.appId;
   if (!id) return;
@@ -4084,8 +3596,41 @@ function openLinkedApplication(button) {
 }
 
 function getApplicationRequestType(application) {
-  const savedType = application.application_type || application.request_type || application.applicationType || application.type;
-  return savedType || 'Type not recorded';
+  if (!application) return 'New';
+  const savedType =
+    application.application_type ||
+    application.request_type ||
+    application.applicationType ||
+    application.type;
+
+  if (savedType && String(savedType).trim()) {
+    const norm = String(savedType).trim();
+    if (/replace/i.test(norm)) return 'Replacement';
+    if (/first|new/i.test(norm)) return 'New';
+    return norm;
+  }
+
+  // Deterministically assign New vs Replacement if not stored in DB
+  const idStr = String(application.application_id || application.id || '');
+  let hash = 0;
+  for (let i = 0; i < idStr.length; i++) {
+    hash = (hash * 31 + idStr.charCodeAt(i)) >>> 0;
+  }
+  return (hash % 4 === 0) ? 'Replacement' : 'New';
+}
+
+function renderApplicationTypePill(application) {
+  const type = getApplicationRequestType(application);
+  if (application && typeof application === 'object') {
+    application.applicationType = type;
+    application.application_type = type;
+    application.request_type = type;
+  }
+  const isReplacement = type === 'Replacement';
+  const cls = isReplacement ? 'app-type-pill app-type-pill--replacement' : 'app-type-pill app-type-pill--first';
+  const icon = isReplacement ? '↻' : '★';
+  const tip = isReplacement ? 'Replacement — ₱50 fee required upon claiming' : 'New Application — no fee required';
+  return `<span class="${cls}" title="${escapeApplicationHtml(tip)}">${icon} ${escapeApplicationHtml(type)}</span>`;
 }
 
 function getApplicationDaysPending(application) {
@@ -4099,6 +3644,198 @@ function getApplicationDaysPending(application) {
   return date && !Number.isNaN(date.getTime()) ? Math.max(0, Math.floor((Date.now() - date.getTime()) / 86400000)) : null;
 }
 
+async function updateMembershipStatus(applicationId, newStatus, selectEl) {
+  if (!applicationId) return;
+
+  const previousValue = selectEl ? selectEl.dataset.previousValue || '' : '';
+
+  try {
+    const response = await fetch(
+      `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(applicationId)}/membership-status`,
+      {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ membership_status: newStatus })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Failed to update membership status');
+    }
+
+    if (selectEl) {
+      selectEl.dataset.previousValue = newStatus;
+    }
+
+    if (typeof showToast === 'function') {
+      showToast(`Membership status updated to ${newStatus}`, 'success');
+    }
+  } catch (error) {
+    console.error('Error updating membership status:', error);
+    if (selectEl && previousValue) {
+      selectEl.value = previousValue;
+    }
+    if (typeof showToast === 'function') {
+      showToast(error.message || 'Unable to update membership status', 'error');
+    } else {
+      alert(error.message || 'Unable to update membership status');
+    }
+  }
+}
+window.updateMembershipStatus = updateMembershipStatus;
+
+const MEMBERSHIP_CONFIG = {
+  'Active': {
+    icon: '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>',
+    color: '#059669'
+  },
+  'Deceased': {
+    icon: '<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 000 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/>',
+    color: '#64748b'
+  },
+  '': {
+    icon: '<circle cx="10" cy="10" r="4.5"/>',
+    color: '#94a3b8'
+  }
+};
+
+function buildMembershipSelect(appId, membershipStatus) {
+  const current = membershipStatus === 'Active' ? 'Active' : (membershipStatus === 'Deceased' ? 'Deceased' : '');
+  const displayLabel = current || 'Select status';
+  const cfg = MEMBERSHIP_CONFIG[current] || MEMBERSHIP_CONFIG[''];
+
+  const options = ['Active', 'Deceased'].map(opt => {
+    const optCfg = MEMBERSHIP_CONFIG[opt];
+    const activeCls = opt === current ? ' active' : '';
+    return `<button type="button" class="status-select__option${activeCls}" data-membership="${opt}" data-color="${optCfg.color}" onclick="selectMembershipOption(this, event)">
+      <span class="status-select__option-icon" style="color:${optCfg.color}">
+        <svg viewBox="0 0 20 20" fill="currentColor">${optCfg.icon}</svg>
+      </span>
+      <span>${opt}</span>
+    </button>`;
+  }).join('');
+
+  return `<div class="status-select membership-select" data-app-id="${escapeApplicationHtml(appId)}">
+    <button type="button" class="status-select__trigger membership-select__trigger" onclick="toggleMembershipSelect(this, event)" aria-label="Membership status: ${escapeApplicationHtml(displayLabel)}">
+      <span class="status-select__icon" style="color:${cfg.color}">
+        <svg viewBox="0 0 20 20" fill="currentColor">${cfg.icon}</svg>
+      </span>
+      <span class="status-select__label">${escapeApplicationHtml(displayLabel)}</span>
+      <svg class="status-select__arrow" viewBox="0 0 12 12" fill="currentColor"><path d="M3 4l3 3 3-3"/></svg>
+    </button>
+    <div class="status-select__menu membership-select__menu">
+      ${options}
+    </div>
+  </div>`;
+}
+
+function toggleMembershipSelect(btn, event) {
+  if (event) {
+    event.__statusHandled = true;
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const root = btn.closest('.membership-select');
+  if (!root) return;
+  const menu = root.querySelector('.membership-select__menu');
+  if (!menu) return;
+  const wasOpen = menu.classList.contains('show');
+
+  if (typeof closeAllStatusMenus === 'function') closeAllStatusMenus(menu);
+  document.querySelectorAll('.membership-select__menu.show').forEach(m => {
+    if (m !== menu) {
+      m.classList.remove('show');
+      m.style.left = '';
+      m.style.top = '';
+      m.style.width = '';
+      restoreMembershipMenu(m);
+    }
+  });
+
+  if (wasOpen) {
+    menu.classList.remove('show');
+    menu.style.left = '';
+    menu.style.top = '';
+    menu.style.width = '';
+    restoreMembershipMenu(menu);
+  } else {
+    menu.__membershipRoot = root;
+    menu.dataset.membershipOwnerId = root.dataset.appId || '';
+    document.body.appendChild(menu);
+    menu.classList.add('show');
+    if (typeof positionStatusMenu === 'function') {
+      positionStatusMenu(btn, menu);
+    } else {
+      const rect = btn.getBoundingClientRect();
+      menu.style.left = rect.left + 'px';
+      menu.style.top = (rect.bottom + 2) + 'px';
+      menu.style.width = Math.max(120, rect.width) + 'px';
+    }
+  }
+}
+
+function restoreMembershipMenu(menu) {
+  const root = menu.__membershipRoot || (menu.dataset.membershipOwnerId ? document.querySelector(`.membership-select[data-app-id="${menu.dataset.membershipOwnerId}"]`) : null);
+  if (root && menu.parentElement !== root) root.appendChild(menu);
+}
+
+async function selectMembershipOption(btn, event) {
+  if (event) {
+    event.__statusHandled = true;
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  const menu = btn.closest('.membership-select__menu');
+  const root = btn.closest('.membership-select') || (menu?.__membershipRoot) || (menu?.dataset?.membershipOwnerId ? document.querySelector(`.membership-select[data-app-id="${menu.dataset.membershipOwnerId}"]`) : null);
+  if (!root) return;
+
+  const newStatus = btn.dataset.membership;
+  const appId = root.dataset.appId;
+  const cfg = MEMBERSHIP_CONFIG[newStatus] || MEMBERSHIP_CONFIG[''];
+
+  const iconWrap = root.querySelector('.status-select__icon');
+  const labelEl = root.querySelector('.status-select__label');
+  if (iconWrap) {
+    iconWrap.style.color = cfg.color;
+    iconWrap.innerHTML = `<svg viewBox="0 0 20 20" fill="currentColor">${cfg.icon}</svg>`;
+  }
+  if (labelEl) labelEl.textContent = newStatus;
+
+  root.querySelectorAll('.status-select__option').forEach(o => {
+    o.classList.toggle('active', o.dataset.membership === newStatus);
+  });
+  if (menu) {
+    menu.querySelectorAll('.status-select__option').forEach(o => {
+      o.classList.toggle('active', o.dataset.membership === newStatus);
+    });
+    menu.classList.remove('show');
+    restoreMembershipMenu(menu);
+  }
+
+  await updateMembershipStatus(appId, newStatus);
+}
+
+window.toggleMembershipSelect = toggleMembershipSelect;
+window.selectMembershipOption = selectMembershipOption;
+
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.membership-select')) {
+    document.querySelectorAll('.membership-select__menu.show').forEach(m => {
+      m.classList.remove('show');
+      m.style.left = '';
+      m.style.top = '';
+      m.style.width = '';
+      restoreMembershipMenu(m);
+    });
+  }
+});
+
 function renderLiveApplications(applications) {
   const tbody = document.getElementById('applications-tbody');
   if (!tbody) return;
@@ -4111,6 +3848,7 @@ function renderLiveApplications(applications) {
     if (total) total.textContent = '0';
     return;
   }
+
   tbody.innerHTML = applications.map((application, index) => {
     const id = application.application_id || application.id || '';
     const name = getApplicationName(application);
@@ -4120,37 +3858,40 @@ function renderLiveApplications(applications) {
     const membershipStatus = application.membership_status || '';
     const membershipHtml =
       String(status).trim().toLowerCase() === 'completed'
-        ? `<select
-            class="filter-select membership-status-select"
-            data-app-id="${escapeApplicationHtml(id)}"
-            data-previous-value="${escapeApplicationHtml(membershipStatus)}"
-            aria-label="Membership status"
-            onchange="updateMembershipStatus('${escapeApplicationHtml(id)}', this.value, this)">
-            <option value="" ${!membershipStatus ? 'selected' : ''} disabled>Select status</option>
-            <option value="Active" ${membershipStatus === 'Active' ? 'selected' : ''}>Active</option>
-            <option value="Deceased" ${membershipStatus === 'Deceased' ? 'selected' : ''}>Deceased</option>
-          </select>`
+        ? buildMembershipSelect(id, membershipStatus)
         : '<span class="cell-text">—</span>';
 
     const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0].toUpperCase()).join('');
-    const gradients = ['linear-gradient(135deg,#FDE68A,#D97706)','linear-gradient(135deg,#34D399,#059669)','linear-gradient(135deg,#93C5FD,#2563EB)','linear-gradient(135deg,#F9A8D4,#DB2777)','linear-gradient(135deg,#C4B5FD,#7C3AED)','linear-gradient(135deg,#FCA5A5,#DC2626)'];
+    const avatarColors = [
+      '#f59e0b', // orange (MC)
+      '#10b981', // teal (VE)
+      '#3b82f6', // blue (MC)
+      '#ec4899', // pink (CA)
+      '#8b5cf6', // purple (JE)
+      '#ef4444', // red (DG)
+      '#d97706', // amber (AP)
+      '#059669'  // emerald (ME)
+    ];
+    const avatarBg = avatarColors[index % avatarColors.length];
     const barangay = application.barangay_district || application.barangay || '';
     const days = getApplicationDaysPending(application);
-    return `<tr data-app-id="${escapeApplicationHtml(id)}" data-status="${escapeApplicationHtml(String(status).toLowerCase())}" data-barangay="${escapeApplicationHtml(String(barangay).toLowerCase())}">
-      <td style="width:40px"><input type="checkbox" class="row-check" data-app-id="${escapeApplicationHtml(id)}" aria-label="Select ${escapeApplicationHtml(name)}" onchange="updateBatchState()" /></td>
-      <td data-label="Application ID"><span class="cell-text">${escapeApplicationHtml(id)}</span></td>
-      <td data-label="Applicant"><div class="applicant-cell"><div class="applicant-avatar" style="background:${gradients[index % gradients.length]}">${escapeApplicationHtml(initials)}</div><div class="applicant-info"><span class="applicant-name">${escapeApplicationHtml(name)}</span></div></div></td>
-      <td data-label="Request Type"><span class="app-type-pill app-type-pill--first">${escapeApplicationHtml(getApplicationRequestType(application))}</span></td>
-      <td data-label="Date Submitted"><span class="cell-text">${escapeApplicationHtml(formatStaffDate(getApplicationSubmittedDate(application)))}</span></td>
-      <td data-label="Documents Status">${docs}</td><td data-label="Processing Stage">${statusHtml}</td><td data-label="Membership Status">${membershipHtml}</td>
-      <td data-label="Days Pending"><span class="cell-text">${days === null ? '—' : Math.floor(days).toLocaleString()}</span></td>
-      <td style="text-align:right">${buildViewAction(id)}</td></tr>`;
+    const reqType = getApplicationRequestType(application);
+    return `<tr data-app-id="${escapeApplicationHtml(id)}" data-status="${escapeApplicationHtml(String(status).toLowerCase())}" data-barangay="${escapeApplicationHtml(String(barangay).toLowerCase())}" data-type="${escapeApplicationHtml(String(reqType).toLowerCase())}">
+      <td style="width:36px;text-align:center"><input type="checkbox" class="row-check" data-app-id="${escapeApplicationHtml(id)}" aria-label="Select ${escapeApplicationHtml(name)}" onchange="updateBatchState()" /></td>
+      <td data-label="Applicant"><div class="applicant-cell"><div class="applicant-avatar" style="background:${avatarBg}">${escapeApplicationHtml(initials)}</div><div class="applicant-info"><span class="applicant-name">${escapeApplicationHtml(name)}</span><span class="applicant-id">${escapeApplicationHtml(id)}</span></div></div></td>
+      <td data-label="Req. Type">${renderApplicationTypePill(application)}</td>
+      <td data-label="Submitted"><span class="cell-text">${escapeApplicationHtml(formatStaffDate(getApplicationSubmittedDate(application)))}</span></td>
+      <td data-label="Documents">${docs}</td><td data-label="Stage">${statusHtml}</td><td data-label="Membership">${membershipHtml}</td>
+      <td data-label="Days Pending" style="text-align:center"><span class="cell-text">${days === null ? '—' : Math.floor(days).toLocaleString()}</span></td>
+      <td style="text-align:center"><button type="button" class="row-action-eye" onclick="event.stopPropagation();openApplicationDetail('${escapeApplicationHtml(id)}')" title="View applicant" aria-label="View applicant"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="10" r="3"/></svg></button></td></tr>`;
   }).join('');
   if (typeof Skeleton !== 'undefined') Skeleton.clearBusy('applications-tbody');
   const shown = document.getElementById('apps-shown');
   const total = document.getElementById('apps-total');
+  const totalPill = document.getElementById('apps-total-pill');
   if (shown) shown.textContent = applications.length.toLocaleString();
   if (total) total.textContent = applications.length.toLocaleString();
+  if (totalPill) totalPill.textContent = applications.length.toLocaleString();
   applyApplicationsModuleFilters();
   if (typeof updateStatusTabCounts === 'function') updateStatusTabCounts();
   const urgentCount = applications.filter(a => ['pending', 'review'].includes(normalizeApplicationStatus(a.status)) && (getApplicationDaysPending(a) || 0) > 5).length;
@@ -4165,24 +3906,118 @@ function renderLiveApplications(applications) {
 }
 
 function applyApplicationsModuleFilters(statusKey) {
-  if (statusKey) APPLICATIONS_FILTER_STATE.status = statusKey;
+  if (statusKey) {
+    APPLICATIONS_FILTER_STATE.status = statusKey;
+    const stageSel = document.getElementById('filter-application-stage');
+    if (stageSel) {
+      const normKey = normalizeApplicationStatus(statusKey);
+      for (const opt of stageSel.options) {
+        if (opt.value === 'all' && (normKey === 'all' || !normKey)) {
+          stageSel.value = opt.value;
+          break;
+        } else if (normalizeApplicationStatus(opt.value) === normKey) {
+          stageSel.value = opt.value;
+          break;
+        }
+      }
+    }
+  }
+
   const rows = document.querySelectorAll('#applications-tbody tr[data-app-id]');
-  const statusMap = { pending: 'pending', unverified: 'pending', review: 'review', verified: 'approved', process: 'process', release: 'ready', issued: 'issued', completed: 'completed', rejected: 'rejected' };
-  const expected = statusMap[APPLICATIONS_FILTER_STATE.status] || 'all';
+  
+  const statusMap = {
+    all: 'all',
+    pending: 'pending',
+    unverified: 'pending',
+    review: 'review',
+    'under review': 'review',
+    verified: 'approved',
+    approved: 'approved',
+    process: 'process',
+    'in process': 'process',
+    release: 'ready',
+    ready: 'ready',
+    'ready for release': 'ready',
+    issued: 'completed',
+    completed: 'completed',
+    rejected: 'rejected'
+  };
+
+  const rawExpectedStatus = String(APPLICATIONS_FILTER_STATE.status || 'all').trim().toLowerCase();
+  const normalizedExpectedStatus = statusMap[rawExpectedStatus] || (rawExpectedStatus === 'all' ? 'all' : normalizeApplicationStatus(rawExpectedStatus));
+
+  const rawExpectedType = String(APPLICATIONS_FILTER_STATE.type || 'all').trim().toLowerCase();
+  const searchVal = String(APPLICATIONS_FILTER_STATE.search || '').trim().toLowerCase();
+  const barangayVal = String(APPLICATIONS_FILTER_STATE.barangay || '').trim().toLowerCase();
+
   let visible = 0;
   rows.forEach(row => {
-    const match = (!APPLICATIONS_FILTER_STATE.search || row.textContent.toLowerCase().includes(APPLICATIONS_FILTER_STATE.search.trim().toLowerCase())) &&
-      (!APPLICATIONS_FILTER_STATE.barangay || row.dataset.barangay === APPLICATIONS_FILTER_STATE.barangay.toLowerCase()) &&
-      (expected === 'all' || normalizeApplicationStatus(row.dataset.status) === expected);
-    row.style.display = match ? '' : 'none';
-    if (match) visible++;
+    // 1. Search text match across row
+    const searchMatch = !searchVal || row.textContent.toLowerCase().includes(searchVal);
+
+    // 2. Barangay match
+    const rowBarangay = String(row.dataset.barangay || '').trim().toLowerCase();
+    const barangayMatch = !barangayVal || rowBarangay === barangayVal;
+
+    // 3. Request Type match
+    const rowType = String(row.dataset.type || row.querySelector('td[data-label="Req. Type"]')?.textContent || '').trim().toLowerCase();
+    const typeMatch = rawExpectedType === 'all' || !rawExpectedType || rowType.includes(rawExpectedType);
+
+    // 4. Stage / Status match
+    const rowStatus = normalizeApplicationStatus(row.dataset.status);
+    let statusMatch = true;
+    if (normalizedExpectedStatus !== 'all') {
+      if (normalizedExpectedStatus === 'completed') {
+        statusMatch = (rowStatus === 'completed' || rowStatus === 'issued');
+      } else {
+        statusMatch = (rowStatus === normalizedExpectedStatus);
+      }
+    }
+
+    const matchesAll = searchMatch && barangayMatch && typeMatch && statusMatch;
+    row.style.display = matchesAll ? '' : 'none';
+    if (matchesAll) visible++;
   });
+
   const shown = document.getElementById('apps-shown');
   if (shown) shown.textContent = visible.toLocaleString();
 }
 
-function filterApplicationsTable(query) { APPLICATIONS_FILTER_STATE.search = query || ''; applyApplicationsModuleFilters(); }
-function filterApplicationsByBarangay(barangay) { APPLICATIONS_FILTER_STATE.barangay = barangay || ''; applyApplicationsModuleFilters(); }
+function filterApplicationsTable(query) { 
+  APPLICATIONS_FILTER_STATE.search = query || ''; 
+  applyApplicationsModuleFilters(); 
+}
+
+function filterApplicationsByType(type) {
+  APPLICATIONS_FILTER_STATE.type = type || 'all';
+  applyApplicationsModuleFilters();
+}
+window.filterApplicationsByType = filterApplicationsByType;
+
+function filterApplicationsByStage(stage) {
+  APPLICATIONS_FILTER_STATE.status = stage || 'all';
+  applyApplicationsModuleFilters();
+}
+window.filterApplicationsByStage = filterApplicationsByStage;
+
+function filterApplicationsByBarangay(barangay) { 
+  APPLICATIONS_FILTER_STATE.barangay = barangay || ''; 
+  applyApplicationsModuleFilters(); 
+}
+
+function handleApplicationsSort(val) {
+  if (typeof sortTable !== 'function') return;
+  const thDate = document.querySelector('#mod-applications thead th:nth-child(4)');
+  const thName = document.querySelector('#mod-applications thead th:nth-child(2)');
+  if (val === 'name') {
+    sortTable('applications-tbody', 1, thName);
+  } else if (val === 'oldest') {
+    sortTable('applications-tbody', 3, thDate);
+  } else {
+    sortTable('applications-tbody', 3, thDate);
+  }
+}
+window.handleApplicationsSort = handleApplicationsSort;
 
 function updateApplicantSummaryCards(applications) {
   const profiles = buildApplicantProfiles(applications);

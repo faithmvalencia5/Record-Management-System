@@ -1,4 +1,4 @@
-const C = {
+﻿const C = {
   primary: '#2563EB',
   primaryMid: '#3B82F6',
   primaryFade: 'rgba(37,99,235,0.12)',
@@ -318,7 +318,7 @@ function initAge() {
   CHARTS['age'] = new Chart(ctx, {
     type: 'doughnut',
     data: { labels: ['60–64', '65–69', '70–74', '75–79', '80–84', '85+'], datasets: [{ data: analyticsScope().ageDistribution || [0, 0, 0, 0, 0, 0], backgroundColor: ['#BFDBFE', '#60A5FA', '#2563EB', '#1A4FBA', '#1E3A8A', '#0F1F4D'], hoverOffset: 6, borderWidth: 0 }] },
-    options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { display: false }, tooltip: {...TIP, callbacks: {label: c => ` Age ${c.label}: ${c.parsed}`} } } }
+    options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { display: false }, tooltip: { ...TIP, callbacks: { label: c => ` Age ${c.label}: ${c.parsed}` } } } }
   });
 }
 function initIssuance() {
@@ -372,8 +372,8 @@ function getAuthHeaders() {
     'Content-Type': 'application/json',
     ...(token
       ? {
-          'Authorization': `Bearer ${token}`
-        }
+        'Authorization': `Bearer ${token}`
+      }
       : {})
   };
 }
@@ -424,7 +424,7 @@ function syncTurnaroundTimeVisibility() {
 
   turnaroundTime.style.display =
     analyticsModule &&
-    analyticsModule.classList.contains('active')
+      analyticsModule.classList.contains('active')
       ? ''
       : 'none';
 }
@@ -507,6 +507,7 @@ function navigate(moduleId) {
     behavior: 'smooth'
   });
   if (moduleId === 'analytics') setTimeout(initAllCharts, 80);
+  if (moduleId === 'id-issuance') { if (typeof initSmallFormIssuance === 'function') initSmallFormIssuance(); }
   if (moduleId === 'id-maker-dashboard') { if (typeof initIdMakerQueue === 'function') initIdMakerQueue(); if (typeof updateIdMakerKPIs === 'function') updateIdMakerKPIs(); }
   if (moduleId === 'id-maker-analytics') { if (typeof initIdMakerCharts === 'function') setTimeout(initIdMakerCharts, 80); }
 }
@@ -516,8 +517,9 @@ document.querySelectorAll('.nav-link[data-module]').forEach(l => l.addEventListe
 
 /* ── FILTERS (kept) ── */
 function filterByStatus(el, status) {
-  el.closest('.status-tabs').querySelectorAll('.status-tab').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
+  const tabs = el && el.closest ? el.closest('.status-tabs') : null;
+  if (tabs) tabs.querySelectorAll('.status-tab').forEach(c => c.classList.remove('active'));
+  if (el && el.classList) el.classList.add('active');
   if (typeof applyApplicationsModuleFilters === 'function') {
     applyApplicationsModuleFilters(status);
     updateStatusTabCounts();
@@ -985,8 +987,12 @@ function showPortalPage() {
 
   // Skeleton: shimmer KPI values and main data tables while live data loads
   if (typeof Skeleton !== 'undefined') {
-    // Staff / Admin KPI cards
-    Skeleton.setLoading(document.querySelectorAll('.stat-card__value'), true);
+    // Staff / Admin KPI cards across modules
+    if (typeof Skeleton.setAllKpisLoading === 'function') {
+      Skeleton.setAllKpisLoading(true);
+    } else {
+      Skeleton.setLoading(document.querySelectorAll('.stat-card__value'), true);
+    }
     // Staff tables
     Skeleton.setTable('recent-submissions-tbody', 5);
     Skeleton.setTable('applicants-tbody', 8);
@@ -1366,7 +1372,7 @@ async function handleLogin(event) {
       showFieldError(
         'login-password',
         result.message ||
-          'Incorrect username or password. Please try again.'
+        'Incorrect username or password. Please try again.'
       );
 
       if (passwordEl) {
@@ -1823,6 +1829,51 @@ function restoreSession() {
 const FULL_APPLICANTS = [];
 const APP_DB = {};
 const ID_MAKER_QUEUE = [];
+const ID_MAKER_LOCAL_QUEUE_KEY = 'seniorid_id_maker_local_queue';
+
+function getLocalIdMakerQueue() {
+  try {
+    const raw = localStorage.getItem(ID_MAKER_LOCAL_QUEUE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveLocalIdMakerQueue(queueEntry) {
+  try {
+    const list = getLocalIdMakerQueue();
+    const targetId = String(queueEntry.id || queueEntry.application_id);
+    const idx = list.findIndex(item => String(item.id || item.application_id) === targetId);
+    if (idx >= 0) {
+      list[idx] = Object.assign({}, list[idx], queueEntry);
+    } else {
+      list.unshift(queueEntry);
+    }
+    localStorage.setItem(ID_MAKER_LOCAL_QUEUE_KEY, JSON.stringify(list));
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        const bc = new BroadcastChannel('idmaker_queue_channel');
+        bc.postMessage({ type: 'QUEUE_UPDATED', entry: queueEntry, queue: list });
+        bc.close();
+      } catch (err) { }
+    }
+  } catch (e) {
+    console.warn('Could not save to local ID maker queue:', e);
+  }
+}
+
+// Pre-fill in-memory queue from localStorage so it is available immediately
+try {
+  const initLocalQ = getLocalIdMakerQueue();
+  if (Array.isArray(initLocalQ)) {
+    initLocalQ.forEach(item => {
+      if (!ID_MAKER_QUEUE.some(q => String(q.id || q.application_id) === String(item.id || item.application_id))) {
+        ID_MAKER_QUEUE.push(item);
+      }
+    });
+  }
+} catch (e) { }
 let CURRENT_APP_ID = null;
 
 function syncApplicationsToAppDB(applications) {
@@ -1993,7 +2044,11 @@ function syncApplicationsToAppDB(applications) {
 
   // Skeleton: clear KPI shimmer now that live data is synced
   if (typeof Skeleton !== 'undefined') {
-    Skeleton.setLoading(document.querySelectorAll('.stat-card__value'), false);
+    if (typeof Skeleton.setAllKpisLoading === 'function') {
+      Skeleton.setAllKpisLoading(false);
+    } else {
+      Skeleton.setLoading(document.querySelectorAll('.stat-card__value'), false);
+    }
   }
 
   // Refresh the form if an applicant is already selected
@@ -2013,9 +2068,18 @@ function ensureExampleData(app) {
   if (app.education === undefined) app.education = 'High School Graduate';
   if (app.religion === undefined) app.religion = 'Roman Catholic';
   if (app.occupation === undefined) app.occupation = 'Retired';
-  if (app.contactNumber === undefined) app.contactNumber = '09' + String(Math.floor(Math.random() * 900000000 + 100000000));
-  if (app.applicationType === undefined) app.applicationType = Math.random() > 0.3 ? 'First-Time' : 'Replacement';
-  if (app.idOsca === undefined) app.idOsca = '';
+  if (app.applicationType === undefined) {
+    if (typeof getApplicationRequestType === 'function') {
+      app.applicationType = getApplicationRequestType(app);
+    } else {
+      const idStr = String(app.id || '');
+      let hash = 0;
+      for (let i = 0; i < idStr.length; i++) {
+        hash = (hash * 31 + idStr.charCodeAt(i)) >>> 0;
+      }
+      app.applicationType = (hash % 4 === 0) ? 'Replacement' : 'New';
+    }
+  }
   if (app.idSss === undefined) app.idSss = '34-0000000-0';
   if (app.idPhilhealth === undefined) app.idPhilhealth = '12-000000000-0';
   if (app.idGsis === undefined) app.idGsis = '';
@@ -2173,8 +2237,8 @@ async function openApplicationDetail(appId) {
 
             monthlyIncome:
               pb.monthly_income !== null &&
-              pb.monthly_income !== undefined &&
-              pb.monthly_income !== ''
+                pb.monthly_income !== undefined &&
+                pb.monthly_income !== ''
                 ? `₱${Number(pb.monthly_income).toLocaleString()}`
                 : '—',
 
@@ -2336,10 +2400,7 @@ async function openApplicationDetail(appId) {
   setText('detail-barangay', `Barangay: ${app.barangay || '—'}`);
   const detailStatusBadge = document.getElementById('detail-status');
   if (detailStatusBadge) {
-    const st = (app.status || 'Pending').toLowerCase();
-    const badgeClass = /reject/.test(st) ? 'badge-rejected' : /issue|complete/.test(st) ? 'badge-issued' : /approve|verified|ready/.test(st) ? 'badge-approved' : /review|process|under/.test(st) ? 'badge-review' : 'badge-pending';
-    detailStatusBadge.className = 'badge ' + badgeClass;
-    detailStatusBadge.textContent = app.status || 'Pending';
+    updateDetailStatusBadge(app.status);
   }
 
   // Duplicate alert
@@ -2357,7 +2418,7 @@ async function openApplicationDetail(appId) {
 
   // Set status select
   const statusSelect = document.getElementById('status-select');
-  if (statusSelect) statusSelect.value = app.status;
+  if (statusSelect) statusSelect.value = mapStatusForDropdown(app.status);
 
   // Update workflow UI
   renderWorkflow(app.status);
@@ -2507,56 +2568,136 @@ function closePrintDetail() {
   document.getElementById('print-detail-modal').classList.remove('show');
 }
 
+function updateDetailStatusBadge(status) {
+  const detailStatusBadge = document.getElementById('detail-status');
+  if (!detailStatusBadge) return;
+  const normalized = mapStatusForDropdown(status);
+  const badgeMap = {
+    'Pending': 'badge-pending',
+    'Under Review': 'badge-review',
+    'In Process': 'badge-processing',
+    'Ready for Release': 'badge-approved',
+    'Completed': 'badge-issued',
+    'Rejected': 'badge-rejected'
+  };
+  const badgeClass = badgeMap[normalized] || 'badge-pending';
+  detailStatusBadge.className = 'badge ' + badgeClass;
+  detailStatusBadge.textContent = normalized;
+}
+
 function renderWorkflow(status) {
   const stepsWrap = document.getElementById('workflow-steps');
   if (!stepsWrap) return;
+
+  const order = ['Pending', 'Under Review', 'In Process', 'Ready for Release', 'Completed', 'Rejected'];
+  const matchedStatus = mapStatusForDropdown(status);
+  const idx = Math.max(0, order.indexOf(matchedStatus));
+
   const steps = stepsWrap.querySelectorAll('.step');
   steps.forEach(s => {
     s.classList.remove('completed', 'active', 'rejected');
   });
 
-  if (status === 'Rejected') {
-    stepsWrap.querySelectorAll('.step').forEach(el => el.classList.add('rejected'));
-    return;
-  }
-
-  const order = ['Pending', 'Under Review', 'Verified', 'In Process', 'Ready for Release', 'ID Issued'];
-  const idx = Math.max(0, order.indexOf(status));
   order.forEach((st, i) => {
     const el = stepsWrap.querySelector(`[data-step="${st}"]`);
     if (!el) return;
-    if (i < idx) el.classList.add('completed');
-    else if (i === idx) el.classList.add('active');
+    if (i < idx) {
+      el.classList.add('completed');
+    } else if (i === idx) {
+      el.classList.add('active');
+      if (st === 'Rejected') {
+        el.classList.add('rejected');
+      }
+    }
   });
+
+  // Keep dropdown selector and status badge in sync
+  const statusSelect = document.getElementById('status-select');
+  if (statusSelect && statusSelect.value !== matchedStatus) {
+    statusSelect.value = matchedStatus;
+  }
+  updateDetailStatusBadge(matchedStatus);
 }
 
 /* ── Workflow step validation ── */
-const WORKFLOW_STEPS = ['Pending', 'Unverified', 'Under Review', 'Verified', 'In Process', 'Ready for Release', 'ID Issued', 'Completed'];
+const WORKFLOW_STEPS = ['Pending', 'Under Review', 'In Process', 'Ready for Release', 'Completed', 'Rejected'];
 function isValidStatusTransition(current, next) {
-  if (next === 'Rejected') return true; // Rejection always allowed
-  if (current === 'Rejected' && next !== 'Pending') return false; // Must reopen first
-  const ci = WORKFLOW_STEPS.indexOf(current);
-  const ni = WORKFLOW_STEPS.indexOf(next);
-  // If either status is unknown (e.g. ID Issued, Unverified from demo data), allow transition
-  if (ci === -1 || ni === -1) return true;
-  return ni <= ci + 2; // Can advance up to 2 steps or stay/go back
+  return WORKFLOW_STEPS.includes(next);
 }
+
+function syncRecentSubmissionsStatus(appId, newStatus) {
+  if (!appId) return;
+
+  // 1. Locate the row in #recent-submissions-tbody.
+  //    The row's data-app-id may have been set from application_id (backend)
+  //    or id (local APP_DB) — try both to cover both cases.
+  let recentRow =
+    document.querySelector('#recent-submissions-tbody tr[data-app-id="' + appId + '"]') ||
+    document.querySelector('#recent-submissions-tbody tr[data-application-id="' + appId + '"]');
+
+  if (!recentRow) {
+    const btn = document.querySelector('#recent-submissions-tbody button[onclick*="' + appId + '"]');
+    if (btn) recentRow = btn.closest('tr');
+  }
+
+  if (recentRow) {
+    recentRow.dataset.status = newStatus;
+    const label =
+      recentRow.querySelector('.status-select__label') ||
+      recentRow.children[3]?.querySelector('.cell-text') ||
+      recentRow.children[3];
+    if (label) {
+      label.textContent = newStatus;
+    }
+  }
+
+  // 2. Keep LIVE_APPLICATIONS in-memory data synchronized
+  if (typeof LIVE_APPLICATIONS !== 'undefined' && Array.isArray(LIVE_APPLICATIONS)) {
+    const liveApp = LIVE_APPLICATIONS.find(item =>
+      String(item.application_id || item.id) === String(appId)
+    );
+    if (liveApp) {
+      liveApp.status = newStatus;
+      liveApp.status_updated_at = new Date().toISOString();
+    }
+  }
+
+  // 3. Keep APP_DB synchronized
+  if (typeof APP_DB !== 'undefined' && APP_DB[appId]) {
+    APP_DB[appId].status = newStatus;
+  }
+}
+window.syncRecentSubmissionsStatus = syncRecentSubmissionsStatus;
 
 function updateStatus(newStatus) {
   if (!CURRENT_APP_ID) return;
-  const currentStatus = APP_DB[CURRENT_APP_ID].status;
+  const currentStatus = APP_DB[CURRENT_APP_ID]?.status || 'Pending';
   if (!isValidStatusTransition(currentStatus, newStatus)) {
     showToast('Invalid transition: ' + currentStatus + ' → ' + newStatus + '. Follow the workflow sequence.', 'error');
-    document.getElementById('status-select').value = currentStatus;
+    const sel = document.getElementById('status-select');
+    if (sel) sel.value = currentStatus;
     return;
   }
-  APP_DB[CURRENT_APP_ID].status = newStatus;
+  if (APP_DB[CURRENT_APP_ID]) {
+    APP_DB[CURRENT_APP_ID].status = newStatus;
+  }
   renderWorkflow(newStatus);
-  document.getElementById('modal-sub').textContent =
-    `${APP_DB[CURRENT_APP_ID].id} · Barangay: ${APP_DB[CURRENT_APP_ID].barangay} · Status: ${newStatus}`;
+  const modalSub = document.getElementById('modal-sub');
+  if (modalSub && APP_DB[CURRENT_APP_ID]) {
+    modalSub.textContent =
+      `${APP_DB[CURRENT_APP_ID].id} · Barangay: ${APP_DB[CURRENT_APP_ID].barangay || '—'} · Status: ${newStatus}`;
+  }
 
-  // Sync the applications table inline badge
+  // Sync the applications table inline badge and recent submissions table
   syncApplicationsTableBadge(CURRENT_APP_ID, newStatus);
+  syncRecentSubmissionsStatus(CURRENT_APP_ID, newStatus);
+
+  // Sync with backend database when available
+  if (typeof updateTableStatus === 'function') {
+    updateTableStatus(CURRENT_APP_ID, newStatus, currentStatus).catch(err => {
+      console.warn('Could not sync status to backend:', err);
+    });
+  }
 
   appendAudit(CURRENT_USER?.displayName || 'Staff', `Status set to: ${newStatus}`, CURRENT_ROLE);
   showToast('Status updated: ' + newStatus, 'success');
@@ -2574,6 +2715,7 @@ async function updateTableStatus(
   // Optimistic UI update
   app.status = newStatus;
   APP_DB[appId] = app;
+  syncRecentSubmissionsStatus(appId, newStatus);
 
   // Update the applicant row status immediately
   const applicantRow =
@@ -2627,8 +2769,8 @@ async function updateTableStatus(
   const queueBadge =
     queueRow
       ? queueRow.querySelector(
-          '.queue-status-badge'
-        )
+        '.queue-status-badge'
+      )
       : null;
 
   if (queueBadge) {
@@ -2702,6 +2844,7 @@ async function updateTableStatus(
       if (typeof updateApplicationSummaryCards === 'function') updateApplicationSummaryCards(LIVE_APPLICATIONS);
       if (typeof renderLiveApplicants === 'function') renderLiveApplicants(LIVE_APPLICATIONS);
     }
+    syncRecentSubmissionsStatus(appId, savedStatus);
 
     // Reapply the Applicants status filter without rebuilding 4,251 rows
     if (
@@ -3038,9 +3181,9 @@ async function _populateDigitalIssuance(appId) {
       : app.gender === 'F'
         ? 'Female'
         : (
-            app.gender ||
-            '________________'
-          );
+          app.gender ||
+          '________________'
+        );
 
   const controlNo =
     app.controlNo ||
@@ -3154,16 +3297,16 @@ async function _populateDigitalIssuance(appId) {
     dateIssuedEl.textContent =
       app.dateIssued
         ? formatDateForForm(
-            app.dateIssued
-          )
+          app.dateIssued
+        )
         : new Date().toLocaleDateString(
-            'en-PH',
-            {
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric'
-            }
-          );
+          'en-PH',
+          {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          }
+        );
   }
 
   if (controlNoEl) {
@@ -3382,7 +3525,7 @@ async function sendToIdMaker() {
       }
     }
 
-    if (Array.isArray(LIVE_APPLICATIONS)) {
+    if (typeof LIVE_APPLICATIONS !== 'undefined' && Array.isArray(LIVE_APPLICATIONS)) {
 
       const liveApplication =
         LIVE_APPLICATIONS.find(function (item) {
@@ -3577,16 +3720,19 @@ async function sendToIdMaker() {
 
 function syncApplicationsTableBadge(appId, newStatus) {
   var statusRoot = document.querySelector('.status-select[data-app-id="' + appId + '"]');
-  if (!statusRoot) return;
-  var label = statusRoot.querySelector('.status-select__label');
-  var icon = statusRoot.querySelector('.status-select__icon');
-  if (label) label.textContent = newStatus;
-  var colorMap = {
-    'Pending': '#C07A0A', 'Unverified': '#D97706', 'Under Review': '#1A4FBA',
-    'Verified': '#059669', 'In Process': '#0B9E6C', 'Ready for Release': '#7C3AED',
-    'ID Issued': '#6B5BD1', 'Completed': '#0B9E6C', 'Rejected': '#D9233A'
-  };
-  if (icon) icon.style.color = colorMap[newStatus] || '#666';
+  if (statusRoot) {
+    var label = statusRoot.querySelector('.status-select__label');
+    var icon = statusRoot.querySelector('.status-select__icon');
+    if (label) label.textContent = newStatus;
+    var colorMap = {
+      'Pending': '#C07A0A', 'Unverified': '#D97706', 'Under Review': '#1A4FBA',
+      'Verified': '#059669', 'In Process': '#0B9E6C', 'Ready for Release': '#7C3AED',
+      'ID Issued': '#6B5BD1', 'Completed': '#0B9E6C', 'Rejected': '#D9233A'
+    };
+    if (icon) icon.style.color = colorMap[newStatus] || '#666';
+  }
+  // Sync recent submissions row as well
+  syncRecentSubmissionsStatus(appId, newStatus);
   // Refresh tab counts after status change
   updateStatusTabCounts();
 }
@@ -3694,7 +3840,7 @@ async function downloadDigitalIssuanceDocs() {
           result.message ||
           message;
 
-      } catch (_) {}
+      } catch (_) { }
 
       throw new Error(message);
     }
@@ -4010,11 +4156,10 @@ async function runValidation() {
     >
 
       <span
-        class="badge ${
-          ageOk
-            ? 'badge-approved'
-            : 'badge-rejected'
-        }"
+        class="badge ${ageOk
+      ? 'badge-approved'
+      : 'badge-rejected'
+    }"
       >
         • AGE 60+:
         ${ageOk ? 'Pass' : 'Fail'}
@@ -4022,41 +4167,36 @@ async function runValidation() {
 
 
       <span
-        class="badge ${
-          residencyOk
-            ? 'badge-approved'
-            : 'badge-review'
-        }"
+        class="badge ${residencyOk
+      ? 'badge-approved'
+      : 'badge-review'
+    }"
       >
         • RESIDENCY:
-        ${
-          residencyOk
-            ? 'Likely Valid'
-            : 'Needs Check'
-        }
+        ${residencyOk
+      ? 'Likely Valid'
+      : 'Needs Check'
+    }
       </span>
 
 
       <span
-        class="badge ${
-          docsOk
-            ? 'badge-approved'
-            : 'badge-pending'
-        }"
+        class="badge ${docsOk
+      ? 'badge-approved'
+      : 'badge-pending'
+    }"
       >
         • DOCS:
-        ${
-          docsOk
-            ? 'Complete'
-            : 'Incomplete'
-        }
+        ${docsOk
+      ? 'Complete'
+      : 'Incomplete'
+    }
       </span>
 
 
-      ${
-        duplicateOk
+      ${duplicateOk
 
-          ? `
+      ? `
             <span
               class="badge badge-approved"
             >
@@ -4064,14 +4204,14 @@ async function runValidation() {
             </span>
           `
 
-          : `
+      : `
             <span
               class="badge badge-rejected"
             >
               • DUPLICATE RISK: HIGH
             </span>
           `
-      }
+    }
 
     </div>
 
@@ -4085,35 +4225,33 @@ async function runValidation() {
       "
     >
 
-      ${
-        validationPassed
+      ${validationPassed
 
-          ? `
+      ? `
             <strong>
               Validation Passed.
             </strong>
             All required checks passed.
           `
 
-          : `
+      : `
             <strong>
               Validation needs review.
             </strong>
-            ${
-              missingDocuments.length > 0
-                ? 'Missing: ' +
-                  missingDocuments.join(', ')
-                : 'One or more validation checks failed.'
-            }
-          `
+            ${missingDocuments.length > 0
+        ? 'Missing: ' +
+        missingDocuments.join(', ')
+        : 'One or more validation checks failed.'
       }
+          `
+    }
 
     </div>
 
   `;
 
 
-    // SAVE VALIDATION RESULT TO DATABASE
+  // SAVE VALIDATION RESULT TO DATABASE
   try {
     const response = await fetch(
       `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(
@@ -4156,7 +4294,7 @@ async function runValidation() {
 
     appendAudit(
       CURRENT_USER?.displayName ||
-        'Staff',
+      'Staff',
       'Validation run and saved',
       'System'
     );
@@ -4179,7 +4317,7 @@ async function runValidation() {
 
     showToast(
       'Validation ran, but could not be saved: ' +
-        error.message,
+      error.message,
       'error'
     );
   }
@@ -4291,11 +4429,10 @@ function renderSavedValidation(app) {
     >
 
       <span
-        class="badge ${
-          passed
-            ? 'badge-approved'
-            : 'badge-review'
-        }"
+        class="badge ${passed
+      ? 'badge-approved'
+      : 'badge-review'
+    }"
       >
         • VALIDATION:
         ${app.validation_status}
@@ -4319,10 +4456,9 @@ function renderSavedValidation(app) {
       "
     >
 
-      ${
-        app.validation_notes ||
-        'Validation result has been saved.'
-      }
+      ${app.validation_notes ||
+    'Validation result has been saved.'
+    }
 
     </div>
 
@@ -4399,7 +4535,7 @@ function loadSavedDocStatuses(app) {
     record => {
       const doc =
         databaseToDoc[
-          record.document_type
+        record.document_type
         ];
 
       if (!doc) {
@@ -4408,10 +4544,10 @@ function loadSavedDocStatuses(app) {
 
       const state =
         databaseToUi[
-          String(
-            record.authentication_status ||
-              'pending'
-          ).toLowerCase()
+        String(
+          record.authentication_status ||
+          'pending'
+        ).toLowerCase()
         ] || 'pending';
 
       DOC_STATUS[doc] = state;
@@ -4698,17 +4834,15 @@ async function setDocStatus(doc, state, options = {}) {
 
     appendAudit(
       CURRENT_USER?.displayName ||
-        'Staff',
-      `Document updated: ${
-        DOC_LABELS[doc] || doc
+      'Staff',
+      `Document updated: ${DOC_LABELS[doc] || doc
       } → ${labels[state] || state}`,
       CURRENT_ROLE || 'Staff'
     );
 
     if (!options.silent) {
       showToast(
-        `${DOC_LABELS[doc] || doc} saved as ${
-          labels[state] || state
+        `${DOC_LABELS[doc] || doc} saved as ${labels[state] || state
         }.`,
         'success'
       );
@@ -4725,7 +4859,7 @@ async function setDocStatus(doc, state, options = {}) {
     if (!options.silent) {
       showToast(
         'Document status was not saved: ' +
-          error.message,
+        error.message,
         'error'
       );
     }
@@ -4844,9 +4978,8 @@ async function saveDocumentAuthentication(
 
     appendAudit(
       CURRENT_USER?.displayName ||
-        'Staff',
-      `Document verification updated: ${
-        DOC_LABELS[doc] || doc
+      'Staff',
+      `Document verification updated: ${DOC_LABELS[doc] || doc
       } → ${databaseStatus}`,
       CURRENT_ROLE || 'Staff'
     );
@@ -4861,7 +4994,7 @@ async function saveDocumentAuthentication(
 
     showToast(
       'Document verification was not saved: ' +
-        error.message,
+      error.message,
       'error'
     );
 
@@ -5046,10 +5179,10 @@ async function generateIssuanceForm() {
   issuanceDocs.forEach(function (doc) {
     const el = document.getElementById(
       'doc-' +
-        doc
-          .replace(/([A-Z])/g, '-$1')
-          .toLowerCase() +
-        '-status'
+      doc
+        .replace(/([A-Z])/g, '-$1')
+        .toLowerCase() +
+      '-status'
     );
 
     if (el) {
@@ -5178,7 +5311,7 @@ async function saveCurrent() {
 
     appendAudit(
       CURRENT_USER?.displayName ||
-        'Staff',
+      'Staff',
       'Validation result saved',
       CURRENT_ROLE || 'Staff'
     );
@@ -5262,7 +5395,7 @@ function exportCSV() {
     ? STAFF_APPLICANT_PROFILES
     : null;
   if (staffProfiles) {
-    const header = ['Senior Citizen ID', 'Name', 'Barangay', 'Age', 'Registration Date', 'Status'];
+    const header = ['Application ID', 'Name', 'Barangay', 'Age', 'Registration Date', 'Status'];
     const rows = staffProfiles.map(profile => [
       profile.seniorId || '',
       profile.name || '',
@@ -5331,6 +5464,58 @@ function getCurrentApplicant() {
   if (!sel || !sel.value) return null;
   return APP_DB[sel.value] || null;
 }
+function updateIssuanceKPIs() {
+  const strip = document.getElementById('issuance-kpi-strip');
+  if (!strip) return;
+  const cards = strip.querySelectorAll('.stat-card');
+  if (!cards || cards.length < 4) return;
+
+  const localQueue = getLocalIdMakerQueue();
+  const today = new Date().toISOString().split('T')[0];
+
+  // Card 0: Ready to Process -- In Process & not yet sent to ID Maker
+  const readyToProcess = Object.values(APP_DB).filter(a =>
+    a.status === 'In Process' && !a.sentToIdMaker
+  ).length;
+
+  // Card 1: Queued for Print
+  const queueSet = new Set();
+  ID_MAKER_QUEUE.forEach(q => {
+    if (q.printStatus === 'Queued') queueSet.add(String(q.id || q.application_id));
+  });
+  localQueue.forEach(q => {
+    if (q.printStatus === 'Queued') queueSet.add(String(q.id || q.application_id));
+  });
+  const queuedCount = queueSet.size;
+
+  // Card 2: IDs Issued Today -- queue entries with dateIssued or sentAt matching today
+  const issuedTodaySet = new Set();
+  const allQueue = [...ID_MAKER_QUEUE, ...localQueue];
+  allQueue.forEach(q => {
+    const d = q.dateIssued || q.sentAt || '';
+    if (d.startsWith(today)) issuedTodaySet.add(String(q.id || q.application_id));
+  });
+  const issuedToday = issuedTodaySet.size;
+
+  // Card 3: Not Yet Picked Up -- Ready for Release (printed, awaiting claim)
+  const notPickedUp = Object.values(APP_DB).filter(a =>
+    a.status === 'Ready for Release'
+  ).length;
+
+  // Update card values
+  const v0 = cards[0].querySelector('.stat-card__value');
+  if (v0) v0.textContent = readyToProcess;
+
+  const v1 = cards[1].querySelector('.stat-card__value');
+  if (v1) v1.textContent = queuedCount;
+
+  const v2 = cards[2].querySelector('.stat-card__value');
+  if (v2) v2.textContent = issuedToday;
+
+  const v3 = cards[3].querySelector('.stat-card__value');
+  if (v3) v3.textContent = notPickedUp;
+}
+
 function updatePreview() {
   const select = document.getElementById('id-applicant');
   const appId = select?.value || '';
@@ -5340,6 +5525,8 @@ function updatePreview() {
   const addrEl = document.getElementById('id-address');
   const dobEl = document.getElementById('id-dob');
   const sexEl = document.getElementById('id-sex');
+  const dateIssuedEl = document.getElementById('id-date-issued');
+  const controlNoEl = document.getElementById('id-control-no');
 
   // Clear fields when no applicant is selected
   if (!app) {
@@ -5347,6 +5534,8 @@ function updatePreview() {
     if (addrEl) addrEl.value = '';
     if (dobEl) dobEl.value = '';
     if (sexEl) sexEl.value = '';
+    if (dateIssuedEl) dateIssuedEl.value = '';
+    if (controlNoEl) controlNoEl.value = '';
 
     updateIssuancePreview(null);
     return;
@@ -5377,9 +5566,21 @@ function updatePreview() {
     }
   }
 
+  // Auto-fill default date issued to today if empty
+  if (dateIssuedEl && !dateIssuedEl.value) {
+    dateIssuedEl.value = new Date().toISOString().split('T')[0];
+  }
+
+  // Auto-fill default control number if empty (e.g. CTRL-26-0143)
+  if (controlNoEl && !controlNoEl.value) {
+    const rawNum = String(app.id || '').replace(/\D/g, '');
+    controlNoEl.value = 'CTRL-26-' + (rawNum ? rawNum.slice(-4).padStart(4, '0') : '0001');
+  }
+
   // Update the preview on the right
   updateIssuancePreview(app);
 }
+
 function updateIssuancePreview(app) {
   const pName = document.getElementById('preview-name');
   const pAddr = document.getElementById('preview-address');
@@ -5448,7 +5649,7 @@ function updateIssuancePreview(app) {
           : app.gender || '________________';
   }
 
-  // Date issued and control number are manually entered
+  // Date issued and control number
   const dateIssued =
     document.getElementById('id-date-issued')?.value || '';
 
@@ -5475,6 +5676,11 @@ function updateIssuancePreview(app) {
       pPhoto.src = photoSrc;
       pPhoto.style.display = 'block';
       pPhotoFallback.style.display = 'none';
+      pPhoto.onerror = function () {
+        pPhoto.style.display = 'none';
+        pPhotoFallback.style.display = 'block';
+        pPhotoFallback.textContent = 'Photo unavailable';
+      };
     } else {
       pPhoto.src = '';
       pPhoto.style.display = 'none';
@@ -5492,6 +5698,10 @@ function updateIssuancePreview(app) {
       pSignature.src = signatureSrc;
       pSignature.style.display = 'block';
       pSignatureFallback.style.display = 'none';
+      pSignature.onerror = function () {
+        pSignature.style.display = 'none';
+        pSignatureFallback.style.display = 'block';
+      };
     } else {
       pSignature.src = '';
       pSignature.style.display = 'none';
@@ -5499,6 +5709,7 @@ function updateIssuancePreview(app) {
     }
   }
 }
+
 function initSmallFormIssuance() {
   const select = document.getElementById('id-applicant');
   if (!select) return;
@@ -5506,12 +5717,28 @@ function initSmallFormIssuance() {
   // Prevent duplicate event listeners
   select.onchange = null;
 
-  // Rebuild applicant options
+  // Rebuild applicant options — only show applicants whose status is 'In Process'
+  // and who have not already been queued or sent to ID Maker
   select.innerHTML = '<option value="">Select applicant</option>';
+
+  const localQueue = getLocalIdMakerQueue();
 
   Object.keys(APP_DB).forEach((id) => {
     const app = APP_DB[id];
     if (!app) return;
+
+    // If marked sent or already in memory / local queue, exclude from dropdown
+    if (app.sentToIdMaker) return;
+
+    const inMem = ID_MAKER_QUEUE.some(q => String(q.id || q.application_id) === String(id));
+    if (inMem) return;
+
+    const inLocal = localQueue.some(q => String(q.id || q.application_id) === String(id));
+    if (inLocal) return;
+
+    // Only populate applicants that are currently In Process
+    const status = (app.status || '').trim();
+    if (status !== 'In Process') return;
 
     const opt = document.createElement('option');
     opt.value = id;
@@ -5520,14 +5747,32 @@ function initSmallFormIssuance() {
     select.appendChild(opt);
   });
 
-  // IMPORTANT:
-  // Autofill the form whenever the selected applicant changes.
-  select.onchange = function () {
+  // Autofill the form whenever the selected applicant changes
+  select.onchange = async function () {
     updatePreview();
+    const app = getCurrentApplicant();
+    if (!app) return;
+    try {
+      const response = await fetch(
+        `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(app.id)}`
+      );
+      if (!response.ok) return;
+      const result = await response.json();
+      const files = result.applicationFiles || {};
+      app.photo = files.latest_photo_signed_url || '';
+      app.signature = files.signature_signed_url || '';
+      app.documents = { ...(app.documents || {}), photo: app.photo, signature: app.signature };
+      if (select.value === String(app.id)) updatePreview();
+    } catch (error) {
+      console.warn('Unable to load applicant photo/signature:', error);
+    }
   };
 
-  // Also update immediately in case an applicant was already selected.
+  // Update immediately
   updatePreview();
+
+  // Update issuance KPIs
+  updateIssuanceKPIs();
 }
 
 /* ID Card Preview & Print */
@@ -5577,9 +5822,7 @@ function openIdCardModal(appId) {
 
   // Back side barcode text
   document.getElementById('idcard-barcode-text').textContent = scbId;
-  // Reset to front
   switchCardSide('front');
-  // Show modal
   document.getElementById('idcard-modal').classList.add('show');
 }
 
@@ -5603,9 +5846,6 @@ function downloadIdCard() {
   showToast('PNG download requires html2canvas library. Use Print for now.', 'info');
 }
 
-
-
-/* Existing generateID override */
 function generateID() {
   var app = getCurrentApplicant();
   var dateIssued = document.getElementById('id-date-issued')?.value || '';
@@ -5615,81 +5855,186 @@ function generateID() {
   updatePreview();
 }
 
-function sendFromIssuanceToIdMaker() {
+async function sendFromIssuanceToIdMaker() {
   var app = getCurrentApplicant();
-  if (!app) { showToast('Please select an applicant first.', 'error'); return; }
+  if (!app) {
+    showToast('Please select an applicant first.', 'error');
+    return;
+  }
+
+  var appId = app.id;
   var dateIssued = document.getElementById('id-date-issued')?.value || '';
-  var controlNo = document.getElementById('id-control-no')?.value || '';
-  if (!dateIssued || !controlNo) { showToast('Date issued and control number are required before sending.', 'error'); return; }
+  var controlNo = document.getElementById('id-control-no')?.value?.trim() || '';
 
-  // Build queue entry — only printing-relevant data (data minimization)
-  var queueEntry = {
-    id: app.id,
-    name: app.name,
-    firstName: app.firstName || '',
-    middleName: app.middleName || '',
-    surname: app.surname || app.name || '',
-    address: app.address || '—',
-    barangay: app.barangay || '—',
-    dob: app.dob || '',
-    gender: app.gender || '',
-    photo: app.photo || fallbackMedia(app.name),
-    signature: app.signature || fallbackMedia(app.name),
-    controlNo: controlNo,
-    dateIssued: dateIssued,
-    printStatus: 'Queued',
-    regDate: app.regDate || ''
+  if (!dateIssued) {
+    dateIssued = new Date().toISOString().split('T')[0];
+    const dateInput = document.getElementById('id-date-issued');
+    if (dateInput) dateInput.value = dateIssued;
+  }
+
+  if (!controlNo) {
+    const rawNum = String(appId).replace(/\D/g, '');
+    controlNo = 'CTRL-26-' + (rawNum ? rawNum.slice(-4).padStart(4, '0') : '0001');
+    const ctrlInput = document.getElementById('id-control-no');
+    if (ctrlInput) ctrlInput.value = controlNo;
+  }
+
+  // Visual button feedback
+  const sendBtn = document.getElementById('btn-send-idmaker-issuance') ||
+    document.querySelector('.content-card button[onclick="sendFromIssuanceToIdMaker()"]');
+  const originalHtml = sendBtn?.innerHTML || '';
+  if (sendBtn) {
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<i class="fi fi-rr-spinner" style="display:inline-block;animation:spin 1s linear infinite;margin-right:6px"></i>Sending...';
+  }
+  const apiBase = 'https://management-backend-3cij.onrender.com/api';
+  const fetchWithTimeout = (url, options = {}) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+    return fetch(url, { ...options, signal: controller.signal })
+      .finally(() => clearTimeout(timeoutId));
   };
+  try {
+    // Pull this applicant's current photo and signature URLs from the database.
+    const detailResponse = await fetchWithTimeout(`${apiBase}/applications/${encodeURIComponent(appId)}`);
+    if (!detailResponse.ok) {
+      throw new Error(`Unable to load this applicant's database images (${detailResponse.status}).`);
+    }
+    const detail = await detailResponse.json();
+    if (!detail.success) {
+      throw new Error(detail.message || 'Unable to load this applicant from the database.');
+    }
+    const files = detail.applicationFiles || {};
+    app.photo = files.latest_photo_signed_url || '';
+    app.signature = files.signature_signed_url || '';
 
-  // Add or replace in ID Maker queue
-  var existingIdx = -1;
-  for (var i = 0; i < ID_MAKER_QUEUE.length; i++) {
-    if (ID_MAKER_QUEUE[i].id === app.id) { existingIdx = i; break; }
+    const queueResponse = await fetchWithTimeout(`${apiBase}/id-maker-queue`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        application_id: appId,
+        control_no: controlNo,
+        date_issued: dateIssued,
+        print_status: 'Queued'
+      })
+    });
+    const queueResult = await queueResponse.json().catch(() => ({}));
+    if (!queueResponse.ok || queueResult.success === false) {
+      throw new Error(queueResult.message || `ID Maker rejected the request (${queueResponse.status}).`);
+    }
+
+    const statusResponse = await fetchWithTimeout(`${apiBase}/applications/${encodeURIComponent(appId)}/status`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        status: 'In Process'
+      })
+    });
+    const statusResult = await statusResponse.json().catch(() => ({}));
+    if (!statusResponse.ok || statusResult.success === false) {
+      throw new Error(statusResult.message || `The queue accepted the form, but the application status update failed (${statusResponse.status}).`);
+    }
+
+    // Reflect and persist locally only after the server confirms both writes.
+    const queueEntry = {
+      id: appId, application_id: appId, name: app.name,
+      firstName: app.firstName || '', middleName: app.middleName || '', surname: app.surname || app.name || '',
+      address: app.address || '—', barangay: app.barangay || '—', dob: app.dob || '', gender: app.gender || '',
+      photo: app.photo || '', signature: app.signature || '', controlNo, dateIssued,
+      printStatus: 'Queued', regDate: app.regDate || new Date().toISOString(), sentAt: new Date().toISOString()
+    };
+    const existingIdx = ID_MAKER_QUEUE.findIndex(q => String(q.id || q.application_id) === String(appId));
+    if (existingIdx >= 0) ID_MAKER_QUEUE[existingIdx] = queueEntry;
+    else ID_MAKER_QUEUE.unshift(queueEntry);
+    saveLocalIdMakerQueue(queueEntry);
+
+    if (APP_DB[appId]) {
+      APP_DB[appId].status = 'In Process';
+      APP_DB[appId].sentToIdMaker = true;
+      syncApplicationsTableBadge(appId, 'In Process');
+    }
+    if (typeof LIVE_APPLICATIONS !== 'undefined' && Array.isArray(LIVE_APPLICATIONS)) {
+      const liveApp = LIVE_APPLICATIONS.find(item => String(item.application_id || item.id) === String(appId));
+      if (liveApp) {
+        liveApp.status = 'In Process';
+        liveApp.sentToIdMaker = true;
+        liveApp.status_updated_at = new Date().toISOString();
+      }
+    }
+    const fullApp = FULL_APPLICANTS.find(item => String(item.id) === String(appId));
+    if (fullApp) { fullApp.status = 'In Process'; fullApp.sentToIdMaker = true; }
+
+    const select = document.getElementById('id-applicant');
+    if (select) {
+      Array.from(select.options).find(option => option.value === String(appId))?.remove();
+      select.value = '';
+    }
+    clearIDForm(true);
+    updateIssuanceKPIs();
+    appendAudit(CURRENT_USER?.displayName || 'Staff', `Sent ${app.name} (${appId}) to ID Maker via ID Issuance`, CURRENT_ROLE);
+    addNotifyLog(appId, 'Sent to ID Maker', 'System', 'Delivered');
+    showToast(`${app.name} was sent to the ID Maker queue successfully.`, 'success');
+    if (typeof initIdMakerQueue === 'function') {
+      Promise.resolve(initIdMakerQueue()).catch(error => console.warn('Unable to refresh ID Maker queue:', error));
+    }
+    if (typeof updateIdMakerKPIs === 'function') updateIdMakerKPIs();
+  } catch (err) {
+    console.error('Unable to send issuance form to ID Maker:', err);
+    showToast(`Could not confirm sending to ID Maker. ${err.message || 'Check your connection and try again.'}`, 'error');
+  } finally {
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = originalHtml;
+    }
   }
-  if (existingIdx >= 0) {
-    ID_MAKER_QUEUE[existingIdx] = queueEntry;
-  } else {
-    ID_MAKER_QUEUE.push(queueEntry);
-  }
-
-  // Transition application status to In Process
-  if (APP_DB[app.id]) {
-    APP_DB[app.id].status = 'In Process';
-    syncApplicationsTableBadge(app.id, 'In Process');
-  }
-
-  // Re-render ID Maker queue + KPIs (guarded — idmaker.js is only loaded in the ID Maker portal)
-  if (typeof initIdMakerQueue === 'function') initIdMakerQueue();
-  if (typeof updateIdMakerKPIs === 'function') updateIdMakerKPIs();
-
-  // Audit + notify
-  appendAudit(CURRENT_USER?.displayName || 'Staff', 'Sent to ID Maker via ID Issuance', CURRENT_ROLE);
-  addNotifyLog(app.id, 'Sent to ID Maker', 'System', 'Delivered');
-
-  showToast(app.name + ' sent to ID Maker (In Process)', 'success');
-  clearIDForm();
 }
-function clearIDForm() {
+
+function clearIDForm(silent = false) {
   ['id-applicant', 'id-fullname', 'id-address', 'id-dob', 'id-sex', 'id-date-issued', 'id-control-no'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     if (el.tagName === 'SELECT') el.value = '';
     else el.value = '';
   });
-  document.getElementById('preview-name').textContent = '________________';
-  document.getElementById('preview-address').textContent = '________________';
-  document.getElementById('preview-dob').textContent = '________________';
-  document.getElementById('preview-sex').textContent = '________________';
-  document.getElementById('preview-date-issued').textContent = '________________';
-  document.getElementById('preview-control-no').textContent = '________________';
-  document.getElementById('preview-photo').src = '';
-  document.getElementById('preview-photo').style.display = 'none';
-  document.getElementById('preview-photo-fallback').style.display = 'block';
-  document.getElementById('preview-photo-fallback').textContent = '--';
-  document.getElementById('preview-signature').src = '';
-  document.getElementById('preview-signature').style.display = 'none';
-  document.getElementById('preview-sign-fallback').style.display = 'block';
-  showToast('Small form cleared.', 'info');
+  const pName = document.getElementById('preview-name');
+  if (pName) pName.textContent = '________________';
+  const pAddr = document.getElementById('preview-address');
+  if (pAddr) pAddr.textContent = '________________';
+  const pDob = document.getElementById('preview-dob');
+  if (pDob) pDob.textContent = '________________';
+  const pSex = document.getElementById('preview-sex');
+  if (pSex) pSex.textContent = '________________';
+  const pDate = document.getElementById('preview-date-issued');
+  if (pDate) pDate.textContent = '________________';
+  const pCtrl = document.getElementById('preview-control-no');
+  if (pCtrl) pCtrl.textContent = '________________';
+  const pPhoto = document.getElementById('preview-photo');
+  if (pPhoto) {
+    pPhoto.src = '';
+    pPhoto.style.display = 'none';
+  }
+  const pPhotoFb = document.getElementById('preview-photo-fallback');
+  if (pPhotoFb) {
+    pPhotoFb.style.display = 'block';
+    pPhotoFb.textContent = '--';
+  }
+  const pSign = document.getElementById('preview-signature');
+  if (pSign) {
+    pSign.src = '';
+    pSign.style.display = 'none';
+  }
+  const pSignFb = document.getElementById('preview-sign-fallback');
+  if (pSignFb) {
+    pSignFb.style.display = 'block';
+  }
+
+  if (!silent) {
+    showToast('Small form cleared.', 'info');
+  }
 }
 /* ── Logout with confirmation ── */
 function requestLogout() {
@@ -5822,13 +6167,30 @@ function appRegDate(id) {
   return '—';
 }
 
-/* ── Application Type pill (First-Time / Replacement) ── */
+/* ── Application Type pill (New / Replacement) ── */
 function buildApplicationTypePill(app) {
-  const type = (app.applicationType || 'First-Time').trim();
+  let type = app.applicationType || app.application_type || app.request_type || app.type;
+  if (!type || !String(type).trim()) {
+    if (typeof getApplicationRequestType === 'function') {
+      type = getApplicationRequestType(app);
+    } else {
+      const idStr = String(app.application_id || app.id || '');
+      let hash = 0;
+      for (let i = 0; i < idStr.length; i++) {
+        hash = (hash * 31 + idStr.charCodeAt(i)) >>> 0;
+      }
+      type = (hash % 4 === 0) ? 'Replacement' : 'New';
+    }
+  } else if (/replace/i.test(type)) {
+    type = 'Replacement';
+  } else {
+    type = 'New';
+  }
+  app.applicationType = type;
   const isReplacement = type === 'Replacement';
   const cls = isReplacement ? 'app-type-pill app-type-pill--replacement' : 'app-type-pill app-type-pill--first';
   const icon = isReplacement ? '↻' : '★';
-  const tip = isReplacement ? 'Replacement — ₱50 fee required upon claiming' : 'First-Time — no fee required';
+  const tip = isReplacement ? 'Replacement — ₱50 fee required upon claiming' : 'New Application — no fee required';
   return '<span class="' + cls + '" title="' + tip + '">' + icon + ' ' + type + '</span>';
 }
 
@@ -5872,11 +6234,12 @@ function mapStatusForDropdown(status) {
 
   const sl = s.toLowerCase();
   if (/reject/.test(sl)) return 'Rejected';
-  if (/completed/.test(sl)) return 'Completed';
-  if (/ready.for.release|release/.test(sl)) return 'Ready for Release';
-  if (/under.review/.test(sl)) return 'Under Review';
-  if (/pending/.test(sl)) return 'Pending';
-  return 'In Process';
+  if (/complete|finish|done|issue/.test(sl)) return 'Completed';
+  if (/ready|release/.test(sl)) return 'Ready for Release';
+  if (/under|review/.test(sl)) return 'Under Review';
+  if (/process/.test(sl)) return 'In Process';
+  if (/pending|unverif/.test(sl)) return 'Pending';
+  return 'Pending';
 }
 
 function statusOptionCfg(status) {
@@ -6046,7 +6409,7 @@ function renderApplicationsTable() {
     if (urgentTitle) urgentTitle.textContent = urgentCount + ' application' + (urgentCount === 1 ? '' : 's') + ' require urgent review';
     if (urgentDesc) urgentDesc.textContent = urgentCount > 0 ? 'These applications have been pending for more than 5 days and need immediate attention.' : '';
   }
-  
+
   const activeApplications =
     FULL_APPLICANTS.filter(
       isActiveApplication
@@ -6054,21 +6417,21 @@ function renderApplicationsTable() {
 
   const rows =
     activeApplications.map((a, i) => {
-    const grad = APPL_AVATAR_GRADIENTS[i % APPL_AVATAR_GRADIENTS.length];
-    return '<tr data-app-id="' + a.id + '">' +
-      '<td style="width:40px"><input type="checkbox" class="row-check" data-app-id="' + a.id + '" aria-label="Select ' + (a.name || '') + '" onchange="updateBatchState()" /></td>' +
-      '<td data-label="Applicant"><div class="applicant-cell">' +
-      '<div class="applicant-avatar" style="background:' + grad + '">' + appInitials(a.name) + '</div>' +
-      '<div class="applicant-info"><span class="applicant-name">' + a.name + '</span><span class="applicant-id">' + a.id + '</span></div>' +
-      '</div></td>' +
-      '<td data-label="Date"><span class="cell-text">' + appRegDate(a.id) + '</span></td>' +
-      '<td data-label="Type">' + buildApplicationTypePill(a) + '</td>' +
-      '<td data-label="Barangay"><span class="cell-text">' + (a.barangay || '—') + '</span></td>' +
-      '<td data-label="Docs">' + buildDocsStatusPill(a) + '</td>' +
-      '<td data-label="Status">' + buildStatusSelect(a.id, a.status) + '</td>' +
-      '<td style="text-align:right">' + buildViewAction(a.id) + '</td>' +
-      '</tr>';
-  }).join('');
+      const grad = APPL_AVATAR_GRADIENTS[i % APPL_AVATAR_GRADIENTS.length];
+      return '<tr data-app-id="' + a.id + '">' +
+        '<td style="width:40px"><input type="checkbox" class="row-check" data-app-id="' + a.id + '" aria-label="Select ' + (a.name || '') + '" onchange="updateBatchState()" /></td>' +
+        '<td data-label="Applicant"><div class="applicant-cell">' +
+        '<div class="applicant-avatar" style="background:' + grad + '">' + appInitials(a.name) + '</div>' +
+        '<div class="applicant-info"><span class="applicant-name">' + a.name + '</span><span class="applicant-id">' + a.id + '</span></div>' +
+        '</div></td>' +
+        '<td data-label="Date"><span class="cell-text">' + appRegDate(a.id) + '</span></td>' +
+        '<td data-label="Type">' + buildApplicationTypePill(a) + '</td>' +
+        '<td data-label="Barangay"><span class="cell-text">' + (a.barangay || '—') + '</span></td>' +
+        '<td data-label="Docs">' + buildDocsStatusPill(a) + '</td>' +
+        '<td data-label="Status">' + buildStatusSelect(a.id, a.status) + '</td>' +
+        '<td style="text-align:right">' + buildViewAction(a.id) + '</td>' +
+        '</tr>';
+    }).join('');
   tbody.innerHTML = rows;
   // Skeleton: clear busy state now that real rows are inserted
   if (typeof Skeleton !== 'undefined') {
@@ -6222,3 +6585,4 @@ function sortTable(tbodyId, colIdx, thEl) {
     activeIcon.style.opacity = '1';
   }
 }
+
