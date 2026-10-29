@@ -369,15 +369,66 @@ const updateIdMakerQueue = async (req, res) => {
       updateData.date_issued = date_issued;
     }
 
-    const { data, error } = await supabase
+    // Some queue entries can be present in the ID Maker UI (from local
+    // storage) without a matching database row. Update an existing row, or
+    // create one after confirming that the application itself exists.
+    const { data: existingQueueItem, error: lookupError } = await supabase
       .from("id_maker_queue")
-      .update(updateData)
+      .select("application_id, control_no, date_issued")
       .eq("application_id", applicationId)
-      .select()
-      .single();
+      .maybeSingle();
 
-    if (error) {
-      throw error;
+    if (lookupError) {
+      throw lookupError;
+    }
+
+    let data;
+    if (existingQueueItem) {
+      const { data: updatedQueueItem, error: updateError } = await supabase
+        .from("id_maker_queue")
+        .update(updateData)
+        .eq("application_id", applicationId)
+        .select()
+        .single();
+
+      if (updateError) {
+        throw updateError;
+      }
+      data = updatedQueueItem;
+    } else {
+      const { data: application, error: applicationError } = await supabase
+        .from("applications")
+        .select("application_id")
+        .eq("application_id", applicationId)
+        .maybeSingle();
+
+      if (applicationError) {
+        throw applicationError;
+      }
+
+      if (!application) {
+        return res.status(404).json({
+          success: false,
+          message: "Application not found; cannot add it to the ID Maker queue.",
+        });
+      }
+
+      const { data: insertedQueueItem, error: insertError } = await supabase
+        .from("id_maker_queue")
+        .insert({
+          application_id: applicationId,
+          print_status: print_status || "Queued",
+          control_no: control_no ?? null,
+          date_issued: date_issued ?? null,
+          updated_at: updateData.updated_at,
+        })
+        .select()
+        .single();
+
+      if (insertError) {
+        throw insertError;
+      }
+      data = insertedQueueItem;
     }
 
     return res.status(200).json({
