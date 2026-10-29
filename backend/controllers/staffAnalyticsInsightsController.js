@@ -60,7 +60,7 @@ async function generateStaffAnalyticsInsights(req, res) {
 
     const prompt = "You write descriptive insights for an OSCA staff dashboard about senior citizen ID applications. Return JSON with an 'insights' object containing a short string for each provided analytics key. Use only supplied aggregate statistics. Do not invent numbers, infer causes, identify individuals, or make eligibility decisions. Use simple professional English, 1-3 sentences and at most 55 words per insight. Explain what the data shows.";
     const abort = new AbortController();
-    const timer = setTimeout(() => abort.abort(), 12000);
+    const timer = setTimeout(() => abort.abort(), 30000);
     let response;
     try {
       response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL.replace(/^models\//, ""))}:generateContent`, {
