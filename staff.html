@@ -1350,25 +1350,64 @@
           <div class="an-card analytics-action-card">
             <div class="an-card__header">
               <div>
-                <div class="an-card__title">Document Blockers</div>
-                <div class="an-card__sub">Requirements slowing review</div>
+                <div class="an-card__title">Replacement Applications Analytics</div>
+                <div class="an-card__sub">Live summary of ID replacement requests</div>
               </div>
             </div>
+
             <div class="an-card__body analytics-action-list">
               <div class="analytics-action-item">
-                <span class="analytics-action-icon"><i class="fi fi-rr-document-signed"></i></span>
-                <div><strong>Birth certificate</strong><small>0 applications missing</small></div>
+                <span class="analytics-action-icon">
+                  <i class="fi fi-rr-refresh"></i>
+                </span>
+                <div>
+                  <strong>Total Requests</strong>
+                  <small id="replacement-analytics-total">Loading...</small>
+                </div>
               </div>
+
               <div class="analytics-action-item">
-                <span class="analytics-action-icon"><i class="fi fi-rr-id-badge"></i></span>
-                <div><strong>Valid ID / proof</strong><small>0 applications missing</small></div>
+                <span class="analytics-action-icon">
+                  <i class="fi fi-rr-clock"></i>
+                </span>
+                <div>
+                  <strong>Pending</strong>
+                  <small id="replacement-analytics-pending">Loading...</small>
+                </div>
               </div>
+
               <div class="analytics-action-item">
-                <span class="analytics-action-icon"><i class="fi fi-rr-camera"></i></span>
-                <div><strong>Photo requirement</strong><small>0 applications missing</small></div>
+                <span class="analytics-action-icon">
+                  <i class="fi fi-rr-settings"></i>
+                </span>
+                <div>
+                  <strong>In Process</strong>
+                  <small id="replacement-analytics-process">Loading...</small>
+                </div>
+              </div>
+
+              <div class="analytics-action-item">
+                <span class="analytics-action-icon">
+                  <i class="fi fi-rr-check-circle"></i>
+                </span>
+                <div>
+                  <strong>Completed</strong>
+                  <small id="replacement-analytics-completed">Loading...</small>
+                </div>
+              </div>
+
+              <div class="analytics-action-item">
+                <span class="analytics-action-icon">
+                  <i class="fi fi-rr-cross-circle"></i>
+                </span>
+                <div>
+                  <strong>Rejected</strong>
+                  <small id="replacement-analytics-rejected">Loading...</small>
+                </div>
               </div>
             </div>
           </div>
+
           <div class="an-card analytics-action-card">
             <div class="an-card__header">
               <div>

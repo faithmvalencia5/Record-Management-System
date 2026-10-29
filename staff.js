@@ -4144,11 +4144,61 @@ async function loadReplacementRequests() {
     replacementRequests = Array.isArray(result.requests)
       ? result.requests
       : [];
+    updateReplacementAnalytics(replacementRequests);
 
     // Always refresh the sidebar badge when data loads.
     const sidebarCount = document.getElementById(
       'replacements-sidebar-count'
     );
+
+    function updateReplacementAnalytics(requests) {
+      if (!Array.isArray(requests)) return;
+
+      const counts = {
+        total: requests.length,
+        pending: 0,
+        process: 0,
+        completed: 0,
+        rejected: 0
+      };
+
+      requests.forEach(request => {
+        const status = String(
+          request.request_status || 'Pending'
+        ).trim().toLowerCase();
+
+        if (status === 'pending') {
+          counts.pending++;
+        } else if (
+          status === 'in process' ||
+          status === 'under review' ||
+          status === 'ready for release'
+        ) {
+          counts.process++;
+        } else if (status === 'completed') {
+          counts.completed++;
+        } else if (status === 'rejected') {
+          counts.rejected++;
+        }
+      });
+
+      const elements = {
+        'replacement-analytics-total': counts.total,
+        'replacement-analytics-pending': counts.pending,
+        'replacement-analytics-process': counts.process,
+        'replacement-analytics-completed': counts.completed,
+        'replacement-analytics-rejected': counts.rejected
+      };
+
+      Object.entries(elements).forEach(([id, count]) => {
+        const element = document.getElementById(id);
+
+        if (element) {
+          element.textContent =
+            `${count.toLocaleString()} ${count === 1 ? 'request' : 'requests'}`;
+        }
+      });
+    }
 
     if (sidebarCount) {
       sidebarCount.textContent =
