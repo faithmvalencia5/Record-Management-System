@@ -223,8 +223,8 @@ function updateQueueFooterCount(visible, total){
   if(!total){ footer.style.display = 'none'; return; }
   footer.style.display = '';
   footerCount.textContent = visible === total
-    ? 'Showing ' + total + ' application' + (total !== 1 ? 's' : '')
-    : 'Showing ' + visible + ' of ' + total + ' applications';
+    ? 'Showing ' + total + ' print-ready application' + (total !== 1 ? 's' : '')
+    : 'Showing ' + visible + ' of ' + total + ' print-ready application' + (total !== 1 ? 's' : '');
 }
 
 function filterIdMakerQueue(q){
@@ -799,8 +799,9 @@ function updateIdMakerKPIs() {
   var transit = 0;
   var completed = 0;
   var errors = 0;
+  const printQueueItems = ID_MAKER_QUEUE.filter(app => app.inPrintQueue !== false);
 
-  ID_MAKER_QUEUE.forEach(function(app){
+  printQueueItems.forEach(function(app){
 
     if (app.printStatus === 'Queued') {
       queued++;
@@ -848,7 +849,7 @@ function updateIdMakerKPIs() {
     printed,
     transit,
     completed,
-    ID_MAKER_QUEUE.length
+    printQueueItems.length
   ];
 
 
@@ -1544,7 +1545,9 @@ function updateIdMakerKPIs() {
     Completed: 0
   };
 
-  ID_MAKER_QUEUE.forEach(
+  const printQueueItems = ID_MAKER_QUEUE.filter(app => app.inPrintQueue !== false);
+
+  printQueueItems.forEach(
     function (app) {
       if (
         counts[app.printStatus] !==
@@ -1607,7 +1610,7 @@ function updateIdMakerKPIs() {
   if (cards[5]) {
     cards[5]
       .querySelector('.stat-card__value')
-      .textContent = ID_MAKER_QUEUE.length;
+      .textContent = printQueueItems.length;
   }
 
   updateFilterCounts();

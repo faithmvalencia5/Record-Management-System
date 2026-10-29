@@ -236,6 +236,9 @@ const getIdMakerQueue = async (req, res) => {
             application_id:
               applicationId,
 
+            inPrintQueue:
+              Boolean(queueItem),
+
             name:
               fullName,
 
@@ -287,6 +290,10 @@ const getIdMakerQueue = async (req, res) => {
 
             printStatus:
               queueItem?.print_status || "Queued",
+
+            applicationStatus:
+              application?.status ||
+              "",
 
             sentAt:
               queueItem?.sent_at ||
