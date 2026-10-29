@@ -4081,3 +4081,232 @@ function updateApplicationSummaryCards(applications) {
   };
   Object.entries(count).forEach(([id, value]) => { const el = document.getElementById(id); if (el) el.textContent = value.toLocaleString(); });
 }
+
+
+const REPLACEMENTS_API =
+  'https://management-backend-3cij.onrender.com/api/replacements';
+
+let replacementRequests = [];
+
+function escapeReplacementText(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[char]);
+}
+
+function formatReplacementDate(value) {
+  if (!value) return '—';
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+
+  return date.toLocaleDateString('en-PH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+}
+
+async function loadReplacementRequests() {
+  const tbody = document.getElementById(
+    'replacement-requests-tbody'
+  );
+
+  if (!tbody) return;
+
+  tbody.innerHTML =
+    '<tr><td colspan="6" style="text-align:center;padding:24px">' +
+    'Loading ID requests...</td></tr>';
+
+  try {
+    const response = await fetch(REPLACEMENTS_API, {
+      cache: 'no-store'
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(
+        result.message || 'Failed to load ID requests.'
+      );
+    }
+
+    replacementRequests = Array.isArray(result.requests)
+      ? result.requests
+      : [];
+
+    renderReplacementRequests();
+  } catch (error) {
+    console.error('Replacement requests error:', error);
+
+    tbody.innerHTML =
+      '<tr><td colspan="6" style="text-align:center;padding:24px;color:#dc2626">' +
+      'Unable to load requests: ' +
+      escapeReplacementText(error.message) +
+      '</td></tr>';
+
+    const badge = document.getElementById('replacement-total');
+    if (badge) badge.textContent = 'Load failed';
+  }
+}
+
+function renderReplacementRequests() {
+  const tbody = document.getElementById(
+    'replacement-requests-tbody'
+  );
+
+  if (!tbody) return;
+
+  const search = (
+    document.getElementById('replacement-search')?.value || ''
+  ).trim().toLowerCase();
+
+  const statusFilter = (
+    document.getElementById('replacement-status-filter')?.value || ''
+  ).toLowerCase();
+
+  const filtered = replacementRequests.filter(request => {
+    const searchableText = [
+      request.applicant_name,
+      request.application_id,
+      request.reason,
+      request.other_reason,
+      request.request_status
+    ].join(' ').toLowerCase();
+
+    const matchesSearch = searchableText.includes(search);
+    const matchesStatus = !statusFilter ||
+      String(request.request_status || '').toLowerCase() === statusFilter;
+
+    return matchesSearch && matchesStatus;
+  });
+
+  const totalBadge = document.getElementById('replacement-total');
+  if (totalBadge) {
+    totalBadge.textContent =
+      replacementRequests.length.toLocaleString() +
+      (replacementRequests.length === 1 ? ' Request' : ' Requests');
+  }
+
+  const sidebarBadge = document.getElementById(
+    'replacements-sidebar-count'
+  );
+  if (sidebarBadge) {
+    sidebarBadge.textContent =
+      replacementRequests.length.toLocaleString();
+  }
+
+  if (!filtered.length) {
+    tbody.innerHTML =
+      '<tr><td colspan="6" style="text-align:center;padding:28px">' +
+      (replacementRequests.length
+        ? 'No requests match your filters.'
+        : 'No ID requests were returned by the database.') +
+      '</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(request => {
+    const status = request.request_status || 'Unknown';
+
+    return `
+      <tr>
+        <td>
+          <strong>${escapeReplacementText(
+            request.applicant_name || 'Applicant record not found'
+          )}</strong>
+        </td>
+        <td>${escapeReplacementText(request.application_id || '—')}</td>
+        <td>
+          ${escapeReplacementText(request.reason || '—')}
+          ${request.other_reason
+            ? `<div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+                ${escapeReplacementText(request.other_reason)}
+              </div>`
+            : ''}
+        </td>
+        <td>${formatReplacementDate(request.requested_at)}</td>
+        <td>${escapeReplacementText(status)}</td>
+        <td>
+          <button
+            type="button"
+            class="btn btn--secondary"
+            onclick="viewReplacementRequest(${Number(request.id)})">
+            View Request
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function filterReplacementRequests() {
+  renderReplacementRequests();
+}
+
+async function viewReplacementRequest(requestId) {
+  const request = replacementRequests.find(
+    item => Number(item.id) === Number(requestId)
+  );
+
+  if (!request) return;
+
+  const details = [
+    'Applicant: ' + (request.applicant_name || 'Not found'),
+    'Application ID: ' + (request.application_id || '—'),
+    'Reason: ' + (request.reason || '—'),
+    'Other details: ' + (request.other_reason || '—'),
+    'Requested: ' + formatReplacementDate(request.requested_at),
+    'Status: ' + (request.request_status || 'Unknown')
+  ].join('\n');
+
+  if (String(request.request_status).toLowerCase() !== 'pending') {
+    alert(details);
+    return;
+  }
+
+  const decision = prompt(
+    details +
+    '\n\nType ACCEPT to accept, REJECT to reject, or leave blank to cancel.'
+  );
+
+  if (!decision) return;
+
+  const normalized = decision.trim().toLowerCase();
+  if (!['accept', 'reject'].includes(normalized)) {
+    alert('Please enter ACCEPT or REJECT.');
+    return;
+  }
+
+  try {
+    const response = await fetch(
+      REPLACEMENTS_API + '/' +
+      encodeURIComponent(request.id) + '/decision',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision: normalized })
+      }
+    );
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Could not update the request.');
+    }
+
+    alert(result.message || 'Request updated.');
+    await loadReplacementRequests();
+  } catch (error) {
+    console.error(error);
+    alert(error.message || 'Could not update the request.');
+  }
+}
+
+window.loadReplacementRequests = loadReplacementRequests;
+window.filterReplacementRequests = filterReplacementRequests;
+window.viewReplacementRequest = viewReplacementRequest;

@@ -1009,24 +1009,32 @@
         </header>
 
         <section class="content-card">
-          <div class="table-toolbar">
+          <div class="table-toolbar"
+              style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:16px">
+
             <input
               type="search"
               id="replacement-search"
               placeholder="Search applicant or application ID..."
               oninput="filterReplacementRequests()"
+              style="flex:1;min-width:220px;padding:11px 14px;border:1px solid var(--border-color,#dbe3ef);border-radius:10px;background:var(--surface,#fff);color:var(--text-primary,#172033)"
             />
 
-            <select id="replacement-status-filter"
-                    onchange="filterReplacementRequests()">
+            <select
+              id="replacement-status-filter"
+              onchange="filterReplacementRequests()"
+              style="min-width:150px;padding:11px 14px;border:1px solid var(--border-color,#dbe3ef);border-radius:10px;background:var(--surface,#fff);color:var(--text-primary,#172033)"
+            >
               <option value="">All statuses</option>
               <option value="Pending">Pending</option>
               <option value="Accepted">Accepted</option>
               <option value="Rejected">Rejected</option>
             </select>
 
-            <button class="btn btn--secondary"
-                    onclick="loadReplacementRequests()">
+            <button
+              type="button"
+              class="btn btn--secondary"
+              onclick="loadReplacementRequests()">
               Refresh
             </button>
           </div>

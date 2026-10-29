@@ -508,6 +508,8 @@ function navigate(moduleId) {
   });
   if (moduleId === 'analytics') setTimeout(initAllCharts, 80);
   if (moduleId === 'id-issuance') { if (typeof initSmallFormIssuance === 'function') initSmallFormIssuance(); }
+  if (moduleId === 'replacements') { if (typeof loadReplacementRequests === 'function') {loadReplacementRequests();}
+}
   if (moduleId === 'id-maker-dashboard') { if (typeof initIdMakerQueue === 'function') initIdMakerQueue(); if (typeof updateIdMakerKPIs === 'function') updateIdMakerKPIs(); }
   if (moduleId === 'id-maker-analytics') { if (typeof initIdMakerCharts === 'function') setTimeout(initIdMakerCharts, 80); }
 }
