@@ -161,15 +161,6 @@ const decideReplacementRequest = async (req, res) => {
     const requestId = Number(req.params.id);
     const { status } = req.body;
 
-    // 1. Validate the request ID.
-    if (!Number.isInteger(requestId) || requestId <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "A valid request ID is required.",
-      });
-    }
-
-    // 2. Use the same statuses as the Applications module.
     const allowedStatuses = [
       "Pending",
       "Under Review",
@@ -179,6 +170,13 @@ const decideReplacementRequest = async (req, res) => {
       "Rejected",
     ];
 
+    if (!Number.isInteger(requestId) || requestId <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid request ID is required.",
+      });
+    }
+
     if (!allowedStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
@@ -186,98 +184,38 @@ const decideReplacementRequest = async (req, res) => {
       });
     }
 
-    // 3. Find the ID request.
-    const { data: existingRequest, error: findError } =
-      await supabase
-        .from("id_requests")
-        .select("id, application_id, request_status")
-        .eq("id", requestId)
-        .maybeSingle();
+    // Save both related status updates in one database transaction.
+    const { data, error } = await supabase.rpc(
+      "update_replacement_request_status",
+      {
+        p_request_id: requestId,
+        p_status: status,
+      }
+    );
 
-    if (findError) throw findError;
-
-    if (!existingRequest) {
-      return res.status(404).json({
-        success: false,
-        message: "ID request not found.",
-      });
+    if (error) {
+      throw error;
     }
 
-    const applicationId = existingRequest.application_id;
-
-    if (!applicationId) {
-      return res.status(400).json({
-        success: false,
-        message: "This request has no linked application.",
-      });
+    if (!data || data.success !== true || !data.request) {
+      throw new Error("The database did not confirm the status update.");
     }
 
-    // 4. Update the linked application's processing stage.
-    const now = new Date().toISOString();
-
-    const { data: historyRecords, error: historyReadError } =
-      await supabase
-        .from("application_status_history")
-        .select("application_id")
-        .eq("application_id", applicationId);
-
-    if (historyReadError) throw historyReadError;
-
-    if (historyRecords && historyRecords.length > 0) {
-      const { error: historyUpdateError } = await supabase
-        .from("application_status_history")
-        .update({
-          status: status,
-          updated_at: now,
-        })
-        .eq("application_id", applicationId);
-
-      if (historyUpdateError) throw historyUpdateError;
-    } else {
-      const { error: historyInsertError } = await supabase
-        .from("application_status_history")
-        .insert({
-          application_id: applicationId,
-          status: status,
-          updated_at: now,
-        });
-
-      if (historyInsertError) throw historyInsertError;
-    }
-
-    // 5. Update the ID request's status too.
-    const { data: updatedRequest, error: requestUpdateError } =
-      await supabase
-        .from("id_requests")
-        .update({ request_status: status })
-        .eq("id", requestId)
-        .select(`
-          id,
-          application_id,
-          reason,
-          other_reason,
-          request_status,
-          requested_at
-        `)
-        .single();
-
-    if (requestUpdateError) throw requestUpdateError;
-
-    return res.json({
+    return res.status(200).json({
       success: true,
-      message: `Request status updated to ${status}.`,
-      request: updatedRequest,
+      message: data.message,
+      request: data.request,
     });
   } catch (error) {
-    console.error("Failed to update ID request status:", error);
+    console.error("Failed to save replacement status:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Failed to update ID request status.",
-      error: error.message,
+      message: "The status could not be saved. Please try again.",
     });
   }
 };
+
 
 module.exports = {
   getReplacementRequests,
