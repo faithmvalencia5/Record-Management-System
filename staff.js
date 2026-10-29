@@ -3322,9 +3322,15 @@ document.addEventListener(
 
       loadApplicationsFromDatabase();
 
+    // Load replacement requests on initial page load so the sidebar badge is updated automatically.
+    if (typeof loadReplacementRequests === 'function') {
+      loadReplacementRequests();
+    }
+
     }
 
   }
+  
 );
 
 // Registry view helpers: group request rows into one profile per senior.
@@ -4114,11 +4120,13 @@ async function loadReplacementRequests() {
     'replacement-requests-tbody'
   );
 
-  if (!tbody) return;
+  const hasReplacementTable = Boolean(tbody);
 
-  tbody.innerHTML =
-    '<tr><td colspan="6" style="text-align:center;padding:24px">' +
-    'Loading ID requests...</td></tr>';
+  if (hasReplacementTable) {
+    tbody.innerHTML =
+      '<tr><td colspan="6" style="text-align:center;padding:24px">' +
+      'Loading ID requests...</td></tr>';
+  }
 
   try {
     const response = await fetch(REPLACEMENTS_API, {
@@ -4137,18 +4145,36 @@ async function loadReplacementRequests() {
       ? result.requests
       : [];
 
-    renderReplacementRequests();
+    // Always refresh the sidebar badge when data loads.
+    const sidebarCount = document.getElementById(
+      'replacements-sidebar-count'
+    );
+
+    if (sidebarCount) {
+      sidebarCount.textContent =
+        replacementRequests.length.toLocaleString();
+    }
+
+    // Render the table only if it exists on this page.
+    if (hasReplacementTable) {
+      renderReplacementRequests();
+    }
   } catch (error) {
     console.error('Replacement requests error:', error);
 
-    tbody.innerHTML =
-      '<tr><td colspan="6" style="text-align:center;padding:24px;color:#dc2626">' +
-      'Unable to load requests: ' +
-      escapeReplacementText(error.message) +
-      '</td></tr>';
+    if (hasReplacementTable) {
+      tbody.innerHTML =
+        '<tr><td colspan="6" style="text-align:center;padding:24px;color:#dc2626">' +
+        'Unable to load requests: ' +
+        escapeReplacementText(error.message) +
+        '</td></tr>';
 
-    const badge = document.getElementById('replacement-total');
-    if (badge) badge.textContent = 'Load failed';
+      const badge = document.getElementById('replacement-total');
+
+      if (badge) {
+        badge.textContent = 'Load failed';
+      }
+    }
   }
 }
 
