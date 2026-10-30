@@ -192,6 +192,65 @@ async function requestGemini(stats) {
   }
 }
 
+async function requestGroq(stats) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error("GROQ_API_KEY is not configured");
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(
+      "https://api.groq.com/openai/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        signal: controller.signal,
+        body: JSON.stringify({
+          model: "openai/gpt-oss-20b",
+          messages: [
+            {
+              role: "system",
+              content: `${SYSTEM_PROMPT}\n\nReturn your answer as a JSON object with one property named "insight", whose value is the insight text.`,
+            },
+            {
+              role: "user",
+              content: JSON.stringify(stats),
+            },
+          ],
+          temperature: 0,
+          max_completion_tokens: 250,
+          response_format: { type: "json_object" },
+        }),
+      }
+    );
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(
+        `Groq request failed (${response.status}): ${
+          result.error?.message || "unknown API error"
+        }`
+      );
+    }
+
+    const content = result.choices?.[0]?.message?.content || "";
+    const parsed = JSON.parse(content);
+
+    if (typeof parsed.insight !== "string") {
+      throw new Error("Groq returned an invalid insight response.");
+    }
+
+    return parsed.insight;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 const generateIdMakerAnalyticsInsights = async (req, res) => {
   const cards = req.body?.cards;
   if (!cards || typeof cards !== "object" || Array.isArray(cards)) {
@@ -237,12 +296,28 @@ const generateIdMakerAnalyticsInsights = async (req, res) => {
 
       if (!pending) {
         pending = requestGemini(stats)
-          .then((text) => {
+          .then((text) => ({
+            text,
+            provider: "gemini",
+          }))
+          .catch(async (geminiError) => {
+            console.warn(
+              `[ID Maker analytics] Gemini failed; trying Groq: ${geminiError.message}`
+            );
+
+            const text = await requestGroq(stats);
+
+            return {
+              text,
+              provider: "groq",
+            };
+          })
+          .then(({ text, provider }) => {
             const validationFailure = validateInsight(text, stats);
 
             if (validationFailure) {
               console.warn(
-                `[ID Maker analytics] Rejected Gemini ${cardKey} insight: ${validationFailure}`
+                `[ID Maker analytics] Rejected ${provider} insight: ${validationFailure}`
               );
 
               return {
@@ -252,28 +327,31 @@ const generateIdMakerAnalyticsInsights = async (req, res) => {
               };
             }
 
-            const result = { text: text.trim(), source: "ai" };
+            const result = {
+              text: text.trim(),
+              source: "ai",
+              provider,
+            };
+
             cacheInsight(cacheKey, result);
             return result;
           })
           .finally(() => {
             insightInFlight.delete(cacheKey);
           });
-
-        insightInFlight.set(cacheKey, pending);
       }
 
       insights[cardKey] = await pending;
     } catch (error) {
-      const reason = error.name === "AbortError" ? "Gemini request timed out" : error.message;
-      console.warn(`[ID Maker analytics] Gemini ${cardKey} insight failed: ${reason}`);
+      const reason = error.name === "AbortError" ? "AI provider request timed out" : error.message;
+      console.warn(`[ID Maker analytics] AI provider ${cardKey} insight failed: ${reason}`);
       insights[cardKey] = { text: stats.fallback, source: "fallback", reason };
     }
   }));
 
   return res.status(200).json({
     success: true,
-    configured: Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
+    configured: Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GROQ_API_KEY),
     model: GEMINI_MODEL,
     insights,
   });
