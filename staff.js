@@ -174,6 +174,62 @@ function isSameMonth(dateValue, referenceDate = new Date()) {
 
 let LIVE_APPLICATIONS = [];
 
+// Keep selected application IDs stable while the live table is re-rendered.
+const STAFF_SELECTED_APP_IDS = new Set();
+
+function getVisibleStaffApplicationCheckboxes() {
+  return Array.from(document.querySelectorAll(
+    '#applications-tbody tr[data-app-id] .row-check[data-app-id]'
+  )).filter(checkbox => {
+    const row = checkbox.closest('tr');
+    return row && row.style.display !== 'none';
+  });
+}
+
+function toggleSelectAllApps(checked) {
+  getVisibleStaffApplicationCheckboxes().forEach(checkbox => {
+    checkbox.checked = Boolean(checked);
+    const id = String(checkbox.dataset.appId || '');
+    if (!id) return;
+    if (checked) STAFF_SELECTED_APP_IDS.add(id);
+    else STAFF_SELECTED_APP_IDS.delete(id);
+  });
+  updateBatchState();
+}
+
+function updateBatchState() {
+  const checkboxes = Array.from(document.querySelectorAll(
+    '#applications-tbody .row-check[data-app-id]'
+  ));
+  checkboxes.forEach(checkbox => {
+    const id = String(checkbox.dataset.appId || '');
+    checkbox.checked = STAFF_SELECTED_APP_IDS.has(id);
+  });
+
+  const visible = getVisibleStaffApplicationCheckboxes();
+  const selectedVisible = visible.filter(checkbox =>
+    STAFF_SELECTED_APP_IDS.has(String(checkbox.dataset.appId || ''))
+  ).length;
+  const selectAll = document.getElementById('select-all-apps');
+  if (selectAll) {
+    selectAll.checked = visible.length > 0 && selectedVisible === visible.length;
+    selectAll.indeterminate = selectedVisible > 0 && selectedVisible < visible.length;
+    selectAll.disabled = visible.length === 0;
+  }
+
+  const selectedCount = STAFF_SELECTED_APP_IDS.size;
+  const trigger = document.getElementById('batch-ops-trigger');
+  const label = document.getElementById('batch-ops-label');
+  if (trigger) trigger.disabled = selectedCount === 0;
+  if (label) label.textContent = selectedCount
+    ? 'Batch Operations (' + selectedCount.toLocaleString() + ')'
+    : 'Batch Operations';
+}
+
+window.toggleSelectAllApps = toggleSelectAllApps;
+window.updateBatchState = updateBatchState;
+
+
 
 // UPDATE LIVE ANALYTICS DATA
 
@@ -3910,7 +3966,7 @@ function renderLiveApplications(applications) {
     const barangay = application.barangay_district || application.barangay || '';
     const days = getApplicationDaysPending(application);
     return `<tr data-app-id="${escapeApplicationHtml(id)}" data-status="${escapeApplicationHtml(String(status).toLowerCase())}" data-barangay="${escapeApplicationHtml(String(barangay).toLowerCase())}" >
-      <td style="width:36px;text-align:center"><input type="checkbox" class="row-check" data-app-id="${escapeApplicationHtml(id)}" aria-label="Select ${escapeApplicationHtml(name)}" onchange="updateBatchState()" /></td>
+      <td style="width:36px;text-align:center"><input type="checkbox" class="row-check" data-app-id="${escapeApplicationHtml(id)}" aria-label="Select ${escapeApplicationHtml(name)}" ${STAFF_SELECTED_APP_IDS.has(String(id)) ? 'checked' : ''} onchange="updateBatchState()" /></td>
       <td data-label="Applicant"><div class="applicant-cell"><div class="applicant-avatar" style="background:${avatarBg}">${escapeApplicationHtml(initials)}</div><div class="applicant-info"><span class="applicant-name">${escapeApplicationHtml(name)}</span><span class="applicant-id">${escapeApplicationHtml(id)}</span></div></div></td>
       <td data-label="Submitted"><span class="cell-text">${escapeApplicationHtml(formatStaffDate(getApplicationSubmittedDate(application)))}</span></td>
       <td data-label="Documents">${docs}</td><td data-label="Stage">${statusHtml}</td><td data-label="Membership">${membershipHtml}</td>
@@ -3935,6 +3991,7 @@ function renderLiveApplications(applications) {
   if (urgentTitle) urgentTitle.textContent = urgentCount ? `${urgentCount} application${urgentCount === 1 ? '' : 's'} require urgent review` : 'No urgent applications';
   const urgentDescription = document.getElementById('urgent-alert-desc');
   if (urgentDescription) urgentDescription.textContent = urgentCount ? 'These applications have been pending for more than 5 days and need immediate attention.' : 'Applications pending for more than 5 days will appear here.';
+  updateBatchState();
 }
 
 function applyApplicationsModuleFilters(statusKey) {
