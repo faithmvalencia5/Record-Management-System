@@ -1316,6 +1316,17 @@ router.post("/reset-password", async (req, res) => {
       });
     }
 
+    await createAuditLog({
+      userId: user.id,
+      username: user.username,
+      action: "PASSWORD_CHANGED",
+      entityType: "USER",
+      entityId: String(user.id),
+      details: "User changed their password after OTP verification.",
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    });
+
     return res.json({
       success: true,
       message:
