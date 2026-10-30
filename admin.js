@@ -1135,6 +1135,10 @@ function normalizeAuditLog(
       log.username ||
       '—',
 
+    email:
+      log.email ||
+      '—',
+
     role:
       log.role ||
       'Unknown',
@@ -3926,49 +3930,14 @@ function filterAuditLogs() {
 
 
 function readAuditFilterInputs() {
-
   return {
-
-    q:
-      (
-        document.getElementById(
-          'audit-search'
-        )?.value ||
-        ''
-      ).toLowerCase(),
-
-
-    userF:
-      document.getElementById(
-        'audit-user-filter'
-      )?.value ||
-      '',
-
-
-    actionF:
-      document.getElementById(
-        'audit-action-filter'
-      )?.value ||
-      '',
-
-
-    from:
-      document.getElementById(
-        'audit-date-from'
-      )?.value ||
-      '',
-
-
-    to:
-      document.getElementById(
-        'audit-date-to'
-      )?.value ||
-      ''
-
+    q: (document.getElementById('audit-search')?.value || '').trim().toLocaleLowerCase(),
+    userF: document.getElementById('audit-user-filter')?.value || '',
+    actionF: document.getElementById('audit-action-filter')?.value || '',
+    from: document.getElementById('audit-date-from')?.value || '',
+    to: document.getElementById('audit-date-to')?.value || ''
   };
-
 }
-
 
 function auditEventTime(
   e
@@ -4002,136 +3971,46 @@ function auditEventTime(
 }
 
 
-function auditEventMatches(
-  e,
-  f
-) {
+function auditEventMatches(e, f) {
+  const searchableText = [
+    e.action, e.user, e.username, e.email, e.role,
+    e.ip, e.device, e.entityType, e.entityId, e.details
+  ].map(value => String(value ?? '')).join(' ')
+    .normalize('NFD')
+    .replace(/[\\u0300-\\u036f]/g, '')
+    .toLocaleLowerCase();
 
-  const matchQ =
-    !f.q ||
-    (
-      e.action +
-      ' ' +
-      e.user +
-      ' ' +
-      e.username +
-      ' ' +
-      e.role +
-      ' ' +
-      e.ip +
-      ' ' +
-      e.device +
-      ' ' +
-      e.entityType +
-      ' ' +
-      e.entityId +
-      ' ' +
-      e.details
-    )
-      .toLowerCase()
-      .includes(
-        f.q
-      );
+  const searchTerm = String(f.q || '')
+    .normalize('NFD')
+    .replace(/[\\u0300-\\u036f]/g, '')
+    .toLocaleLowerCase();
 
+  const matchQ = !searchTerm || searchableText.includes(searchTerm);
+  const matchUser = !f.userF || e.user === f.userF;
+  const matchAction = !f.actionF || determineAuditActionType(e.action) === f.actionF;
 
-  const matchUser =
-    !f.userF ||
-    e.user ===
-      f.userF;
+  let matchDate = true;
+  const ts = auditEventTime(e);
 
-
-  const matchAction =
-    !f.actionF ||
-    determineAuditActionType(
-      e.action
-    ) ===
-      f.actionF;
-
-
-  let matchDate =
-    true;
-
-
-  const ts =
-    auditEventTime(
-      e
-    );
-
-
-  if (
-    f.from ||
-    f.to
-  ) {
-
-    if (
-      ts ===
-      null
-    ) {
-
-      return false;
-
-    }
-
+  if (f.from || f.to) {
+    if (ts === null) return false;
 
     if (f.from) {
-
-      const [fromYear, fromMonth, fromDay] = f.from.split('-').map(Number);
-      const fromMs = new Date(fromYear, fromMonth - 1, fromDay).getTime();
-
-
-      if (
-        !Number.isNaN(
-          fromMs
-        ) &&
-        ts <
-          fromMs
-      ) {
-
-        matchDate =
-          false;
-
-      }
-
+      const [year, month, day] = f.from.split('-').map(Number);
+      const fromMs = new Date(year, month - 1, day).getTime();
+      if (!Number.isNaN(fromMs) && ts < fromMs) matchDate = false;
     }
 
-
-    if (
-      matchDate &&
-      f.to
-    ) {
-
-      const [toYear, toMonth, toDay] = f.to.split('-').map(Number);
-      // Exclusive next-day boundary includes all events on the selected end date.
-      const toExclusiveMs = new Date(toYear, toMonth - 1, toDay + 1).getTime();
-
-
-      if (
-        !Number.isNaN(
-          toExclusiveMs
-        ) &&
-        ts >=
-          toExclusiveMs
-      ) {
-
-        matchDate =
-          false;
-
-      }
-
+    if (matchDate && f.to) {
+      const [year, month, day] = f.to.split('-').map(Number);
+      // Use the next local midnight so every event on the To date is included.
+      const toExclusiveMs = new Date(year, month - 1, day + 1).getTime();
+      if (!Number.isNaN(toExclusiveMs) && ts >= toExclusiveMs) matchDate = false;
     }
-
   }
 
-
-  return (
-    matchQ &&
-    matchUser &&
-    matchAction &&
-    matchDate
-  );
-
+  return matchQ && matchUser && matchAction && matchDate;
 }
-
 
 /* =========================================================
    AUDIT SUMMARY FILTER
@@ -4524,38 +4403,42 @@ function exportAuditLog() {
 }
 
 
-function resetAuditFilters() {
+function updateAuditDateRangeLabel() {
+  const from = document.getElementById('audit-date-from')?.value || '';
+  const to = document.getElementById('audit-date-to')?.value || '';
+  const label = document.getElementById('audit-date-range-label');
+  if (!label) return;
 
-  [
-    'audit-search',
-    'audit-user-filter',
-    'audit-action-filter',
-    'audit-date-from',
-    'audit-date-to'
-  ].forEach(
-    id => {
+  const formatDate = value => {
+    if (!value) return '';
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+      month: 'short', day: 'numeric', year: 'numeric'
+    });
+  };
 
-      const el =
-        document.getElementById(
-          id
-        );
-
-
-      if (el) {
-
-        el.value =
-          '';
-
-      }
-
-    }
-  );
-
-
-  renderAuditTable();
-
+  if (!from && !to) label.textContent = 'Date range';
+  else if (from && to) label.textContent = `${formatDate(from)} – ${formatDate(to)}`;
+  else if (from) label.textContent = `From ${formatDate(from)}`;
+  else label.textContent = `Until ${formatDate(to)}`;
 }
 
+function clearAuditDateRange() {
+  const from = document.getElementById('audit-date-from');
+  const to = document.getElementById('audit-date-to');
+  if (from) from.value = '';
+  if (to) to.value = '';
+  updateAuditDateRangeLabel();
+  filterAuditLogs();
+}
+
+function resetAuditFilters() {
+  ['audit-search', 'audit-user-filter', 'audit-action-filter'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  clearAuditDateRange();
+}
 
 /* =========================================================
    CSV HELPERS
