@@ -3984,10 +3984,21 @@ function openAuditEventDetails(eventId) {
     <div class="audit-detail-meta">Audit event ID: <code>${escHtml(String(event.id))}</code></div>
   `;
 
+  // Every record must open at the beginning, not at the previous
+  // event's retained scroll position.
+  const dialog = modal.querySelector('.audit-detail-modal__dialog');
+  const detailBody = modal.querySelector('.audit-detail-modal__body');
   modal.hidden = false;
   modal.setAttribute('aria-hidden', 'false');
   document.body.classList.add('audit-detail-open');
-  document.getElementById('audit-event-detail-close')?.focus();
+
+  if (dialog) dialog.scrollTop = 0;
+  if (detailBody) detailBody.scrollTop = 0;
+  modal.scrollTop = 0;
+
+  // Focus the close control without allowing the browser to scroll it
+  // into view and move the detail content away from the top.
+  document.getElementById('audit-event-detail-close')?.focus({ preventScroll: true });
 }
 
 function closeAuditEventDetails() {
