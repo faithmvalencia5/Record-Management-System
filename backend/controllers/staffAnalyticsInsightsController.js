@@ -8,7 +8,7 @@ let geminiQuotaUntil = 0;
 let geminiQuotaWarningLogged = false;
 
 function getGeminiQuotaCooldownMs(message = "") {
-  const retry = message.match(/Please retry in\\s+(?:(\\d+)h)?(?:(\\d+)m)?(?:(\\d+(?:\\.\\d+)?)s)?/i);
+  const retry = message.match(/Please retry in\s+(?:(\d+)h)?(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?/i);
   if (retry) {
     const ms = (Number(retry[1] || 0) * 3600 + Number(retry[2] || 0) * 60 + Number(retry[3] || 0)) * 1000;
     if (ms > 0) return ms + 30000;
