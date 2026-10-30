@@ -1,4 +1,5 @@
 const supabase = require("../config/supabase");
+const { createAuditLogFromRequest } = require("./auditLogController");
 
 const ALLOWED_STATUSES = [
   "Queued",
@@ -173,6 +174,13 @@ const addToIdMakerQueue = async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    await createAuditLogFromRequest(req, {
+      action: "ISSUANCE_FORM_SENT_TO_ID_MAKER",
+      entityType: "APPLICATION",
+      entityId: application_id,
+      details: "Issuance form was successfully sent to the ID Maker queue.",
+    });
 
     return res.status(200).json({
       success: true,
@@ -536,6 +544,13 @@ const updateIdMakerQueue = async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    await createAuditLogFromRequest(req, {
+      action: "ID_MAKER_QUEUE_UPDATED",
+      entityType: "APPLICATION",
+      entityId: applicationId,
+      details: `ID Maker print status updated to "${queuePayload.print_status}".`,
+    });
 
     return res.status(200).json({
       success: true,
