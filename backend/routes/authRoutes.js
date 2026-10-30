@@ -203,6 +203,252 @@ router.post("/login", async (req, res) => {
 
 
 /* =========================================================
+   CREATE SESSION TOKEN
+   ========================================================= */
+
+function createSessionToken(user) {
+  return jwt.sign(
+    {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      email: user.email,
+    },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: "8h",
+    }
+  );
+}
+
+
+/* =========================================================
+   GET MY PROFILE
+   GET /api/auth/me
+
+   AUTHENTICATED USER
+   ========================================================= */
+
+router.get(
+  "/me",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { data: user, error } = await supabase
+        .from("user_accounts")
+        .select(
+          "id, username, email, role, account_status"
+        )
+        .eq("id", req.user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error(
+          "Supabase profile fetch error:",
+          error
+        );
+
+        return res.status(500).json({
+          success: false,
+          message: "Unable to load your profile.",
+        });
+      }
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User account not found.",
+        });
+      }
+
+      return res.json({
+        success: true,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email || "",
+          role: user.role || "Staff",
+          account_status:
+            user.account_status || "Active",
+        },
+      });
+
+    } catch (error) {
+      console.error("Get profile error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Something went wrong while loading your profile.",
+      });
+    }
+  }
+);
+
+
+/* =========================================================
+   UPDATE MY PROFILE
+   PUT /api/auth/me
+
+   AUTHENTICATED USER
+   ========================================================= */
+
+router.put(
+  "/me",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const { username, email } = req.body;
+
+      const updateData = {};
+
+      if (username !== undefined) {
+        const cleanUsername = String(
+          username || ""
+        ).trim();
+
+        if (!cleanUsername) {
+          return res.status(400).json({
+            success: false,
+            message: "Username cannot be empty.",
+          });
+        }
+
+        /* Check duplicate username (excluding self) */
+
+        const {
+          data: existingUser,
+          error: existingError,
+        } = await supabase
+          .from("user_accounts")
+          .select("id")
+          .eq("username", cleanUsername)
+          .neq("id", req.user.id)
+          .maybeSingle();
+
+        if (existingError) {
+          console.error(
+            "Profile duplicate username check error:",
+            existingError
+          );
+
+          return res.status(500).json({
+            success: false,
+            message: "Unable to validate username.",
+          });
+        }
+
+        if (existingUser) {
+          return res.status(409).json({
+            success: false,
+            message: "Username already exists.",
+          });
+        }
+
+        updateData.username = cleanUsername;
+      }
+
+      if (email !== undefined) {
+        const cleanEmail = String(
+          email || ""
+        ).trim();
+
+        if (
+          cleanEmail &&
+          !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+            cleanEmail
+          )
+        ) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Please enter a valid email address.",
+          });
+        }
+
+        updateData.email = cleanEmail || null;
+      }
+
+      if (
+        Object.keys(updateData).length === 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "No changes were provided.",
+        });
+      }
+
+      const {
+        data: updatedUser,
+        error,
+      } = await supabase
+        .from("user_accounts")
+        .update(updateData)
+        .eq("id", req.user.id)
+        .select(
+          "id, username, email, role, account_status"
+        )
+        .single();
+
+      if (error) {
+        console.error(
+          "Supabase profile update error:",
+          error
+        );
+
+        return res.status(500).json({
+          success: false,
+          message: "Unable to update your profile.",
+        });
+      }
+
+      await createAuditLog({
+        userId: req.user.id,
+        username: req.user.username,
+        role: req.user.role,
+        action: "PROFILE_UPDATED",
+        entityType: "USER",
+        entityId: String(updatedUser.id),
+        details:
+          `Updated own profile: ${updatedUser.username}`,
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+      });
+
+      /* Issue a fresh token so the session claims stay in sync. */
+
+      const token = createSessionToken(
+        updatedUser
+      );
+
+      return res.json({
+        success: true,
+        message: "Profile updated successfully.",
+        user: {
+          id: updatedUser.id,
+          username: updatedUser.username,
+          email: updatedUser.email || "",
+          role: updatedUser.role || "Staff",
+          account_status:
+            updatedUser.account_status || "Active",
+        },
+        token,
+      });
+
+    } catch (error) {
+      console.error("Update profile error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message:
+          "Something went wrong while updating your profile.",
+      });
+    }
+  }
+);
+
+
+/* =========================================================
    GET ALL USER ACCOUNTS
    GET /api/auth/users
 

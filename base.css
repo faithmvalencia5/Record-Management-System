@@ -3978,6 +3978,155 @@ select.filter-select:hover {
   height: 14px
 }
 
+/* User profile modal (shared by all portals) */
+.modal.profile-modal {
+  width: min(560px, 100%);
+  min-height: auto;
+  max-height: calc(100dvh - 36px)
+}
+
+/* The shared modal body uses a zero flex-basis, which collapses inside an
+   auto-height modal. Let the profile body size to its content and only
+   shrink when it exceeds the viewport. */
+.modal.profile-modal .modal__body {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: calc(100dvh - 140px)
+}
+
+.profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--r-xl);
+  background: var(--bg)
+}
+
+.profile-hero__avatar {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: var(--r-pill);
+  border: 2px solid var(--primary-muted);
+  background: linear-gradient(135deg, #E0E9FF, #C7D6FF);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-data);
+  font-weight: 800;
+  font-size: 18px;
+  letter-spacing: .4px;
+  color: var(--primary);
+  text-transform: uppercase;
+  line-height: 1
+}
+
+.profile-hero__meta {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px
+}
+
+.profile-hero__name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis
+}
+
+.profile-hero__role {
+  font-size: 12.5px;
+  color: var(--text-muted)
+}
+
+.profile-tabs {
+  display: flex;
+  gap: 5px;
+  padding: 4px;
+  border-radius: var(--r-md);
+  background: var(--bg-alt)
+}
+
+.profile-tab {
+  flex: 1;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: var(--r-sm);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 12.5px;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: all var(--tf)
+}
+
+.profile-tab:hover {
+  color: var(--text-primary)
+}
+
+.profile-tab.active {
+  background: var(--surface);
+  color: var(--primary);
+  font-weight: 700;
+  box-shadow: var(--shadow-xs)
+}
+
+.profile-panel {
+  display: none;
+  flex-direction: column;
+  gap: 14px
+}
+
+.profile-panel.active {
+  display: flex
+}
+
+.profile-hint {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-muted)
+}
+
+.profile-email-notice {
+  padding: 10px 12px;
+  border: 1.5px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-secondary)
+}
+
+.profile-email-notice strong {
+  color: var(--text-primary);
+  word-break: break-all
+}
+
+#profile-password-status:empty {
+  display: none
+}
+
+.form-input[readonly] {
+  background: var(--bg-alt);
+  color: var(--text-muted);
+  cursor: not-allowed
+}
+
+:root[data-theme="dark"] .profile-hero__avatar {
+  background: linear-gradient(135deg, #1E3A8A, #1D4ED8);
+  color: #DBEAFE
+}
+
 .modal .data-table th,
 .modal .data-table td {
   padding: 9px 10px

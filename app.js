@@ -361,8 +361,22 @@ function initRadar() {
     options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'bottom', labels: { boxWidth: 10, padding: 14, font: { size: 11 } } }, tooltip: { ...TIP } }, scales: { r: { min: 0, max: 100, ticks: { display: false }, grid: { color: C.grid }, angleLines: { color: C.grid }, pointLabels: { color: C.text, font: { size: 10, weight: '600' } } } } }
   });
 }
+const AUTH_API_BASE = 'https://management-backend-3cij.onrender.com/api/auth';
+
 function getAuthToken() {
-  return localStorage.getItem('authToken');
+  try {
+    const direct = window.localStorage.getItem('authToken');
+    if (direct) return direct;
+  } catch (_err) { }
+
+  try {
+    const raw = readAuthSession();
+    if (!raw) return null;
+    const session = JSON.parse(raw);
+    return session.token || null;
+  } catch (_err) {
+    return null;
+  }
 }
 
 function getAuthHeaders() {
@@ -1119,6 +1133,7 @@ function updateRoleUI() {
 }
 
 function applySessionContext() {
+  ensureProfileModal();
   const displayName = CURRENT_USER?.displayName || 'Staff Account';
   const userLabel = document.getElementById('current-user-name');
   const welcome = document.getElementById('dashboard-welcome');
@@ -1140,6 +1155,510 @@ function applySessionContext() {
   if (dateLabel) {
     const shortDate = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     dateLabel.textContent = shortDate;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────
+   USER PROFILE MODAL
+   Shared by the Admin, Staff, and ID Maker portals.
+─────────────────────────────────────────────────────────── */
+let profileEscapeWired = false;
+
+function profileInitials(name) {
+  const initials = String(name || '')
+    .split(/\s+/)
+    .map(w => (w.replace(/[^A-Za-z0-9]/g, '')[0] || ''))
+    .filter(Boolean)
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+  return initials || '—';
+}
+
+function isStrongPasswordClient(value) {
+  const text = String(value || '');
+  return text.length >= 8 &&
+    /[A-Z]/.test(text) &&
+    /[0-9]/.test(text) &&
+    /[^A-Za-z0-9]/.test(text);
+}
+
+function persistCurrentSession(token) {
+  if (!CURRENT_USER) return;
+
+  let session = {};
+  try {
+    const raw = readAuthSession();
+    if (raw) session = JSON.parse(raw) || {};
+  } catch (_err) {
+    session = {};
+  }
+
+  session.id = CURRENT_USER.id ?? session.id;
+  session.username = CURRENT_USER.username || session.username;
+  session.role = CURRENT_USER.role || session.role;
+  session.email = CURRENT_USER.email || '';
+  session.displayName = CURRENT_USER.displayName || CURRENT_USER.username || session.displayName;
+
+  if (token) {
+    session.token = token;
+    CURRENT_USER.token = token;
+  }
+
+  writeAuthSession(JSON.stringify(session));
+}
+
+function applyProfileUser(user, token) {
+  if (!user) return;
+
+  CURRENT_USER = CURRENT_USER || {};
+  CURRENT_USER.id = user.id ?? CURRENT_USER.id;
+  CURRENT_USER.username = user.username || CURRENT_USER.username;
+  CURRENT_USER.displayName = user.username || CURRENT_USER.displayName || user.username;
+  CURRENT_USER.email = user.email || '';
+  CURRENT_USER.role = normalizeRole(user.role || CURRENT_USER.role);
+  CURRENT_USER.accountStatus = user.account_status || 'Active';
+
+  persistCurrentSession(token);
+  applySessionContext();
+}
+
+function fillProfileForm(user) {
+  const profile = user || CURRENT_USER || {};
+  const displayName = profile.username || '—';
+  const role = normalizeRole(profile.role || CURRENT_ROLE);
+
+  const avatar = document.getElementById('profile-avatar');
+  if (avatar) avatar.textContent = profileInitials(displayName);
+
+  const nameEl = document.getElementById('profile-display-name');
+  if (nameEl) nameEl.textContent = displayName;
+
+  const roleLabel = document.getElementById('profile-role-label');
+  if (roleLabel) roleLabel.textContent = `${role} account`;
+
+  const usernameInput = document.getElementById('profile-username');
+  if (usernameInput) usernameInput.value = profile.username || '';
+
+  const emailInput = document.getElementById('profile-email');
+  if (emailInput) emailInput.value = profile.email || '';
+
+  const resetEmail = document.getElementById('profile-reset-email');
+  if (resetEmail) {
+    resetEmail.textContent = String(profile.email || '').trim() || 'no email address on file';
+  }
+
+  const roleInput = document.getElementById('profile-role');
+  if (roleInput) roleInput.value = role;
+
+  const statusInput = document.getElementById('profile-status');
+  if (statusInput) statusInput.value = profile.account_status || profile.accountStatus || 'Active';
+}
+
+function ensureProfileModal() {
+  if (PAGE === 'login') return;
+
+  if (!document.getElementById('profile-modal')) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = `
+      <div class="modal-backdrop" id="profile-modal" aria-hidden="true">
+        <div class="modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
+          <div class="modal__header">
+            <div>
+              <div class="modal__title" id="profile-modal-title">My Profile</div>
+              <div class="modal__sub">View and manage your account information</div>
+            </div>
+            <button type="button" class="modal__close" onclick="closeProfileModal()" aria-label="Close profile">
+              <svg viewBox="0 0 16 16" fill="currentColor">
+                <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z" />
+              </svg>
+            </button>
+          </div>
+          <div class="modal__body">
+            <div class="profile-hero">
+              <div class="profile-hero__avatar" id="profile-avatar">—</div>
+              <div class="profile-hero__meta">
+                <div class="profile-hero__name" id="profile-display-name">—</div>
+                <div class="profile-hero__role" id="profile-role-label">—</div>
+              </div>
+            </div>
+
+            <div class="profile-tabs" role="tablist" aria-label="Profile sections">
+              <button type="button" class="profile-tab active" id="profile-tab-info" role="tab" aria-selected="true" onclick="switchProfileTab('info')">
+                Profile Information
+              </button>
+              <button type="button" class="profile-tab" id="profile-tab-password" role="tab" aria-selected="false" onclick="switchProfileTab('password')">
+                Password &amp; Security
+              </button>
+            </div>
+
+            <form id="profile-info-form" class="profile-panel active" onsubmit="saveProfile(event)">
+              <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label" for="profile-username">Username <span>*</span></label>
+                  <input class="form-input" id="profile-username" autocomplete="username" required />
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="profile-email">Email Address</label>
+                  <input class="form-input" id="profile-email" type="email" autocomplete="email" placeholder="name@example.com" />
+                </div>
+                <div class="form-grid form-grid-2">
+                  <div class="form-group">
+                    <label class="form-label" for="profile-role">Role</label>
+                    <input class="form-input" id="profile-role" readonly />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="profile-status">Account Status</label>
+                    <input class="form-input" id="profile-status" readonly />
+                  </div>
+                </div>
+              </div>
+              <p class="profile-hint">Your role and account status can only be changed by an administrator.</p>
+              <div class="form-actions" style="justify-content:flex-end">
+                <button type="button" class="btn btn--ghost" onclick="closeProfileModal()">Cancel</button>
+                <button type="submit" class="btn btn--primary" id="profile-save-btn">Save Changes</button>
+              </div>
+            </form>
+
+            <form id="profile-password-form" class="profile-panel" onsubmit="saveProfilePassword(event)">
+              <div class="profile-email-notice">
+                A six-digit verification code will be sent to
+                <strong id="profile-reset-email">—</strong>.
+              </div>
+
+              <div id="profile-password-step-request">
+                <p class="profile-hint">For your security, password changes must be verified through your registered email.</p>
+                <div class="form-actions" style="justify-content:flex-end">
+                  <button type="button" class="btn btn--ghost" onclick="closeProfileModal()">Cancel</button>
+                  <button type="button" class="btn btn--primary" id="profile-send-otp-btn" onclick="requestProfilePasswordOtp()">Send Verification Code</button>
+                </div>
+              </div>
+
+              <div id="profile-password-step-verify" style="display:none">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label" for="profile-reset-otp">Six-digit OTP <span>*</span></label>
+                    <input class="form-input" id="profile-reset-otp" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="Enter the code from your email" required />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="profile-new-password">New Password <span>*</span></label>
+                    <input class="form-input" id="profile-new-password" type="password" autocomplete="new-password" required />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="profile-confirm-password">Confirm New Password <span>*</span></label>
+                    <input class="form-input" id="profile-confirm-password" type="password" autocomplete="new-password" required />
+                  </div>
+                </div>
+                <p class="profile-hint">Must be at least 8 characters and include one capital letter, one number, and one special character.</p>
+                <div class="form-actions" style="justify-content:space-between">
+                  <button type="button" class="btn btn--ghost" id="profile-resend-otp-btn" onclick="requestProfilePasswordOtp()">Resend Code</button>
+                  <div style="display:flex;gap:8px">
+                    <button type="button" class="btn btn--ghost" onclick="closeProfileModal()">Cancel</button>
+                    <button type="submit" class="btn btn--primary" id="profile-password-btn">Reset Password</button>
+                  </div>
+                </div>
+              </div>
+
+              <p class="profile-hint" id="profile-password-status" role="status" aria-live="polite"></p>
+            </form>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(wrapper.firstElementChild);
+
+    const modal = document.getElementById('profile-modal');
+    if (modal) {
+      modal.addEventListener('click', function (event) {
+        if (event.target === modal) closeProfileModal();
+      });
+    }
+
+    if (!profileEscapeWired) {
+      profileEscapeWired = true;
+      document.addEventListener('keydown', function (event) {
+        if (event.key !== 'Escape') return;
+        const profileModal = document.getElementById('profile-modal');
+        if (profileModal && profileModal.classList.contains('show')) closeProfileModal();
+      });
+    }
+  }
+
+  const userBlock = document.querySelector('.sidebar__user');
+  if (userBlock && !userBlock.dataset.profileWired) {
+    userBlock.dataset.profileWired = '1';
+    userBlock.setAttribute('role', 'button');
+    userBlock.setAttribute('tabindex', '0');
+    userBlock.setAttribute('aria-label', 'Open my profile');
+    userBlock.setAttribute('aria-haspopup', 'dialog');
+    userBlock.title = 'View my profile';
+    userBlock.addEventListener('click', function (event) {
+      if (event.target.closest('#role-switch-trigger')) return;
+      openProfileModal();
+    });
+    userBlock.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      openProfileModal();
+    });
+  }
+}
+
+async function refreshProfile() {
+  const token = getAuthToken();
+  if (!token) return;
+
+  try {
+    const response = await fetch(`${AUTH_API_BASE}/me`, {
+      headers: getAuthHeaders()
+    });
+    const result = await response.json();
+
+    if (response.ok && result.success && result.user) {
+      applyProfileUser(result.user);
+      fillProfileForm(result.user);
+    }
+  } catch (error) {
+    console.error('Profile refresh failed:', error);
+  }
+}
+
+function openProfileModal() {
+  ensureProfileModal();
+
+  const modal = document.getElementById('profile-modal');
+  if (!modal) return;
+
+  switchProfileTab('info');
+  fillProfileForm(CURRENT_USER);
+  resetProfilePasswordFlow();
+  modal.classList.add('show');
+  modal.setAttribute('aria-hidden', 'false');
+
+  const usernameInput = document.getElementById('profile-username');
+  if (usernameInput) usernameInput.focus();
+
+  refreshProfile();
+}
+
+function closeProfileModal() {
+  const modal = document.getElementById('profile-modal');
+  if (!modal) return;
+
+  modal.classList.remove('show');
+  modal.setAttribute('aria-hidden', 'true');
+  resetProfilePasswordFlow();
+}
+
+function switchProfileTab(tab) {
+  const isInfo = tab === 'info';
+  const infoTab = document.getElementById('profile-tab-info');
+  const passwordTab = document.getElementById('profile-tab-password');
+  const infoPanel = document.getElementById('profile-info-form');
+  const passwordPanel = document.getElementById('profile-password-form');
+
+  if (infoTab) {
+    infoTab.classList.toggle('active', isInfo);
+    infoTab.setAttribute('aria-selected', String(isInfo));
+  }
+  if (passwordTab) {
+    passwordTab.classList.toggle('active', !isInfo);
+    passwordTab.setAttribute('aria-selected', String(!isInfo));
+  }
+  if (infoPanel) infoPanel.classList.toggle('active', isInfo);
+  if (passwordPanel) passwordPanel.classList.toggle('active', !isInfo);
+}
+
+async function saveProfile(event) {
+  event.preventDefault();
+
+  const usernameInput = document.getElementById('profile-username');
+  const emailInput = document.getElementById('profile-email');
+  const saveBtn = document.getElementById('profile-save-btn');
+
+  const username = String(usernameInput?.value || '').trim();
+  const email = String(emailInput?.value || '').trim();
+
+  if (!username) {
+    showToast('Username is required.', 'error');
+    usernameInput?.focus();
+    return;
+  }
+
+  if (saveBtn) saveBtn.disabled = true;
+
+  try {
+    const response = await fetch(`${AUTH_API_BASE}/me`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ username, email })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Unable to update your profile.');
+    }
+
+    applyProfileUser(result.user, result.token);
+    fillProfileForm(result.user);
+
+    showToast(result.message || 'Profile updated successfully.', 'success');
+  } catch (error) {
+    console.error('Profile update failed:', error);
+    showToast(error.message || 'Unable to update your profile.', 'error');
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
+  }
+}
+
+function setProfilePasswordStatus(message, type) {
+  const status = document.getElementById('profile-password-status');
+  if (!status) return;
+
+  status.textContent = message || '';
+  status.style.color = type === 'error'
+    ? 'var(--danger)'
+    : (type === 'success' ? 'var(--success-dark)' : '');
+}
+
+function resetProfilePasswordFlow() {
+  const requestStep = document.getElementById('profile-password-step-request');
+  const verifyStep = document.getElementById('profile-password-step-verify');
+  if (requestStep) requestStep.style.display = '';
+  if (verifyStep) verifyStep.style.display = 'none';
+
+  ['profile-reset-otp', 'profile-new-password', 'profile-confirm-password']
+    .forEach(id => {
+      const input = document.getElementById(id);
+      if (input) input.value = '';
+    });
+
+  setProfilePasswordStatus('');
+
+  const emailEl = document.getElementById('profile-reset-email');
+  const email = String(CURRENT_USER?.email || '').trim();
+  if (emailEl) emailEl.textContent = email || 'no email address on file';
+}
+
+async function requestProfilePasswordOtp() {
+  const email = String(CURRENT_USER?.email || '').trim();
+  const requestBtn = document.getElementById('profile-send-otp-btn');
+  const resendBtn = document.getElementById('profile-resend-otp-btn');
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    setProfilePasswordStatus('Please add a valid email address in Profile Information first.', 'error');
+    switchProfileTab('info');
+    document.getElementById('profile-email')?.focus();
+    return;
+  }
+
+  if (requestBtn) requestBtn.disabled = true;
+  if (resendBtn) resendBtn.disabled = true;
+  setProfilePasswordStatus('Sending verification code...');
+
+  try {
+    const response = await fetch(`${AUTH_API_BASE}/forgot-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Unable to send the verification code.');
+    }
+
+    const requestStep = document.getElementById('profile-password-step-request');
+    const verifyStep = document.getElementById('profile-password-step-verify');
+    if (requestStep) requestStep.style.display = 'none';
+    if (verifyStep) verifyStep.style.display = '';
+
+    setProfilePasswordStatus(
+      'A six-digit verification code has been sent to your email. Check your inbox and spam folder.',
+      'success'
+    );
+
+    document.getElementById('profile-reset-otp')?.focus();
+  } catch (error) {
+    console.error('Profile OTP request failed:', error);
+    setProfilePasswordStatus(
+      error.message || 'Unable to send the verification code.',
+      'error'
+    );
+  } finally {
+    if (requestBtn) requestBtn.disabled = false;
+    if (resendBtn) resendBtn.disabled = false;
+  }
+}
+
+async function saveProfilePassword(event) {
+  event.preventDefault();
+
+  const email = String(CURRENT_USER?.email || '').trim();
+  const otpInput = document.getElementById('profile-reset-otp');
+  const newInput = document.getElementById('profile-new-password');
+  const confirmInput = document.getElementById('profile-confirm-password');
+  const saveBtn = document.getElementById('profile-password-btn');
+
+  const otp = String(otpInput?.value || '').trim();
+  const newPassword = String(newInput?.value || '');
+  const confirmPassword = String(confirmInput?.value || '');
+
+  if (!email) {
+    setProfilePasswordStatus('Please add an email address in Profile Information first.', 'error');
+    switchProfileTab('info');
+    return;
+  }
+
+  if (!/^\d{6}$/.test(otp)) {
+    setProfilePasswordStatus('Please enter the six-digit code from your email.', 'error');
+    otpInput?.focus();
+    return;
+  }
+
+  if (!newPassword || !confirmPassword) {
+    setProfilePasswordStatus('Please enter and confirm your new password.', 'error');
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    setProfilePasswordStatus('New passwords do not match.', 'error');
+    confirmInput?.focus();
+    return;
+  }
+
+  if (!isStrongPasswordClient(newPassword)) {
+    setProfilePasswordStatus('Password must be at least 8 characters and include a capital letter, a number, and a special character.', 'error');
+    newInput?.focus();
+    return;
+  }
+
+  if (saveBtn) saveBtn.disabled = true;
+  setProfilePasswordStatus('Verifying code and updating password...');
+
+  try {
+    const response = await fetch(`${AUTH_API_BASE}/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp, newPassword })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Unable to reset your password.');
+    }
+
+    setProfilePasswordStatus(result.message || 'Password reset successfully.', 'success');
+    showToast(result.message || 'Password reset successfully.', 'success');
+
+    setTimeout(() => closeProfileModal(), 900);
+  } catch (error) {
+    console.error('Password reset failed:', error);
+    setProfilePasswordStatus(error.message || 'Unable to reset your password.', 'error');
+  } finally {
+    if (saveBtn) saveBtn.disabled = false;
   }
 }
 
