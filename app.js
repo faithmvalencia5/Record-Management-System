@@ -5826,32 +5826,86 @@ function updateDocsSummary() {
 }
 
 async function approveAllDocs() {
-  const docs = ['idFront', 'idBack', 'photo', 'bc', 'cedula', 'signature'];
-
-  let successCount = 0;
-
-  for (const doc of docs) {
-    const saved =
-      await setDocStatus(
-        doc,
-        'ok'
-      );
-
-    if (saved) {
-      successCount++;
-    }
+  if (!CURRENT_APP_ID) {
+    showToast('No application selected.', 'error');
+    return;
   }
 
-  if (successCount === docs.length) {
-    showToast(
-      'All documents approved and saved.',
-      'success'
+  const docs = ['idFront', 'idBack', 'photo', 'bc', 'cedula', 'signature'];
+  const documentTypeMap = {
+    idFront: 'valid_id',
+    idBack: 'valid_id_back',
+    photo: 'latest_photo',
+    bc: 'birth_certificate',
+    cedula: 'community_tax_certificate',
+    signature: 'signature'
+  };
+  const button = document.querySelector('[onclick="approveAllDocs()"]');
+  const originalLabel = button ? button.textContent : 'Approve All';
+
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Approving...';
+  }
+
+  try {
+    const response = await fetch(
+      `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(CURRENT_APP_ID)}/documents/approve-all`,
+      {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({})
+      }
     );
-  } else {
-    showToast(
-      `${successCount} of ${docs.length} documents were saved.`,
-      'info'
-    );
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Failed to approve all documents.');
+    }
+
+    const savedRecords = Array.isArray(result.documentAuthentications)
+      ? result.documentAuthentications
+      : [];
+    const savedByType = new Map(savedRecords.map(record => [record.document_type, record]));
+
+    for (const doc of docs) {
+      const documentType = documentTypeMap[doc];
+      const saved = savedByType.get(documentType);
+      if (!saved || String(saved.authentication_status || '').toLowerCase() !== 'approved') {
+        throw new Error('The server did not confirm all six document approvals. Refresh the application details before continuing.');
+      }
+
+      DOC_STATUS[doc] = 'ok';
+      const elId = 'doc-' + doc.replace(/([A-Z])/g, '-$1').toLowerCase() + '-status';
+      const statusEl = document.getElementById(elId);
+      if (statusEl) {
+        statusEl.className = 'doc-card__status ok';
+        statusEl.textContent = 'Approved';
+      }
+    }
+
+    if (APP_DB[CURRENT_APP_ID]) {
+      if (!Array.isArray(APP_DB[CURRENT_APP_ID].documentAuthentications)) {
+        APP_DB[CURRENT_APP_ID].documentAuthentications = [];
+      }
+      const list = APP_DB[CURRENT_APP_ID].documentAuthentications;
+      for (const saved of savedRecords) {
+        const index = list.findIndex(item => item.document_type === saved.document_type);
+        if (index >= 0) list[index] = saved;
+        else list.push(saved);
+      }
+    }
+
+    updateDocsSummary();
+    showToast('All six documents approved and saved.', 'success');
+  } catch (error) {
+    console.error('Failed to approve all documents:', error);
+    showToast('Approve All failed: ' + error.message, 'error');
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalLabel;
+    }
   }
 }
 
