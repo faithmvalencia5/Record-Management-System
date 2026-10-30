@@ -683,12 +683,11 @@ router.post(
         )
         .single();
 
-      if (
-        insertResult.error &&
-        /designation|column .* does not exist|schema cache/i.test(
-          insertResult.error.message || ""
-        )
-      ) {
+      if (insertResult.error) {
+        console.warn(
+          "User insert with designation failed; retrying without optional designation:",
+          insertResult.error
+        );
         insertResult = await supabase
           .from("user_accounts")
           .insert(userInsert)
@@ -709,7 +708,8 @@ router.post(
 
         return res.status(500).json({
           success: false,
-          message: "Unable to create user account.",
+          message: error.message || "Unable to create user account.",
+          code: error.code || null,
         });
       }
 
@@ -864,13 +864,11 @@ router.put(
         )
         .single();
 
-      if (
-        updateResult.error &&
-        updateData.designation !== undefined &&
-        /designation|column .* does not exist|schema cache/i.test(
-          updateResult.error.message || ""
-        )
-      ) {
+      if (updateResult.error && updateData.designation !== undefined) {
+        console.warn(
+          "User update with designation failed; retrying without optional designation:",
+          updateResult.error
+        );
         const { designation: omittedDesignation, ...compatibleUpdate } = updateData;
         updateResult = await supabase
           .from("user_accounts")
@@ -893,7 +891,8 @@ router.put(
 
         return res.status(500).json({
           success: false,
-          message: "Unable to update user account.",
+          message: error.message || "Unable to update user account.",
+          code: error.code || null,
         });
       }
 
