@@ -4143,6 +4143,7 @@ function buildStaffAnalyticsMetrics(applications) {
   const status = { pending: 0, review: 0, approved: 0, rejected: 0, total: apps.length };
   const barangays = {};
   const ages = {"60–64":0,"65–69":0,"70–74":0,"75–79":0,"80–84":0,"85+":0};
+  const demographics = { female: 0, male: 0, unknown: 0 };
   let ready = 0, issued = 0, turnaroundSum = 0, turnaroundCount = 0;
   for (const app of apps) {
     const s = staffAnalyticsStatus(app);
@@ -4164,6 +4165,10 @@ function buildStaffAnalyticsMetrics(applications) {
     }
     const barangay = String(app.barangay_district || "Unknown").trim() || "Unknown";
     barangays[barangay] = (barangays[barangay] || 0) + 1;
+    const sex = String(app.sex || app.gender || app.sex_at_birth || "").trim().toLowerCase();
+    if (sex === "female" || sex === "f") demographics.female++;
+    else if (sex === "male" || sex === "m") demographics.male++;
+    else demographics.unknown++;
     const age = Number(app.age);
     if (Number.isFinite(age)) {
       if (age >= 60 && age <= 64) ages["60–64"]++;
@@ -4189,6 +4194,8 @@ function buildStaffAnalyticsMetrics(applications) {
     replacementRequests: replacement,
     readyForHandoff: { ready, total: apps.length },
     barangayWorkload: { total: apps.length, barangayCount: Object.keys(barangays).length, topBarangays: Object.entries(barangays).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([label,count])=>({label,count})) },
+    seniorRegistrationsByBarangay: { total: apps.length, barangayCount: Object.keys(barangays).length, topBarangays: Object.entries(barangays).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([label,count])=>({label,count})) },
+    demographics: { ...demographics, knownTotal: demographics.female + demographics.male, unknown: demographics.unknown },
     ageDistribution: { total: Object.values(ages).reduce((a,b)=>a+b,0), groups: Object.entries(ages).map(([label,count])=>({label,count})) },
     issuanceOverTime: { issued: monthlyIssued.reduce((a,b)=>a+b,0), months: labels.map((label,i)=>({label,count:monthlyIssued[i]})) },
     turnaroundTime: { averageDays: turnaroundCount ? Math.round(turnaroundSum / turnaroundCount * 10) / 10 : null, sampleSize: turnaroundCount }
@@ -4206,6 +4213,18 @@ function ensureStaffAnalyticsInsightAreas() {
     box.innerHTML = '<div style="display:flex;gap:7px;align-items:center;font-weight:700;margin-bottom:5px"><span aria-hidden="true">✦</span> AI-Driven Insight <span data-ai-source style="margin-left:auto;font-size:10px;opacity:.7">DATA SUMMARY</span></div><div data-ai-text>Preparing insight from current analytics…</div>';
     card.appendChild(box);
   }
+  const chartTargets = [
+    [document.querySelector(".chart-card"), "seniorRegistrationsByBarangay"],
+    [document.querySelector(".donut-card"), "demographics"]
+  ];
+  for (const [card,key] of chartTargets) {
+    if (!card || card.querySelector(`[data-ai-insight="${key}"]`)) continue;
+    const box = document.createElement("div");
+    box.dataset.aiInsight = key;
+    box.style.cssText = "margin:12px 0 0;padding:12px 14px;border:1px solid var(--border-color,#dbe3ef);border-radius:12px;background:var(--surface-muted,rgba(100,116,139,.06));font-size:13px;line-height:1.55";
+    box.innerHTML = '<div style="display:flex;gap:7px;align-items:center;font-weight:700;margin-bottom:5px"><span aria-hidden="true">✦</span> AI-Driven Insight <span data-ai-source style="margin-left:auto;font-size:10px;opacity:.7">DATA SUMMARY</span></div><div data-ai-text>Preparing insight from current analytics…</div>';
+    card.appendChild(box);
+  }
 }
 function displayStaffAnalyticsInsights(insights) {
   ensureStaffAnalyticsInsightAreas();
@@ -4213,7 +4232,7 @@ function displayStaffAnalyticsInsights(insights) {
     const area = document.querySelector(`[data-ai-insight="${key}"]`);
     if (!area) continue;
     area.querySelector("[data-ai-text]").textContent = String(value?.text || "Insight is currently unavailable.");
-    area.querySelector("[data-ai-source]").textContent = value?.source === "gemini" ? "GEMINI AI" : "DATA SUMMARY";
+    area.querySelector("[data-ai-source]").textContent = ["groq","gemini"].includes(value?.source) ? `${String(value.source).toUpperCase()} AI` : "DATA SUMMARY";
   }
 }
 async function requestStaffAnalyticsInsights(applications) {
@@ -4227,6 +4246,8 @@ async function requestStaffAnalyticsInsights(applications) {
     replacementRequests: {text:`There are ${n(metrics.replacementRequests.total)} replacement requests: ${n(metrics.replacementRequests.pending)} pending, ${n(metrics.replacementRequests.inProcess)} in process, ${n(metrics.replacementRequests.completed)} completed, and ${n(metrics.replacementRequests.rejected)} rejected.`,source:"fallback"},
     readyForHandoff: {text:`${n(metrics.readyForHandoff.ready)} applications are currently marked ready for handoff.`,source:"fallback"},
     barangayWorkload: {text:`The chart summarizes ${n(metrics.barangayWorkload.total)} applications across ${n(metrics.barangayWorkload.barangayCount)} barangay groups.`,source:"fallback"},
+    seniorRegistrationsByBarangay: {text:`The six leading barangays account for ${n(metrics.seniorRegistrationsByBarangay.topBarangays.reduce((sum,item)=>sum+item.count,0))} of ${n(metrics.seniorRegistrationsByBarangay.total)} registrations. Review the highest-volume areas when planning outreach and application-review capacity.`,source:"fallback"},
+    demographics: {text:`Among ${n(metrics.demographics.knownTotal)} records with a recorded sex, ${n(metrics.demographics.female)} are female and ${n(metrics.demographics.male)} are male. Use this distribution to understand the current applicant profile and check ${n(metrics.demographics.unknown)} records with missing or unrecognized values.`,source:"fallback"},
     ageDistribution: {text:`The age distribution includes ${n(metrics.ageDistribution.total)} applications with a recorded age.`,source:"fallback"},
     issuanceOverTime: {text:`${n(metrics.issuanceOverTime.issued)} applications are counted as issued or completed in the current year's monthly chart.`,source:"fallback"},
     turnaroundTime: {text:metrics.turnaroundTime.averageDays == null ? "A processing-time summary is unavailable because there are not enough valid dates." : `The average recorded turnaround time is ${metrics.turnaroundTime.averageDays} days across ${n(metrics.turnaroundTime.sampleSize)} applications.`,source:"fallback"}
