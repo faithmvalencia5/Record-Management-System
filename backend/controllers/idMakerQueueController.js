@@ -397,10 +397,11 @@ const updateIdMakerQueue = async (req, res) => {
     }
 
     const updatedAt = new Date().toISOString();
+    const isReadyForRelease = print_status === "In Transit";
 
     const { data: application, error: applicationError } = await supabase
       .from("applications")
-      .select("application_id")
+      .select("application_id, contact_number")
       .eq("application_id", applicationId)
       .maybeSingle();
 
@@ -459,10 +460,54 @@ const updateIdMakerQueue = async (req, res) => {
 
     if (error) throw error;
 
+    let smsNotification = { attempted: false, sent: false };
+    if (isReadyForRelease && existingQueueItem?.print_status !== "In Transit") {
+      // Keep application status in sync with the ID Maker's In Transit stage.
+      const { data: latestApplicationStatus, error: statusLookupError } = await supabase
+        .from("application_status_history")
+        .select("status")
+        .eq("application_id", applicationId)
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (statusLookupError) throw statusLookupError;
+
+      if (latestApplicationStatus?.status !== "Ready for Release") {
+        const { error: statusSaveError } = await supabase
+          .from("application_status_history")
+          .insert({ application_id: applicationId, status: "Ready for Release", updated_at: updatedAt });
+        if (statusSaveError) throw statusSaveError;
+      }
+
+      smsNotification.attempted = true;
+      try {
+        const { sendReadyForReleaseSms } = require("../services/smsService");
+        const smsResult = await sendReadyForReleaseSms({
+          phone: application.contact_number,
+          applicationId
+        });
+        smsNotification = {
+          attempted: true,
+          sent: true,
+          message: "The ready-for-release SMS was accepted by the SMS provider.",
+          referenceId: smsResult?.message?.reference_id ?? null
+        };
+      } catch (smsError) {
+        smsNotification = {
+          attempted: true,
+          sent: false,
+          message: "Queue status was saved, but the SMS could not be sent.",
+          error: smsError.message
+        };
+        console.error("[SMS] Ready-for-release notification failed:", smsError.message);
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: "ID Maker queue updated successfully.",
       queue: data,
+      smsNotification
     });
   } catch (error) {
     console.error("Error updating ID Maker queue:", error);
