@@ -373,6 +373,7 @@ function resetQueueFilters() {
     o.classList.toggle('active', o.dataset.filter === 'all')
   );
   applyQueueFilters();
+  updateIdMakerKPIs();
 }
 
 function showDelayedQueueItems() {
@@ -545,7 +546,6 @@ function initIdMakerQueue(){
 
   populateQueueFilters();
   updateQueueTagCounts();
-  updateFilterCounts();
   updateAlertCounts();
   applyQueueFilters();
 }
@@ -988,13 +988,25 @@ async function inlineStatusChange(appId, newStatus) {
 }
 
 /* ── KPI cards: counts + delayed badge from the same data and rule as the table ── */
+function getQueueBySelectedBarangay() {
+  const barangay = QUEUE_FILTER_STATE?.barangay || 'all';
+  if (barangay === 'all') return ID_MAKER_QUEUE;
+  if (barangay === QUEUE_NO_BARANGAY) {
+    return ID_MAKER_QUEUE.filter(app => !String(app.barangay || '').trim());
+  }
+  return ID_MAKER_QUEUE.filter(
+    app => String(app.barangay || '').trim() === barangay
+  );
+}
+
 function updateIdMakerKPIs() {
   const now = Date.now();
+  const queue = getQueueBySelectedBarangay();
   const counts = Object.fromEntries(QUEUE_STAGES.map(s => [s, 0]));
   const delayed = Object.fromEntries(QUEUE_STAGES.map(s => [s, 0]));
   let delayedTotal = 0;
 
-  ID_MAKER_QUEUE.forEach(app => {
+  queue.forEach(app => {
     if (app.printStatus in counts) counts[app.printStatus]++;
     if (isQueueItemDelayed(app, now)) {
       if (app.printStatus in delayed) delayed[app.printStatus]++;
@@ -1003,7 +1015,7 @@ function updateIdMakerKPIs() {
   });
 
   // Order matches the cards: Queued, In Production, Printed, In Transit, Completed, Total
-  const values = [...QUEUE_STAGES.map(s => counts[s]), ID_MAKER_QUEUE.length];
+  const values = [...QUEUE_STAGES.map(s => counts[s]), queue.length];
   const badges = [...QUEUE_STAGES.map(s => delayed[s]), delayedTotal];
 
   document
@@ -1019,7 +1031,6 @@ function updateIdMakerKPIs() {
       }
     });
 
-  updateFilterCounts();
   updateQueueTagCounts();
   updateAlertCounts();
 
@@ -1155,24 +1166,6 @@ function toggleRowStatus(btn, event){
   menu.style.top = `${top}px`;
 }
 
-function updateFilterCounts(){
-  const counts = { Queued:0, 'In Production':0, Printed:0, 'In Transit':0, Completed:0 };
-  ID_MAKER_QUEUE.forEach(a => { if(counts[a.printStatus] !== undefined) counts[a.printStatus]++; });
-  const total = ID_MAKER_QUEUE.length;
-  const allCount = document.getElementById('qf-count-all');
-  const q = document.getElementById('qf-count-queued');
-  const p = document.getElementById('qf-count-production');
-  const pr = document.getElementById('qf-count-printed');
-  const t = document.getElementById('qf-count-transit');
-  const c = document.getElementById('qf-count-completed');
-  if(allCount) allCount.textContent = total;
-  if(q) q.textContent = counts.Queued;
-  if(p) p.textContent = counts['In Production'];
-  if(pr) pr.textContent = counts.Printed;
-  if(t) t.textContent = counts['In Transit'];
-  if(c) c.textContent = counts.Completed;
-}
-
 /* ── Dashboard additions: barangay filter, quick tags ── */
 function populateQueueFilters(){
   const sel = document.getElementById('queue-barangay-filter');
@@ -1201,11 +1194,12 @@ function populateQueueFilters(){
 function filterQueueByBarangay(value){
   QUEUE_FILTER_STATE.barangay = value || 'all';
   applyQueueFilters();
+  updateIdMakerKPIs();
 }
 
 function updateQueueTagCounts(){
   const counts = { Queued:0, 'In Production':0, Printed:0, 'In Transit':0, Completed:0 };
-  ID_MAKER_QUEUE.forEach(a => { if(counts[a.printStatus] !== undefined) counts[a.printStatus]++; });
+  getQueueBySelectedBarangay().forEach(a => { if(counts[a.printStatus] !== undefined) counts[a.printStatus]++; });
   const map = { 'qt-queued': counts.Queued, 'qt-production': counts['In Production'], 'qt-printed': counts.Printed, 'qt-transit': counts['In Transit'], 'qt-completed': counts.Completed };
   Object.keys(map).forEach(function(id){
     const el = document.getElementById(id);
