@@ -237,7 +237,7 @@ router.get(
       const { data: user, error } = await supabase
         .from("user_accounts")
         .select(
-          "id, username, email, role, account_status"
+          "id, username, full_name, designation, email, role, account_status"
         )
         .eq("id", req.user.id)
         .maybeSingle();
@@ -301,6 +301,18 @@ router.put(
       const { username, email } = req.body;
 
       const updateData = {};
+
+      if (full_name !== undefined) {
+        const cleanFullName = String(full_name || "").trim();
+        if (!cleanFullName) {
+          return res.status(400).json({ success: false, message: "Full name cannot be empty." });
+        }
+        updateData.full_name = cleanFullName;
+      }
+
+      if (designation !== undefined) {
+        updateData.designation = String(designation || "").trim() || null;
+      }
 
       if (username !== undefined) {
         const cleanUsername = String(
@@ -538,6 +550,8 @@ router.post(
         email,
         role,
         account_status,
+        full_name,
+        designation,
       } = req.body;
 
       const cleanUsername = String(
@@ -638,6 +652,8 @@ router.post(
         .from("user_accounts")
         .insert({
           username: cleanUsername,
+          full_name: String(full_name || cleanUsername).trim(),
+          designation: String(designation || "").trim() || null,
           password_hash: passwordHash,
           role: cleanRole,
           email: cleanEmail || null,
@@ -712,6 +728,8 @@ router.put(
         email,
         role,
         account_status,
+        full_name,
+        designation,
       } = req.body;
 
       if (Object.prototype.hasOwnProperty.call(req.body, "password")) {
@@ -792,7 +810,7 @@ router.put(
         .update(updateData)
         .eq("id", userId)
         .select(
-          "id, username, email, role, account_status"
+          "id, username, full_name, designation, email, role, account_status"
         )
         .single();
 
