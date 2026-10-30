@@ -690,4 +690,5 @@ module.exports = {
   addToIdMakerQueue,
   getIdMakerQueue,
   updateIdMakerQueue,
+  bulkUpdateIdMakerQueue,
 };
