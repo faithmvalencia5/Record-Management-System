@@ -1567,6 +1567,12 @@ function renderIdMakerInsightCard(key, insight, stats) {
   const textElement = document.getElementById(`${prefix}-insight-text`);
   if (!textElement || !stats) return;
 
+  const card = document.getElementById(`${prefix}-insight`);
+  const sourceTag = card?.querySelector('.analytics-insight__tag');
+  if (sourceTag) {
+    const provider = ['groq', 'cerebras', 'openrouter'].includes(insight?.source) ? insight.source.toUpperCase() + ' AI' : 'DATA SUMMARY';
+    sourceTag.textContent = provider;
+  }
   analyticsRenderBoldText(textElement, insight?.text || stats.fallback || 'No data available for this period.');
 }
 
