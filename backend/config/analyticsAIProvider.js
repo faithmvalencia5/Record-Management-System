@@ -134,7 +134,19 @@ async function requestProvider(provider, metrics, prompt, expectedKeys, maxToken
     }
 
     if (!response.ok) {
-      const message = result.error?.message || result.message || `HTTP ${response.status}`;
+      const cloudflareErrors = Array.isArray(result.errors)
+        ? result.errors.map((item) => item?.message || item?.code).filter(Boolean).join("; ")
+        : "";
+      const message = result.error?.message || result.message || cloudflareErrors || `HTTP ${response.status}`;
+      if (provider.id === "cloudflare") {
+        console.warn("[Analytics AI] Cloudflare error response:", JSON.stringify({
+          status: response.status,
+          errors: result.errors || null,
+          message: result.message || null,
+          model: provider.model(),
+          endpoint: endpoint.replace(/accounts\\/[^/]+/, "accounts/[account-id]"),
+        }).slice(0, 1200));
+      }
       setProviderCooldown(provider, response, message);
       throw new Error(`HTTP ${response.status}: ${String(message).slice(0, 500)}`);
     }
