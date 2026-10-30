@@ -1185,8 +1185,8 @@ function populateQueueFilters(){
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const allLabel = (sel.options[0] && sel.options[0].value === 'all') ? sel.options[0].textContent : 'All Barangay';
   sel.innerHTML = '<option value="all">' + esc(allLabel) + '</option>' +
-    '<option value="' + QUEUE_NO_BARANGAY + '">Barangay: Not specified</option>' +
-    brgys.map(b => '<option value="' + esc(b) + '">Barangay: ' + esc(b) + '</option>').join('');
+    '<option value="' + QUEUE_NO_BARANGAY + '">Not specified</option>' +
+    brgys.map(b => '<option value="' + esc(b) + '">' + esc(b) + '</option>').join('');
   sel.value = (current && (brgys.indexOf(current) !== -1 || current === QUEUE_NO_BARANGAY)) ? current : 'all';
   QUEUE_FILTER_STATE.barangay = sel.value;
 }
