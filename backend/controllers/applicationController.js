@@ -1,4 +1,5 @@
 const supabase = require("../config/supabase");
+const { createAuditLogFromRequest } = require("./auditLogController");
 
 const {
   Document,
@@ -1492,6 +1493,20 @@ const saveApplicationValidation = async (req, res) => {
       throw error;
     }
 
+    await createAuditLogFromRequest(req, {
+      action: "APPLICATION_VALIDATION_UPDATED",
+      entityType: "APPLICATION",
+      entityId: applicationId,
+      details: `Validation status set to "${validation_status}".`,
+    });
+
+    await createAuditLogFromRequest(req, {
+      action: "DOCUMENT_AUTHENTICATION_UPDATED",
+      entityType: "APPLICATION_DOCUMENT",
+      entityId: applicationId,
+      details: `Document "${documentType}" authentication set to "${status}".`,
+    });
+
     res.status(200).json({
       success: true,
 
@@ -1925,6 +1940,13 @@ const updateApplicationStatus = async (req, res) => {
       }
     }
 
+    await createAuditLogFromRequest(req, {
+      action: "APPLICATION_STATUS_UPDATED",
+      entityType: "APPLICATION",
+      entityId: applicationId,
+      details: `Application status changed to "${status}".`,
+    });
+
     return res.status(200).json({
       success: true,
       message: "Application status updated successfully.",
@@ -2013,6 +2035,13 @@ const updateMembershipStatus = async (req, res) => {
         .single();
 
     if (updateError) throw updateError;
+
+    await createAuditLogFromRequest(req, {
+      action: "MEMBERSHIP_STATUS_UPDATED",
+      entityType: "APPLICATION",
+      entityId: applicationId,
+      details: `Membership status changed to "${updatedApplication.membership_status}".`,
+    });
 
     return res.status(200).json({
       success: true,
