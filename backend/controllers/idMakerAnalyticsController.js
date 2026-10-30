@@ -152,7 +152,7 @@ async function generateIdMakerAnalyticsInsights(req, res) {
     }
 
     const prompt = "You are an operational analytics advisor for an OSCA ID Maker queue dashboard. For each analytics key (production, barangay, aging, monthly), do more than restate the chart: interpret the pattern, identify a concrete operational concern or useful opportunity when supported by the metrics, explain its likely workflow impact without guessing at causes, and recommend a specific practical next action. Write exactly one concise sentence per insight, maximum 22 words; do not add a heading. Give urgent attention to large backlogs, records exceeding aging thresholds, concentrated barangay workloads, and changes in monthly ID output when the supplied data supports those conclusions. Recommend reviewing the oldest records, checking stalled status updates, following up with the responsible workflow stage, or monitoring output trends only when relevant to the supplied metrics. Use only the supplied aggregate statistics. Do not invent numbers, infer unsupported causes, identify individuals, or make eligibility decisions. If a metric does not indicate a problem, provide a useful takeaway and a suitable monitoring action. Use clear, professional, simple English.";
-    const result = await generateAnalyticsInsights(metrics, prompt, CARD_KEYS, 400);
+    const result = await generateAnalyticsInsights(metrics, prompt, CARD_KEYS, 900);
     const generated = result.insights;
     const provider = result.provider;
 
