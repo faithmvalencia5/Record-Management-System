@@ -247,7 +247,7 @@ router.get(
       const { data: user, error } = await supabase
         .from("user_accounts")
         .select(
-          "id, username, full_name, designation, email, role, account_status"
+          "id, username, full_name, email, role, account_status"
         )
         .eq("id", req.user.id)
         .maybeSingle();
@@ -483,40 +483,10 @@ router.get(
   requireAdmin,
   async (req, res) => {
     try {
-      // Some existing deployments may not have the optional
-      // designation column yet. Retry without it so account
-      // retrieval does not fail for every user.
-      let { data: users, error } = await supabase
+      const { data: users, error } = await supabase
         .from("user_accounts")
-        .select(
-          "id, username, full_name, designation, email, role, account_status"
-        )
-        .order("id", {
-          ascending: true,
-        });
-
-      if (
-        error &&
-        /designation|column .* does not exist|schema cache/i.test(
-          error.message || ""
-        )
-      ) {
-        console.warn(
-          "[Admin Users] Optional designation column unavailable; retrying without it."
-        );
-
-        const fallback = await supabase
-          .from("user_accounts")
-          .select(
-            "id, username, full_name, email, role, account_status"
-          )
-          .order("id", {
-            ascending: true,
-          });
-
-        users = fallback.data;
-        error = fallback.error;
-      }
+        .select("id, username, full_name, email, role, account_status")
+        .order("id", { ascending: true });
 
       if (error) {
         console.error(
@@ -556,7 +526,6 @@ router.get(
           id: user.id,
           username: user.username,
           full_name: user.full_name || user.username,
-          designation: user.designation || null,
           email: user.email || "",
           role: user.role || "Staff",
           account_status:
@@ -598,7 +567,6 @@ router.post(
         role,
         account_status,
         full_name,
-        designation,
       } = req.body;
 
       const cleanUsername = String(
@@ -693,34 +661,11 @@ router.post(
         account_status: cleanStatus,
       };
 
-      // designation is optional in older Supabase schemas.
-      let insertResult = await supabase
+      const { data: newUser, error } = await supabase
         .from("user_accounts")
-        .insert({
-          ...userInsert,
-          designation: String(designation || "").trim() || null,
-        })
-        .select(
-          "id, username, full_name, designation, email, role, account_status"
-        )
+        .insert(userInsert)
+        .select("id, username, full_name, email, role, account_status")
         .single();
-
-      if (insertResult.error) {
-        console.warn(
-          "User insert with designation failed; retrying without optional designation:",
-          insertResult.error
-        );
-        insertResult = await supabase
-          .from("user_accounts")
-          .insert(userInsert)
-          .select(
-            "id, username, full_name, email, role, account_status"
-          )
-          .single();
-      }
-
-      const newUser = insertResult.data;
-      const error = insertResult.error;
 
       if (error) {
         console.error(
@@ -808,10 +753,6 @@ router.put(
         updateData.full_name = cleanFullName;
       }
 
-      if (designation !== undefined) {
-        updateData.designation = String(designation || "").trim() || null;
-      }
-
       if (username !== undefined) {
         const cleanUsername =
           String(username).trim();
@@ -869,33 +810,12 @@ router.put(
         });
       }
 
-      let updateResult = await supabase
+      const { data: updatedUser, error } = await supabase
         .from("user_accounts")
         .update(updateData)
         .eq("id", userId)
-        .select(
-          "id, username, full_name, designation, email, role, account_status"
-        )
+        .select("id, username, full_name, email, role, account_status")
         .single();
-
-      if (updateResult.error && updateData.designation !== undefined) {
-        console.warn(
-          "User update with designation failed; retrying without optional designation:",
-          updateResult.error
-        );
-        const { designation: omittedDesignation, ...compatibleUpdate } = updateData;
-        updateResult = await supabase
-          .from("user_accounts")
-          .update(compatibleUpdate)
-          .eq("id", userId)
-          .select(
-            "id, username, full_name, email, role, account_status"
-          )
-          .single();
-      }
-
-      const updatedUser = updateResult.data;
-      const error = updateResult.error;
 
       if (error) {
         console.error(
