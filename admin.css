@@ -467,3 +467,56 @@
   .log-card__body.is-updating{opacity:1}
   .audit-range-filter select.filter-select{opacity:1 !important}
 }
+
+
+/* Audit log date-range filter */
+.audit-date-range {
+  position: relative;
+  flex: 0 0 auto;
+  min-width: 170px;
+  font-size: 13px;
+}
+.audit-date-range > summary {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 12px;
+  border: 1px solid var(--border, #dbe3ef);
+  border-radius: 10px;
+  background: var(--surface, #fff);
+  color: var(--text, #334155);
+  cursor: pointer;
+  list-style: none;
+  white-space: nowrap;
+  user-select: none;
+}
+.audit-date-range > summary::-webkit-details-marker { display: none; }
+.audit-date-range > summary svg { width: 16px; height: 16px; flex: 0 0 auto; color: var(--muted, #64748b); }
+.audit-date-range[open] > summary { border-color: var(--primary, #2563eb); }
+.audit-date-range__chevron { margin-left: auto; color: var(--muted, #64748b); transition: transform .15s ease; }
+.audit-date-range[open] .audit-date-range__chevron { transform: rotate(180deg); }
+.audit-date-range__panel {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 8px);
+  right: 0;
+  width: min(360px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid var(--border, #dbe3ef);
+  border-radius: 12px;
+  background: var(--surface, #fff);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, .14);
+}
+.audit-date-range__heading { margin-bottom: 12px; color: var(--text, #1e293b); font-size: 13px; font-weight: 700; }
+.audit-date-range__fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.audit-date-range__fields label { display: flex; min-width: 0; flex-direction: column; gap: 6px; color: var(--muted, #64748b); font-size: 12px; font-weight: 600; }
+.audit-date-range__fields .form-input { box-sizing: border-box; width: 100%; min-width: 0; }
+.audit-date-range__footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; color: var(--muted, #64748b); font-size: 11px; }
+.audit-date-range__footer .btn { min-height: 30px; padding: 5px 9px; font-size: 11px; }
+@media (max-width: 780px) {
+  .audit-date-range { width: 100%; }
+  .audit-date-range > summary { width: 100%; box-sizing: border-box; }
+  .audit-date-range__panel { left: 0; right: auto; width: calc(100% - 34px); }
+  .audit-date-range__footer { align-items: flex-start; flex-direction: column; }
+}
