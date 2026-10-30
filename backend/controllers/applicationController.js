@@ -1565,6 +1565,117 @@ const saveApplicationValidation = async (req, res) => {
   }
 };
 
+// BULK APPROVE ALL REQUIRED DOCUMENTS
+const approveAllDocumentAuthentications = async (req, res) => {
+  try {
+    const applicationId = req.params.applicationId;
+    if (!applicationId) {
+      return res.status(400).json({ success: false, message: "Application ID is required." });
+    }
+
+    const requiredDocumentTypes = [
+      "valid_id",
+      "valid_id_back",
+      "latest_photo",
+      "birth_certificate",
+      "community_tax_certificate",
+      "signature",
+    ];
+
+    const { data: application, error: applicationError } = await supabase
+      .from("applications")
+      .select("application_id")
+      .eq("application_id", applicationId)
+      .maybeSingle();
+
+    if (applicationError) throw applicationError;
+    if (!application) {
+      return res.status(404).json({ success: false, message: "Application not found." });
+    }
+
+    const { data: existingRows, error: existingError } = await supabase
+      .from("document_authentications")
+      .select("id, document_type")
+      .eq("application_id", applicationId)
+      .in("document_type", requiredDocumentTypes);
+
+    if (existingError) throw existingError;
+
+    const now = new Date().toISOString();
+    const existingByType = new Map((existingRows || []).map(row => [row.document_type, row]));
+
+    const updatePromises = requiredDocumentTypes
+      .filter(type => existingByType.has(type))
+      .map(async type => {
+        const existing = existingByType.get(type);
+        const { data, error } = await supabase
+          .from("document_authentications")
+          .update({
+            authentication_status: "approved",
+            authentication_method: "staff_review",
+            authenticated_by: null,
+            authenticated_at: now,
+            authentication_remarks: "Document approved by staff using Approve All.",
+            updated_at: now,
+          })
+          .eq("id", existing.id)
+          .select()
+          .single();
+        if (error) throw error;
+        return data;
+      });
+
+    const missingTypes = requiredDocumentTypes.filter(type => !existingByType.has(type));
+    let insertedRows = [];
+    if (missingTypes.length) {
+      const rowsToInsert = missingTypes.map(document_type => ({
+        application_id: applicationId,
+        document_type,
+        authentication_status: "approved",
+        authentication_method: "staff_review",
+        authenticated_by: null,
+        authenticated_at: now,
+        authentication_remarks: "Document approved by staff using Approve All.",
+        created_at: now,
+        updated_at: now,
+      }));
+      const { data, error } = await supabase
+        .from("document_authentications")
+        .insert(rowsToInsert)
+        .select();
+      if (error) throw error;
+      insertedRows = data || [];
+    }
+
+    const updatedRows = await Promise.all(updatePromises);
+    const savedRecords = [...updatedRows, ...insertedRows];
+
+    if (savedRecords.length !== requiredDocumentTypes.length) {
+      throw new Error("Not all six document approvals were returned by the database.");
+    }
+
+    await createAuditLogFromRequest(req, {
+      action: "DOCUMENTS_BULK_APPROVED",
+      entityType: "APPLICATION",
+      entityId: applicationId,
+      details: "All six required documents were approved in one bulk action.",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "All six required documents were approved successfully.",
+      documentAuthentications: savedRecords,
+    });
+  } catch (error) {
+    console.error("Error bulk approving documents:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to approve all documents.",
+      error: error.message,
+    });
+  }
+};
+
 // UPDATE DOCUMENT AUTHENTICATION
 const updateDocumentAuthentication = async (req, res) => {
   try {
@@ -2212,5 +2323,6 @@ module.exports = {
   updateApplicationStatus,
   updateMembershipStatus,
   updateDocumentAuthentication,
+  approveAllDocumentAuthentications,
   downloadIssuanceDocument,
 };
