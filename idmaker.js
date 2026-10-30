@@ -941,8 +941,11 @@ async function inlineStatusChange(appId, newStatus) {
     // REFRESH UI (KPIs, banner, filter counts, table)
     // ========================================
 
+    // The row's status label was already updated in place by
+    // selectRowStatus(). Refresh only the KPIs and alert counts here.
+    // Rebuilding the table would re-sort by updatedAt and move this
+    // applicant to the top immediately after a status change.
     updateIdMakerKPIs();
-    applyQueueFilters();
 
     appendAudit(
       CURRENT_USER?.displayName ||
