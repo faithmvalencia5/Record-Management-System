@@ -25,6 +25,13 @@
   <link rel="stylesheet" href="base.css?v=41" />
   <link rel="stylesheet" href="admin.css?v=25" />
   <script src="skeleton.js?v=3"></script>
+<style>
+.password-input-wrap{position:relative;width:100%}
+.password-input-wrap .form-input{padding-right:48px}
+.password-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:32px;height:32px;border:0;background:transparent;color:var(--text-muted);cursor:pointer;border-radius:8px}
+.password-toggle:hover{background:rgba(100,116,139,.12);color:var(--text-primary)}
+.password-toggle svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+</style>
 </head>
 
 <body class="portal-mode">
@@ -477,7 +484,6 @@
             <th onclick="sortTable('user-mgmt-tbody',0,this)"><span class="th-center">User <span class="sort-icon">↕</span></span></th>
             <th onclick="sortTable('user-mgmt-tbody',1,this)">Username <span class="sort-icon">↕</span></th>
             <th onclick="sortTable('user-mgmt-tbody',2,this)"><span class="th-center">Role <span class="sort-icon">↕</span></span></th>
-            <th onclick="sortTable('user-mgmt-tbody',3,this)">Designation <span class="sort-icon">↕</span></th>
             <th onclick="sortTable('user-mgmt-tbody',4,this)">Status <span class="sort-icon">↕</span></th>
             <th onclick="sortTable('user-mgmt-tbody',5,this)">Last Active <span class="sort-icon">↕</span></th>
             <th>Actions</th>
@@ -768,10 +774,6 @@
             <input class="form-input" id="um-fullname" placeholder="e.g., Cindy H. Bulanhagui" />
           </div>
           <div class="form-group">
-            <label class="form-label">Job Title / Designation <span>*</span></label>
-            <input class="form-input" id="um-designation" placeholder="e.g., Frontline Staff" />
-          </div>
-          <div class="form-group">
             <label class="form-label">Username <span>*</span></label>
             <input class="form-input" id="um-username" placeholder="unique username" />
           </div>
@@ -796,15 +798,12 @@
           </div>
           <div class="form-group" id="um-password-group" style="grid-column:1/-1">
             <label class="form-label">Password <span>*</span></label>
-            <input
-              class="form-input"
-              type="password"
-              id="um-password"
-              placeholder="Set secure initial password"
-              minlength="8"
-              autocomplete="new-password"
-              oninput="validatePasswordField('um-password')"
-            />
+            <div class="password-input-wrap">
+              <input class="form-input" type="password" id="um-password" placeholder="Set secure initial password" minlength="8" autocomplete="new-password" oninput="validatePasswordField('um-password')" />
+              <button class="password-toggle" type="button" onclick="togglePasswordVisibility('um-password', this)" aria-label="Show password" title="Show password">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
 
             <div
               id="um-password-error"
