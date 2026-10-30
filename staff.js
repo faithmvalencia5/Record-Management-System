@@ -4120,7 +4120,7 @@ function formatReplacementDate(value) {
 }
 
 
-// GEMINI STAFF ANALYTICS INSIGHTS - BEGIN
+// MULTI-PROVIDER STAFF ANALYTICS INSIGHTS - BEGIN
 const STAFF_ANALYTICS_INSIGHTS_API = "https://management-backend-3cij.onrender.com/api/analytics-insights";
 let staffAnalyticsInsightRequest = 0;
 let staffInsightsApplicationsReady = false;
@@ -4298,7 +4298,7 @@ async function requestStaffAnalyticsInsights(applications) {
     console.warn("Staff analytics insights:", error.message);
   }
 }
-// GEMINI STAFF ANALYTICS INSIGHTS - END
+// MULTI-PROVIDER STAFF ANALYTICS INSIGHTS - END
 
 
 async function loadReplacementRequests() {
