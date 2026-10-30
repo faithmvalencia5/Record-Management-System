@@ -7,6 +7,7 @@ const {
   addToIdMakerQueue,
   getIdMakerQueue,
   updateIdMakerQueue,
+  bulkUpdateIdMakerQueue,
 } = require("../controllers/idMakerQueueController");
 const {
   generateIdMakerAnalyticsInsights,
@@ -23,6 +24,9 @@ router.post("/analytics-insights", generateIdMakerAnalyticsInsights);
 // ADD APPLICANT TO ID MAKER QUEUE
 router.post("/", authenticateToken, addToIdMakerQueue);
 
+
+// BULK UPDATE ID MAKER QUEUE
+router.put("/bulk-status", authenticateToken, bulkUpdateIdMakerQueue);
 
 // UPDATE ID MAKER QUEUE
 router.put("/:applicationId", authenticateToken, updateIdMakerQueue);
