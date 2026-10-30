@@ -38,6 +38,29 @@ async function createAuditLog({
   }
 }
 
+async function createAuditLogFromRequest(req, {
+  action,
+  entityType = null,
+  entityId = null,
+  details = null,
+  username = null,
+  role = null,
+  userId = null,
+} = {}) {
+  const actor = req.user || {};
+  return createAuditLog({
+    userId: userId ?? actor.id ?? null,
+    username: username ?? actor.username ?? actor.displayName ?? null,
+    role: role ?? actor.role ?? null,
+    action,
+    entityType,
+    entityId: entityId == null ? null : String(entityId),
+    details,
+    ipAddress: req.ip,
+    userAgent: req.get("user-agent"),
+  });
+}
+
 async function getAuditLogs(req, res) {
   try {
     const limit = Math.min(
@@ -76,5 +99,6 @@ async function getAuditLogs(req, res) {
 
 module.exports = {
   createAuditLog,
+  createAuditLogFromRequest,
   getAuditLogs,
 };
