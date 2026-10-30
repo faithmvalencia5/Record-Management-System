@@ -7143,12 +7143,42 @@ function confirmLogout() {
   logout();
 }
 
-function logout() {
+let logoutInProgress = false;
+
+async function logout() {
+  if (logoutInProgress) return;
+  logoutInProgress = true;
+
+  // Record logout while the authenticated token is still available.
+  let logoutRecorded = false;
+  try {
+    const response = await fetch(
+      'https://management-backend-3cij.onrender.com/api/auth/logout',
+      {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        cache: 'no-store'
+      }
+    );
+    logoutRecorded = response.ok;
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      console.error('Logout audit event was not saved:', result.message || response.status);
+    }
+  } catch (error) {
+    console.error('Unable to send logout audit event:', error);
+  }
+
   clearAuthSession();
   CURRENT_USER = null;
   CURRENT_ROLE = 'Staff';
   closeModal();
   closeLogoutConfirm();
+
+  if (!logoutRecorded) {
+    console.warn('Session closed, but the server did not confirm the logout audit event.');
+  }
+
   if (PAGE === 'login') {
     showLoginPage();
     showToast('Signed out successfully.', 'info');
