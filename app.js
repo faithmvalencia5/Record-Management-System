@@ -2497,7 +2497,7 @@ function getLocalIdMakerQueue() {
   }
 }
 
-function saveLocalIdMakerQueue(queueEntry) {
+function saveLocalIdMakerQueue(queueEntry, broadcastUpdate = true) {
   try {
     const list = getLocalIdMakerQueue();
     const targetId = String(queueEntry.id || queueEntry.application_id);
@@ -2508,7 +2508,10 @@ function saveLocalIdMakerQueue(queueEntry) {
       list.unshift(queueEntry);
     }
     localStorage.setItem(ID_MAKER_LOCAL_QUEUE_KEY, JSON.stringify(list));
-    if (typeof BroadcastChannel !== 'undefined') {
+    // Broadcast only when requested. The ID Maker page updates its own
+    // table in memory after a successful API response; broadcasting from
+    // that same page would make its listener reload the entire dashboard.
+    if (broadcastUpdate && typeof BroadcastChannel !== 'undefined') {
       try {
         const bc = new BroadcastChannel('idmaker_queue_channel');
         bc.postMessage({ type: 'QUEUE_UPDATED', entry: queueEntry, queue: list });
