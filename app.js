@@ -3416,20 +3416,7 @@ async function updateTableStatus(
         {
           method: 'PUT',
 
-          headers: (() => {
-            let token = null;
-            try {
-              const raw = sessionStorage.getItem('senioridAuth') || localStorage.getItem('senioridAuth');
-              if (raw) token = JSON.parse(raw).token || null;
-            } catch (error) {
-              console.error('Unable to read authentication session:', error);
-            }
-            return {
-              'Content-Type': 'application/json',
-              'Accept': 'application/json',
-              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-            };
-          })(),
+          headers: getAuthHeaders(),
 
           body: JSON.stringify({
             status: newStatus
@@ -3546,13 +3533,25 @@ async function updateTableStatus(
       error
     );
 
-    // Rollback UI if database save failed
+    // Roll back every optimistic status change when the database rejects the save.
+    app.status = previousStatus;
+    APP_DB[appId] = app;
+    syncApplicationsTableBadge(appId, previousStatus);
+    syncRecentSubmissionsStatus(appId, previousStatus);
 
-    app.status =
-      previousStatus;
+    if (typeof LIVE_APPLICATIONS !== 'undefined' && Array.isArray(LIVE_APPLICATIONS)) {
+      const liveApplication = LIVE_APPLICATIONS.find(item =>
+        String(item.application_id || item.id) === String(appId)
+      );
+      if (liveApplication) liveApplication.status = previousStatus;
+      if (typeof updateApplicantSummaryCards === 'function') updateApplicantSummaryCards(LIVE_APPLICATIONS);
+      if (typeof updateApplicationSummaryCards === 'function') updateApplicationSummaryCards(LIVE_APPLICATIONS);
+      if (typeof renderLiveApplicants === 'function') renderLiveApplicants(LIVE_APPLICATIONS);
+      if (typeof renderLiveApplications === 'function') renderLiveApplications(LIVE_APPLICATIONS);
+    }
 
-    APP_DB[appId] =
-      app;
+    const detailStatusSelect = document.getElementById('status-select');
+    if (detailStatusSelect) detailStatusSelect.value = previousStatus;
 
     const oldConfig =
       statusOptionCfg(
