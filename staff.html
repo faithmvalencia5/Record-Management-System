@@ -2322,6 +2322,56 @@
     </div>
   </div>
 
+  <!-- EXPORT DATA MODAL -->
+  <div class="modal-backdrop" id="staff-export-modal">
+    <div class="modal confirm-modal" role="dialog" aria-modal="true" aria-labelledby="staff-export-title" style="max-width:680px;width:calc(100% - 32px)">
+      <div class="confirm-hero">
+        <div class="confirm-icon"><i class="fi fi-rr-file-export"></i></div>
+        <div>
+          <div class="confirm-title" id="staff-export-title">Export applicant data</div>
+          <div class="confirm-desc">Choose the report type, filters, and columns to include in your export.</div>
+        </div>
+      </div>
+      <div class="confirm-body" style="display:grid;gap:16px">
+        <div>
+          <label for="staff-export-type" style="display:block;font-weight:600;margin-bottom:6px">Report type</label>
+          <select id="staff-export-type" onchange="updateStaffExportFields()" style="width:100%;padding:11px;border:1px solid var(--border-color,#dbe3ef);border-radius:10px">
+            <option value="barangay">Barangay summary (male, female, overall total)</option>
+            <option value="records">Individual applicant records</option>
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">
+          <div>
+            <label for="staff-export-barangay" style="display:block;font-weight:600;margin-bottom:6px">Barangay</label>
+            <select id="staff-export-barangay" style="width:100%;padding:10px;border:1px solid var(--border-color,#dbe3ef);border-radius:10px"><option value="">All barangays</option></select>
+          </div>
+          <div>
+            <label for="staff-export-status" style="display:block;font-weight:600;margin-bottom:6px">Application status</label>
+            <select id="staff-export-status" style="width:100%;padding:10px;border:1px solid var(--border-color,#dbe3ef);border-radius:10px">
+              <option value="">All statuses</option><option>Pending</option><option>Under Review</option><option>In Process</option><option>Ready for Release</option><option>Completed</option><option>Rejected</option>
+            </select>
+          </div>
+          <div>
+            <label for="staff-export-membership" style="display:block;font-weight:600;margin-bottom:6px">Membership status</label>
+            <select id="staff-export-membership" style="width:100%;padding:10px;border:1px solid var(--border-color,#dbe3ef);border-radius:10px">
+              <option value="">All membership statuses</option><option>Active</option><option>Deceased</option><option value="Unassigned">Not assigned</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <div style="font-weight:600;margin-bottom:8px">Data fields to include</div>
+          <div id="staff-export-fields" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:9px"></div>
+          <p style="font-size:12px;color:var(--text-muted);margin:8px 0 0">For barangay summary, select which count columns to include. The overall total row is included automatically.</p>
+        </div>
+        <div id="staff-export-error" role="alert" style="display:none;color:#dc2626"></div>
+      </div>
+      <div class="confirm-actions">
+        <button type="button" class="btn btn--ghost" onclick="closeStaffExport()">Cancel</button>
+        <button type="button" class="btn btn--primary" onclick="downloadStaffExport()">Export CSV</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST CONTAINER -->
   <div class="toast-container" id="toast-container"></div>
 
