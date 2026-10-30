@@ -96,10 +96,10 @@ function fallbackInsight(cardKey, stats = {}) {
 
   const n = (key) => Number.isFinite(stats[key]) ? stats[key].toLocaleString() : "0";
   const text = {
-    production: `The production queue contains ${n("total")} applications: ${n("queued")} queued, ${n("inProduction")} in production, ${n("printed")} printed, ${n("inTransit")} in transit, and ${n("completed")} completed.`,
-    barangay: `The chart summarizes ${n("total")} applications across the leading barangay groups.`,
-    aging: `The aging summary covers ${n("active")} active applications: ${n("within24")} within 24 hours, ${n("from24To48")} between 24 and 48 hours, and ${n("over48")} over 48 hours.`,
-    monthly: `The monthly chart summarizes ${n("completedTotal")} completed IDs across ${n("monthCount")} months.`,
+    production: `The queue has ${n("queued")} queued records out of ${n("total")} total, while ${n("inProduction")} are in production and ${n("printed")} are printed. Prioritize checking queued records that have not entered production and confirm that each stage is receiving timely status updates.`,
+    barangay: `${n("total")} records are represented across the leading barangay groups. Check the ranking for areas carrying the largest share of the workload and coordinate production batches so heavily represented barangays do not remain unattended.`,
+    aging: `${n("over48")} of ${n("active")} active records have exceeded 48 hours, compared with ${n("within24")} within 24 hours and ${n("from24To48")} between 24 and 48 hours. Review the oldest overdue records first and verify the last queue update before moving them to the next stage.`,
+    monthly: `${n("completedTotal")} IDs were completed across ${n("monthCount")} months. Compare the latest month with the previous month when both are available; if output has fallen, review production capacity and identify which stage needs follow-up.`,
   };
   return text[cardKey] || "Analytics data is available for this panel.";
 }
