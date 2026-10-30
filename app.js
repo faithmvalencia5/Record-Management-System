@@ -704,50 +704,11 @@ function selectStatusOption(btn, event) {
   const color = btn.dataset.color;
   const appId = String(root.dataset.appId || '');
 
-  // Fast client-side eligibility feedback. The backend repeats these checks
-  // against the database and remains the final authority.
-  if (
-    status === 'In Process' &&
-    normalizeApplicationStatus(previousStatus) === 'review'
-  ) {
-    const app = (typeof APP_DB !== 'undefined' && APP_DB[appId]) ||
-      (typeof LIVE_APPLICATIONS !== 'undefined' && LIVE_APPLICATIONS.find(item =>
-        String(item.application_id || item.id) === appId
-      ));
-    if (!app) {
-      showToast('Status not changed. Applicant eligibility data could not be verified. Reload the application list and try again.', 'error');
-      closeAllStatusMenus();
-      return;
-    }
+  // Eligibility and document approval are checked by the backend directly
+  // against Supabase when the status request is submitted. Do not block this
+  // transition using APP_DB/LIVE_APPLICATIONS, because these page-level caches
+  // can be stale until the application detail modal refreshes the record.
 
-    if (String(app.validation_status || '').trim().toLowerCase() !== 'passed') {
-      showToast('Status not changed. Save a Passed eligibility validation first.', 'error');
-      closeAllStatusMenus();
-      return;
-    }
-
-    const required = [
-      ['valid_id', 'Valid ID (Front)'],
-      ['valid_id_back', 'Valid ID (Back)'],
-      ['latest_photo', 'Latest Photo'],
-      ['birth_certificate', 'Birth Certificate'],
-      ['community_tax_certificate', 'Cedula'],
-      ['signature', 'Signature']
-    ];
-    const authentications = Array.isArray(app.documentAuthentications)
-      ? app.documentAuthentications
-      : [];
-    const approved = new Set(authentications
-      .filter(record => String(record.authentication_status || '').trim().toLowerCase() === 'approved')
-      .map(record => String(record.document_type || '').trim().toLowerCase()));
-    const missing = required.filter(([type]) => !approved.has(type)).map(([, label]) => label);
-
-    if (missing.length) {
-      showToast('Status not changed. Approve all required documents first: ' + missing.join(', ') + '.', 'error');
-      closeAllStatusMenus();
-      return;
-    }
-  }
 
   root
     .querySelectorAll('.status-select__option')
