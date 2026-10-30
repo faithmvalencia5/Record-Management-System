@@ -16,11 +16,23 @@ const PROVIDERS = [
 ];
 
 function parseProviderJson(raw, expectedKeys) {
+  const text = String(raw || "").trim();
   let parsed;
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(text);
   } catch {
-    throw new Error("Provider returned invalid JSON.");
+    // Some free OpenRouter models wrap otherwise valid JSON in prose or
+    // Markdown fences. Extract the JSON object without accepting plain text.
+    const firstBrace = text.indexOf("{");
+    const lastBrace = text.lastIndexOf("}");
+    if (firstBrace < 0 || lastBrace <= firstBrace) {
+      throw new Error("Provider returned no usable JSON object.");
+    }
+    try {
+      parsed = JSON.parse(text.slice(firstBrace, lastBrace + 1));
+    } catch {
+      throw new Error("Provider returned malformed JSON.");
+    }
   }
 
   const insights = parsed?.insights;
@@ -41,7 +53,8 @@ async function requestProvider(provider, metrics, prompt, expectedKeys, maxToken
   if (!apiKey) throw new Error("API key is not configured.");
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 15000);
+  const timeoutMs = provider.id === "openrouter" ? 25000 : 12000;
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(provider.url, {
       method: "POST",
@@ -64,7 +77,9 @@ async function requestProvider(provider, metrics, prompt, expectedKeys, maxToken
           { role: "user", content: JSON.stringify(metrics) },
         ],
         temperature: 0.2,
-        max_completion_tokens: maxTokens,
+        ...(provider.id === "openrouter"
+          ? { max_tokens: maxTokens }
+          : { max_completion_tokens: maxTokens }),
         response_format: { type: "json_object" },
       }),
     });
