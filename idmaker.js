@@ -151,7 +151,7 @@ async function loadIdMakerQueueFromDatabase(showMessage = false) {
     } else if (tbody) {
       tbody.innerHTML =
         '<tr>' +
-        '<td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">' +
+        '<td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">' +
         '<i class="fi fi-rr-spinner"></i> ' +
         'Loading print queue...' +
         '</td>' +
@@ -250,7 +250,7 @@ async function loadIdMakerQueueFromDatabase(showMessage = false) {
     initIdMakerQueue();
     const queueBody = document.getElementById('id-maker-queue-tbody');
     if (queueBody) {
-      queueBody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">Unable to load the queue from the server. Refresh to try again.</td></tr>';
+      queueBody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">Unable to load the queue from the server. Refresh to try again.</td></tr>';
     }
     updateIdMakerKPIs();
 
@@ -647,7 +647,7 @@ function buildQueueRow(app) {
   const isSelected = SELECTED_QUEUE_IDS.has(String(app.id));
   const selectionCell = '<td data-label="Select" class="queue-select-cell"><input type="checkbox" class="queue-row-checkbox" aria-label="Select ' +
     (name ? escapeQueueHtml(name) : id) + '" ' + (isSelected ? 'checked ' : '') + (linked ? '' : 'disabled ') +
-    'onchange="toggleQueueSelection(this,\\'' + id + '\\')"></td>';
+    'onchange="toggleQueueSelection(this,\'' + id + '\')"></td>';
 
   return '<tr data-app-id="' + id + '" data-print-status="' + escapeQueueHtml(app.printStatus) +
     '" data-brgy="' + escapeQueueHtml(barangay) + '">' +
@@ -692,7 +692,7 @@ function renderQueueTable() {
   const slice = rows;
 
   const emptyRow = html =>
-    '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">' + html + '</td></tr>';
+    '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">' + html + '</td></tr>';
 
   if (!total) {
     tbody.innerHTML = emptyRow('No cards in the production queue.');
