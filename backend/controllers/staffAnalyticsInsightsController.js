@@ -1,5 +1,5 @@
 const MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
-const KEYS = ["applicationFlow", "queueMix", "replacementRequests", "readyForHandoff", "barangayWorkload", "ageDistribution", "issuanceOverTime", "turnaroundTime"];
+const KEYS = ["applicationFlow", "queueMix", "replacementRequests", "readyForHandoff", "barangayWorkload", "seniorRegistrationsByBarangay", "demographics", "ageDistribution", "issuanceOverTime", "turnaroundTime"];
 
 const INSIGHT_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const insightCache = new Map();
@@ -57,6 +57,8 @@ function fallback(key, m = {}) {
     replacementRequests: `${n("pending")} of ${n("total")} replacement requests are pending and ${n("inProcess")} are in process. Review requests that have not moved forward and confirm whether documents or staff action are holding them up.`,
     readyForHandoff: `${n("ready")} applications are marked ready for ID Maker handoff. Check that these records are complete and visible to the ID Maker team, then coordinate the next production batch.`,
     barangayWorkload: `${n("total")} applications are distributed across ${n("barangayCount")} barangay groups. Compare the leading barangays in the chart and monitor whether workload is becoming concentrated; coordinate review capacity if one area consistently dominates.`,
+    seniorRegistrationsByBarangay: (() => { const top = Array.isArray(m.topBarangays) ? m.topBarangays : []; const sum = top.reduce((total,item)=>total+(Number(item.count)||0),0); const leader = top[0]; return leader ? `${leader.label} has the highest registration count among the six leading barangays, with ${n("total")} total registrations across ${n("barangayCount")} barangay groups. Compare the leading areas and plan outreach or review capacity around sustained concentrations.` : "There is not enough barangay-level data to identify a leading registration area. Check barangay completeness before using this chart for workload planning."; })(),
+    demographics: `${n("knownTotal")} records have a recognized sex value: ${n("female")} female and ${n("male")} male, while ${n("unknown")} records have missing or unrecognized values. Use the distribution to understand the current applicant profile and improve completeness of demographic records before drawing broader conclusions.`,
     ageDistribution: `${n("total")} applications have a recorded age for this distribution. Use the largest age groups to plan service and validation workload, while checking records with missing age values for data completeness.`,
     issuanceOverTime: `${n("issued")} applications are counted as issued or completed in the current-year monthly chart. Compare the monthly bars to identify changes in output and review workflow capacity if completed IDs begin to decline.`,
     turnaroundTime: m.averageDays == null ? "A reliable turnaround-time estimate is not available because there are not enough records with valid submission and completion dates. Ensure these dates are recorded so processing delays can be monitored." : `The average recorded turnaround time is ${m.averageDays} days across ${n("sampleSize")} applications with usable dates. Review long-running cases individually and check which processing stage is taking the most time.`
@@ -86,7 +88,7 @@ async function requestStaffGroq(metrics, prompt) {
           messages: [
             {
               role: "system",
-              content: `${prompt}\n\nReturn only a JSON object with an "insights" property. The "insights" property must contain all eight requested analytics keys, each with a string value.`,
+              content: `${prompt}\n\nReturn only a JSON object with an "insights" property. The "insights" property must contain all ten requested analytics keys, each with a string value.`,
             },
             {
               role: "user",
@@ -187,7 +189,7 @@ async function generateStaffAnalyticsInsights(req, res) {
       return res.json({ success: true, configured: false, insights });
     }
 
-    const prompt = "You are an operational analytics advisor for an OSCA staff dashboard about senior citizen ID applications. For each analytics key, go beyond describing chart values: interpret the pattern, identify a concrete concern or noteworthy opportunity when supported by the data, explain its operational implication, and recommend a practical next action for staff. Start each insight with a short, meaningful heading on its own line, followed by 2-3 concise sentences. Prioritize urgent issues when the supplied metrics show delays, backlogs, unusual concentrations, or bottlenecks. Use only supplied aggregate statistics. Do not invent numbers, infer unsupported causes, identify individuals, make eligibility decisions, or recommend actions unrelated to the metrics. If the data does not show a problem, state the useful takeaway and an appropriate monitoring action. Use clear, professional, simple English.";
+    const prompt = "You are an operational analytics advisor for an OSCA staff dashboard about senior citizen ID applications. For each analytics key, go beyond describing chart values: interpret the pattern, identify a concrete concern or noteworthy opportunity when supported by the data, explain its operational implication, and recommend a practical next action for staff. Start each insight with a short, meaningful heading on its own line, followed by 2-3 concise sentences. For seniorRegistrationsByBarangay, analyze the top six barangays, their relative concentration, and recommend an operational response. For demographics, interpret the female/male distribution cautiously and flag missing or unrecognized values; do not infer service needs or eligibility from sex. Prioritize urgent issues when the supplied metrics show delays, backlogs, unusual concentrations, or bottlenecks. Use only supplied aggregate statistics. Do not invent numbers, infer unsupported causes, identify individuals, make eligibility decisions, or recommend actions unrelated to the metrics. If the data does not show a problem, state the useful takeaway and an appropriate monitoring action. Use clear, professional, simple English.";
     const generated = await requestStaffGroq(metrics, prompt);
     const provider = "groq";
 
