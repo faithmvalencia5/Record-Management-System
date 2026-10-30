@@ -1127,12 +1127,17 @@ function normalizeAuditLog(
       formattedTime,
 
     user:
+      log.full_name ||
       log.username ||
-      'System',
+      'Unattributed (legacy event)',
+
+    username:
+      log.username ||
+      '—',
 
     role:
       log.role ||
-      'System',
+      'Unknown',
 
     action:
       log.action ||
@@ -3856,7 +3861,7 @@ function renderAuditTable() {
 
     tbody.innerHTML =
       '<tr>' +
-      '<td colspan="6" class="table-empty">' +
+      '<td colspan="7" class="table-empty">' +
       '<i class="fi fi-rr-shield-check"></i> ' +
       'No audit events yet. They will appear here once connected to the live system.' +
       '</td>' +
@@ -3896,6 +3901,15 @@ function renderAuditTable() {
 
                   <span class="cell-text">
                     ${escHtml(e.user)}
+                  </span>
+
+                </td>
+
+
+                <td data-label="Username">
+
+                  <span class="cell-text" style="font-family:var(--font-data)">
+                    ${escHtml(e.username || '—')}
                   </span>
 
                 </td>
