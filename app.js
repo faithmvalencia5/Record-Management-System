@@ -4191,9 +4191,7 @@ async function sendToIdMaker() {
       `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(appId)}/status`,
       {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           status: 'In Process'
         })
@@ -4219,9 +4217,7 @@ async function sendToIdMaker() {
         'https://management-backend-3cij.onrender.com/api/id-maker-queue',
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             application_id: appId,
             control_no: editedControlNo,
@@ -4246,9 +4242,7 @@ async function sendToIdMaker() {
           `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(appId)}/status`,
           {
             method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json'
-            },
+            headers: getAuthHeaders(),
             body: JSON.stringify({
               status: previousStatus
             })
@@ -6821,9 +6815,7 @@ async function sendFromIssuanceToIdMaker() {
 
     const queueResponse = await fetchWithTimeout(`${apiBase}/id-maker-queue`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         application_id: appId,
         control_no: controlNo,
@@ -6838,9 +6830,7 @@ async function sendFromIssuanceToIdMaker() {
 
     const statusResponse = await fetchWithTimeout(`${apiBase}/applications/${encodeURIComponent(appId)}/status`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         status: 'In Process'
       })
