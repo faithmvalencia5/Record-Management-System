@@ -187,13 +187,23 @@ function getVisibleStaffApplicationCheckboxes() {
 }
 
 function toggleSelectAllApps(checked) {
-  getVisibleStaffApplicationCheckboxes().forEach(checkbox => {
-    checkbox.checked = Boolean(checked);
+  const visibleCheckboxes = getVisibleStaffApplicationCheckboxes();
+  visibleCheckboxes.forEach(checkbox => {
     const id = String(checkbox.dataset.appId || '');
     if (!id) return;
+    checkbox.checked = Boolean(checked);
     if (checked) STAFF_SELECTED_APP_IDS.add(id);
     else STAFF_SELECTED_APP_IDS.delete(id);
   });
+  updateBatchState();
+}
+
+function toggleApplicationSelection(checkbox) {
+  if (!checkbox) return;
+  const id = String(checkbox.dataset.appId || '');
+  if (!id) return;
+  if (checkbox.checked) STAFF_SELECTED_APP_IDS.add(id);
+  else STAFF_SELECTED_APP_IDS.delete(id);
   updateBatchState();
 }
 
@@ -3966,7 +3976,7 @@ function renderLiveApplications(applications) {
     const barangay = application.barangay_district || application.barangay || '';
     const days = getApplicationDaysPending(application);
     return `<tr data-app-id="${escapeApplicationHtml(id)}" data-status="${escapeApplicationHtml(String(status).toLowerCase())}" data-barangay="${escapeApplicationHtml(String(barangay).toLowerCase())}" >
-      <td style="width:36px;text-align:center"><input type="checkbox" class="row-check" data-app-id="${escapeApplicationHtml(id)}" aria-label="Select ${escapeApplicationHtml(name)}" ${STAFF_SELECTED_APP_IDS.has(String(id)) ? 'checked' : ''} onchange="updateBatchState()" /></td>
+      <td style="width:36px;text-align:center"><input type="checkbox" class="row-check" data-app-id="${escapeApplicationHtml(id)}" aria-label="Select ${escapeApplicationHtml(name)}" ${STAFF_SELECTED_APP_IDS.has(String(id)) ? 'checked' : ''} onchange="toggleApplicationSelection(this)" /></td>
       <td data-label="Applicant"><div class="applicant-cell"><div class="applicant-avatar" style="background:${avatarBg}">${escapeApplicationHtml(initials)}</div><div class="applicant-info"><span class="applicant-name">${escapeApplicationHtml(name)}</span><span class="applicant-id">${escapeApplicationHtml(id)}</span></div></div></td>
       <td data-label="Submitted"><span class="cell-text">${escapeApplicationHtml(formatStaffDate(getApplicationSubmittedDate(application)))}</span></td>
       <td data-label="Documents">${docs}</td><td data-label="Stage">${statusHtml}</td><td data-label="Membership">${membershipHtml}</td>
