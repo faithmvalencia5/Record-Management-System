@@ -47,7 +47,7 @@ const ID_MAKER_ANALYTICS_CONFIG = Object.freeze({
   productionElevatedQueuedShare: 0.6,
   barangayElevatedTopShare: 0.15,
   monthlyHistory: 6,
-  insightTimeoutMs: 50000,
+  insightTimeoutMs: 55000,
 });
 
 const ID_MAKER_ANALYTICS_STAGES = [
