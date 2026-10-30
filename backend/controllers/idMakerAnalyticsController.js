@@ -1,5 +1,5 @@
 const CARD_KEYS = ["production", "barangay", "aging", "monthly"];
-const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+const MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
 const INSIGHT_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const insightCache = new Map();
 
@@ -166,53 +166,6 @@ function validateInsight(text, stats) {
   return unsupported ? `response introduced an unsupported number: ${unsupported}` : null;
 }
 
-async function requestGemini(metrics, prompt) {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!apiKey) throw new Error("Gemini API key is not configured.");
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30000);
-  try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(MODEL.replace(/^models\//, ""))}:generateContent`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-        signal: controller.signal,
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: prompt }] },
-          contents: [{ role: "user", parts: [{ text: JSON.stringify(metrics) }] }],
-          generationConfig: {
-            temperature: 0.2,
-            maxOutputTokens: 700,
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: "OBJECT",
-              properties: {
-                insights: {
-                  type: "OBJECT",
-                  properties: Object.fromEntries(CARD_KEYS.map((key) => [key, { type: "STRING" }])),
-                  required: CARD_KEYS,
-                },
-              },
-              required: ["insights"],
-            },
-          },
-        }),
-      }
-    );
-
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.error?.message || `Gemini returned HTTP ${response.status}`);
-    const raw = body.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("") || "";
-    const parsed = JSON.parse(raw);
-    if (!plainObject(parsed.insights)) throw new Error("Gemini returned an invalid insights object.");
-    return parsed.insights;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 async function requestGroq(metrics, prompt) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("GROQ_API_KEY is not configured.");
@@ -225,7 +178,7 @@ async function requestGroq(metrics, prompt) {
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       signal: controller.signal,
       body: JSON.stringify({
-        model: "openai/gpt-oss-20b",
+        model: MODEL,
         messages: [
           {
             role: "system",
@@ -298,9 +251,8 @@ async function generateIdMakerAnalyticsInsights(req, res) {
       return res.json({ success: true, configured: true, cached: true, model: MODEL, insights: cached });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
     const groqKey = process.env.GROQ_API_KEY;
-    if (!apiKey && !groqKey) {
+    if (!groqKey) {
       const insights = Object.fromEntries(CARD_KEYS.map((key) => [
         key, { text: fallbackInsight(key, metrics[key]), source: "fallback" },
       ]));
@@ -308,25 +260,8 @@ async function generateIdMakerAnalyticsInsights(req, res) {
     }
 
     const prompt = "You write descriptive insights for an ID Maker queue analytics dashboard. Return JSON with an 'insights' object containing a short string for each provided analytics key: production, barangay, aging, and monthly. Use only supplied aggregate statistics. Do not invent numbers, infer causes, identify individuals, or make eligibility decisions. Use simple professional English, 1-2 sentences and at most 35 words per insight. Explain only what the data shows.";
-    let generated = {};
-    let provider = "gemini";
-
-    try {
-      if (!apiKey) throw new Error("Gemini API key is not configured.");
-      if (geminiQuotaIsCoolingDown()) {
-        throw new Error("Gemini quota cooldown is active; routing directly to Groq.");
-      }
-      generated = await requestGemini(metrics, prompt);
-    } catch (geminiError) {
-      const quotaState = noteGeminiQuotaFailure(geminiError);
-      if (quotaState.newlyLimited) {
-        console.warn(`[ID Maker analytics] Gemini quota/rate limit reached; temporarily routing requests directly to Groq: ${geminiError.message}`);
-      } else if (!quotaState.coolingDown) {
-        console.warn(`[ID Maker analytics] Gemini failed; trying Groq: ${geminiError.message}`);
-      }
-      generated = await requestGroq(metrics, prompt);
-      provider = "groq";
-    }
+    const generated = await requestGroq(metrics, prompt);
+    const provider = "groq";
 
     const insights = {};
     for (const key of CARD_KEYS) {
@@ -350,7 +285,7 @@ async function generateIdMakerAnalyticsInsights(req, res) {
       ]));
       return res.json({
         success: true,
-        configured: Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GROQ_API_KEY),
+        configured: Boolean(process.env.GROQ_API_KEY),
         insights,
       });
     } catch (_) {
