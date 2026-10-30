@@ -421,6 +421,18 @@ router.put(
         updatedUser
       );
 
+      await createAuditLog({
+        userId: req.user.id,
+        username: req.user.username,
+        role: req.user.role,
+        action: "PROFILE_UPDATED",
+        entityType: "USER",
+        entityId: String(req.user.id),
+        details: "Updated account profile information.",
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+      });
+
       return res.json({
         success: true,
         message: "Profile updated successfully.",
