@@ -712,8 +712,14 @@ router.put(
         email,
         role,
         account_status,
-        password,
       } = req.body;
+
+      if (Object.prototype.hasOwnProperty.call(req.body, "password")) {
+        return res.status(403).json({
+          success: false,
+          message: "Administrators cannot change another user's password.",
+        });
+      }
 
       const updateData = {};
 
@@ -767,24 +773,6 @@ router.put(
 
         updateData.account_status =
           account_status;
-      }
-
-      /* Optional password */
-
-      if (
-        password !== undefined &&
-        password !== ""
-      ) {
-        if (!isStrongPassword(password)) {
-          return res.status(400).json({
-            success: false,
-            message:
-              "Password must be at least 8 characters and include at least one capital letter, one number, and one special character.",
-          });
-        }
-
-        updateData.password_hash =
-          await bcrypt.hash(password, 10);
       }
 
       if (
@@ -865,87 +853,12 @@ router.put(
   authenticateToken,
   requireAdmin,
   async (req, res) => {
-    try {
-      const userId = req.params.id;
-      const { password } = req.body;
-
-      if (!password) {
-        return res.status(400).json({
-          success: false,
-          message: "Password is required.",
-        });
-      }
-
-      if (!isStrongPassword(password)) {
-        return res.status(400).json({
-          success: false,
-          message:
-            "Password must be at least 8 characters and include at least one capital letter, one number, and one special character.",
-        });
-      }
-
-      const passwordHash =
-        await bcrypt.hash(password, 10);
-
-      const {
-        data: updatedUser,
-        error,
-      } = await supabase
-        .from("user_accounts")
-        .update({
-          password_hash: passwordHash,
-        })
-        .eq("id", userId)
-        .select(
-          "id, username, email, role, account_status"
-        )
-        .single();
-
-      if (error) {
-        console.error(
-          "Supabase password reset error:",
-          error
-        );
-
-        return res.status(500).json({
-          success: false,
-          message: "Unable to reset password.",
-        });
-      }
-
-      await createAuditLog({
-        userId: req.user.id,
-        username: req.user.username,
-        role: req.user.role,
-        action: "PASSWORD_RESET",
-        entityType: "USER",
-        entityId: String(updatedUser.id),
-        details:
-          `Password reset for user: ${updatedUser.username}`,
-        ipAddress: req.ip,
-        userAgent: req.get("user-agent"),
-      });
-
-      return res.json({
-        success: true,
-        message: "Password reset successfully.",
-      });
-
-    } catch (error) {
-      console.error(
-        "Reset password error:",
-        error
-      );
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Something went wrong while resetting the password.",
-      });
-    }
+    return res.status(403).json({
+      success: false,
+      message: "Administrators cannot change another user's password. The account owner must use the password recovery process.",
+    });
   }
 );
-
 
 /* =========================================================
    ENABLE / DISABLE USER
