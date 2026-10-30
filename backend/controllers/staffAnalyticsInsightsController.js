@@ -4,6 +4,40 @@ const KEYS = ["applicationFlow", "queueMix", "replacementRequests", "readyForHan
 const INSIGHT_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const insightCache = new Map();
 
+let geminiQuotaUntil = 0;
+let geminiQuotaWarningLogged = false;
+
+function getGeminiQuotaCooldownMs(message = "") {
+  const retry = message.match(/Please retry in\\s+(?:(\\d+)h)?(?:(\\d+)m)?(?:(\\d+(?:\\.\\d+)?)s)?/i);
+  if (retry) {
+    const ms = (Number(retry[1] || 0) * 3600 + Number(retry[2] || 0) * 60 + Number(retry[3] || 0)) * 1000;
+    if (ms > 0) return ms + 30000;
+  }
+  return 60 * 60 * 1000;
+}
+
+function noteGeminiQuotaFailure(error) {
+  const message = String(error?.message || error || "");
+  const quotaFailure = /429|quota|rate.?limit|free.?tier.*requests/i.test(message);
+  if (!quotaFailure) return { coolingDown: false, newlyLimited: false };
+
+  if (Date.now() < geminiQuotaUntil) return { coolingDown: true, newlyLimited: false };
+  geminiQuotaUntil = Date.now() + getGeminiQuotaCooldownMs(message);
+  const newlyLimited = !geminiQuotaWarningLogged;
+  geminiQuotaWarningLogged = true;
+  return { coolingDown: true, newlyLimited };
+}
+
+function geminiQuotaIsCoolingDown() {
+  if (Date.now() >= geminiQuotaUntil) {
+    geminiQuotaUntil = 0;
+    geminiQuotaWarningLogged = false;
+    return false;
+  }
+  return true;
+}
+
+
 function getCachedStaffInsights(key) {
   const entry = insightCache.get(key);
 
@@ -202,6 +236,9 @@ async function generateStaffAnalyticsInsights(req, res) {
       if (!apiKey) {
         throw new Error("Gemini API key is not configured");
       }
+      if (geminiQuotaIsCoolingDown()) {
+        throw new Error("Gemini quota cooldown is active; routing directly to Groq.");
+      }
       const abort = new AbortController();
       const timer = setTimeout(() => abort.abort(), 30000);
 
@@ -265,9 +302,16 @@ async function generateStaffAnalyticsInsights(req, res) {
       generated = plainObject(parsed.insights) ? parsed.insights : {};
 
     } catch (geminiError) {
-      console.warn(
-        `[Staff analytics] Gemini failed; trying Groq: ${geminiError.message}`
-      );
+      const quotaState = noteGeminiQuotaFailure(geminiError);
+      if (quotaState.newlyLimited) {
+        console.warn(
+          `[Staff analytics] Gemini quota/rate limit reached; temporarily routing requests directly to Groq: ${geminiError.message}`
+        );
+      } else if (!quotaState.coolingDown) {
+        console.warn(
+          `[Staff analytics] Gemini failed; trying Groq: ${geminiError.message}`
+        );
+      }
 
       generated = await requestStaffGroq(metrics, prompt);
       provider = "groq";
