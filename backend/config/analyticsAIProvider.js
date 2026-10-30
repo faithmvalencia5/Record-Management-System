@@ -15,6 +15,18 @@ const PROVIDERS = [
     model: () => process.env.OPENROUTER_MODEL || "openrouter/free",
     url: "https://openrouter.ai/api/v1/chat/completions",
   },
+  {
+    id: "cloudflare",
+    label: "Cloudflare Workers AI",
+    apiKey: () => process.env.CLOUDFLARE_API_TOKEN,
+    model: () => process.env.CLOUDFLARE_AI_MODEL || "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+    url: () => {
+      const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+      return accountId
+        ? `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`
+        : null;
+    },
+  },
 ];
 
 const providerCooldowns = new Map();
@@ -77,13 +89,15 @@ function setProviderCooldown(provider, response, message) {
 
 async function requestProvider(provider, metrics, prompt, expectedKeys, maxTokens) {
   const apiKey = provider.apiKey();
-  if (!apiKey) throw new Error("API key is not configured.");
+  if (!apiKey) throw new Error("API token is not configured.");
+  const endpoint = typeof provider.url === "function" ? provider.url() : provider.url;
+  if (!endpoint) throw new Error("Cloudflare account ID is not configured.");
 
   const controller = new AbortController();
-  const timeoutMs = provider.id === "openrouter" ? 20000 : 7000;
+  const timeoutMs = provider.id === "groq" ? 7000 : 20000;
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(provider.url, {
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -104,9 +118,9 @@ async function requestProvider(provider, metrics, prompt, expectedKeys, maxToken
           { role: "user", content: JSON.stringify(metrics) },
         ],
         temperature: 0.1,
-        ...(provider.id === "openrouter"
-          ? { max_tokens: Math.min(maxTokens, 1600) }
-          : { max_completion_tokens: maxTokens, response_format: { type: "json_object" } }),
+        ...(provider.id === "groq"
+          ? { max_completion_tokens: maxTokens, response_format: { type: "json_object" } }
+          : { max_tokens: Math.min(maxTokens, 1600) }),
       }),
     });
 
