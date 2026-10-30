@@ -870,7 +870,9 @@ async function inlineStatusChange(appId, newStatus) {
     }
     systemAlertDismissed = false;
     if (typeof saveLocalIdMakerQueue === 'function') {
-      saveLocalIdMakerQueue(queueItem);
+      // Persist for other tabs, but do not broadcast back to this page.
+      // This page already updates its own row/KPIs without a full queue reload.
+      saveLocalIdMakerQueue(queueItem, false);
     }
 
     // ========================================
