@@ -144,7 +144,7 @@ async function requestProvider(provider, metrics, prompt, expectedKeys, maxToken
           errors: result.errors || null,
           message: result.message || null,
           model: provider.model(),
-          endpoint: endpoint.replace(/accounts\\/[^/]+/, "accounts/[account-id]"),
+          endpoint: endpoint.replace(/accounts\/[^/]+/, "accounts/[account-id]"),
         }).slice(0, 1200));
       }
       setProviderCooldown(provider, response, message);
