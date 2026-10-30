@@ -3416,10 +3416,20 @@ async function updateTableStatus(
         {
           method: 'PUT',
 
-          headers: {
-            'Content-Type':
-              'application/json'
-          },
+          headers: (() => {
+            let token = null;
+            try {
+              const raw = sessionStorage.getItem('senioridAuth') || localStorage.getItem('senioridAuth');
+              if (raw) token = JSON.parse(raw).token || null;
+            } catch (error) {
+              console.error('Unable to read authentication session:', error);
+            }
+            return {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            };
+          })(),
 
           body: JSON.stringify({
             status: newStatus
