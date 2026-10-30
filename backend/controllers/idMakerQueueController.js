@@ -27,6 +27,28 @@ const normalizeControlNo = (value, applicationId) => {
   return controlNo;
 };
 
+const normalizePrintStatus = (value) => {
+  const status = String(value || "Queued")
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ");
+  const canonical = ALLOWED_STATUSES.find((item) => item.toLowerCase() === status);
+  if (canonical) return canonical;
+
+  const legacyStatusMap = {
+    pending: "Queued",
+    "in process": "In Production",
+    inproduction: "In Production",
+    processing: "In Production",
+    exported: "Printed",
+    ready: "In Transit",
+    intransit: "In Transit",
+    released: "Completed",
+  };
+  return legacyStatusMap[status] || "Queued";
+};
+
 const isMissingCompletedAtColumn = (error) => {
   const message = String(error?.message || "").toLowerCase();
   return Boolean(error) && (
@@ -287,10 +309,10 @@ const getIdMakerQueue = async (req, res) => {
         const photo = signedUrls.get(files.latest_photo_url) || "";
         const signature = signedUrls.get(files.signature_url) || "";
 
-        const firstName = application?.first_name || application?.firstName || "";
-        const middleName = application?.middle_name || application?.middleName || "";
-        const surname = application?.surname || application?.last_name || application?.lastName || "";
-        const fullName = application?.name || application?.full_name || application?.applicant_name || [
+        const firstName = String(application?.first_name || application?.firstName || "").trim().replace(/\s+/g, " ");
+        const middleName = String(application?.middle_name || application?.middleName || "").trim().replace(/\s+/g, " ");
+        const surname = String(application?.surname || application?.last_name || application?.lastName || "").trim().replace(/\s+/g, " ");
+        const rawFullName = application?.name || application?.full_name || application?.fullName || application?.applicant_name || application?.applicantName || [
           firstName,
           middleName,
           surname,
@@ -298,6 +320,7 @@ const getIdMakerQueue = async (req, res) => {
           .map((part) => String(part || "").trim())
           .filter(Boolean)
           .join(" ");
+        const fullName = String(rawFullName || "").trim().replace(/\s+/g, " ");
 
         return {
           id: applicationId || `queue-${queueItem.id}`,
@@ -320,7 +343,7 @@ const getIdMakerQueue = async (req, res) => {
           photo,
           signature,
 
-          printStatus: queueItem?.print_status || "Queued",
+          printStatus: normalizePrintStatus(queueItem?.print_status),
           linkedToApplication: Boolean(application),
 
           sentAt: queueItem?.sent_at || null,

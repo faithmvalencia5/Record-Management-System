@@ -63,7 +63,6 @@ const ID_MAKER_API =
 /* =========================================================
    MAIN QUEUE LIST — shared rules and state
 ========================================================= */
-const QUEUE_PAGE_SIZE = 25;
 const QUEUE_STALE_MS = 48 * 60 * 60 * 1000;
 const QUEUE_NO_BARANGAY = '__none__';
 const QUEUE_STAGES = ['Queued', 'In Production', 'Printed', 'In Transit', 'Completed'];
@@ -108,6 +107,22 @@ function escapeQueueHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function normalizeQueueBarangay(value) {
+  const cleaned = String(value || '').trim().replace(/\s+/g, ' ');
+  if (!cleaned) return '';
+  const key = text => String(text || '').normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/gi, '')
+    .toLowerCase();
+  const options = document.querySelectorAll('#queue-barangay-filter option');
+  for (const option of options) {
+    if (option.value && option.value !== 'all' && key(option.value) === key(cleaned)) {
+      return option.value;
+    }
+  }
+  return cleaned;
 }
 
 // LOAD QUEUE FROM DATABASE
@@ -175,7 +190,7 @@ async function loadIdMakerQueueFromDatabase(showMessage = false) {
           id: id,
           application_id: item.application_id || id,
           name: name || 'Name not on record',
-          barangay: String(item.barangay || '').trim() || '—',
+          barangay: normalizeQueueBarangay(item.barangay) || '',
           controlNo: ctrl,
           printStatus: item.printStatus || 'Queued',
           photo: item.photo || (typeof fallbackMedia === 'function' ? fallbackMedia(name || id) : ''),
@@ -323,11 +338,6 @@ function sortQueueBy(key) {
   renderQueueTable();
 }
 
-function goToQueuePage(n) {
-  QUEUE_FILTER_STATE.page = n;
-  renderQueueTable();
-}
-
 function applyQueueFilters() {
   const st = QUEUE_FILTER_STATE;
   const sig = [st.search, st.status, st.barangay, st.delayedOnly].join('|');
@@ -395,7 +405,7 @@ function buildQueueRow(app) {
   const disabled = linked ? '' : ' disabled aria-disabled="true"';
 
   const name = String(app.name || '').trim();
-  const barangay = String(app.barangay || '').trim();
+  const barangay = normalizeQueueBarangay(app.barangay);
   const controlNo = normalizeQueueControlNo(app.controlNo, app.id);
 
   const missingTip = escapeQueueHtml(
@@ -433,7 +443,7 @@ function buildQueueRow(app) {
 
   const controlHtml = controlNo
     ? escapeQueueHtml(controlNo)
-    : '<span style="color:var(--text-muted)" title="Control number not assigned">—</span>';
+    : '<span style="color:var(--text-muted)" title="Control number not assigned">Not assigned</span>';
 
   return '<tr data-app-id="' + id + '" data-print-status="' + escapeQueueHtml(app.printStatus) +
     '" data-brgy="' + escapeQueueHtml(barangay) + '">' +
@@ -445,7 +455,7 @@ function buildQueueRow(app) {
     '<td data-label="Control No."><span class="cell-text" style="font-family:var(--font-data);font-size:12px;letter-spacing:.3px">' +
       controlHtml + '</span></td>' +
     '<td data-label="Barangay">' +
-      (barangay ? '<span class="cell-text">' + escapeQueueHtml(barangay) + '</span>' : mutedCell) + '</td>' +
+      (barangay ? '<span class="cell-text">' + escapeQueueHtml(barangay) + '</span>' : '<span class="cell-text" style="color:var(--text-muted)" title="Barangay not on record">Not recorded</span>') + '</td>' +
     '<td data-label="Status"><div style="display:flex;align-items:center">' +
       '<div class="row-status-select" data-app-id="' + id + '">' +
         '<button type="button" class="qsd-trigger"' + disabled + ' onclick="toggleRowStatus(this,event)">' +
@@ -471,10 +481,10 @@ function renderQueueTable() {
   const st = QUEUE_FILTER_STATE;
   const total = ID_MAKER_QUEUE.length;
   const rows = getFilteredQueue().sort(compareQueue);
-  const pages = Math.max(1, Math.ceil(rows.length / QUEUE_PAGE_SIZE));
-  st.page = Math.min(Math.max(1, st.page), pages);
-  const start = (st.page - 1) * QUEUE_PAGE_SIZE;
-  const slice = rows.slice(start, start + QUEUE_PAGE_SIZE);
+  // Keep every loaded Supabase queue record in the table at once.
+  st.page = 1;
+  const start = 0;
+  const slice = rows;
 
   const emptyRow = html =>
     '<tr><td colspan="5" style="text-align:center;padding:32px;color:var(--text-muted)">' + html + '</td></tr>';
@@ -511,22 +521,14 @@ function renderQueueTable() {
     st.search || st.status !== 'all' || st.barangay !== 'all' || st.delayedOnly;
 
   info.textContent = rows.length
-    ? 'Showing ' + (start + 1) + '–' + (start + slice.length) + ' of ' + rows.length + ' records' +
-      (rows.length !== total ? ' (filtered from ' + total + ')' : '') +
+    ? (rows.length === total
+        ? 'Showing all ' + total + ' records'
+        : 'Showing ' + rows.length + ' of ' + total + ' records') +
       (st.delayedOnly ? ' · Delayed only' : '')
     : '0 of ' + total + ' records';
-
-  if (pager) {
-    pager.innerHTML =
-      (filtersActive
-        ? '<button type="button" class="btn btn--ghost" style="height:30px;font-size:12px" onclick="resetQueueFilters()">Clear filters</button>'
-        : '') +
-      '<button type="button" class="btn btn--ghost" style="height:30px;font-size:12px"' +
-        (st.page <= 1 ? ' disabled' : '') + ' onclick="goToQueuePage(' + (st.page - 1) + ')">Prev</button>' +
-      '<span style="font-size:12px;color:var(--text-muted)">Page ' + st.page + ' of ' + pages + '</span>' +
-      '<button type="button" class="btn btn--ghost" style="height:30px;font-size:12px"' +
-        (st.page >= pages ? ' disabled' : '') + ' onclick="goToQueuePage(' + (st.page + 1) + ')">Next</button>';
-  }
+  if (pager) pager.innerHTML = filtersActive
+    ? '<button type="button" class="btn btn--ghost" style="height:30px;font-size:12px" onclick="resetQueueFilters()">Clear filters</button>'
+    : '';
 }
 
 function initIdMakerQueue(){
