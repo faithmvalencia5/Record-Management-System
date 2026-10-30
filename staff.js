@@ -3691,20 +3691,7 @@ async function updateMembershipStatus(applicationId, newStatus, selectEl) {
       `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(applicationId)}/membership-status`,
       {
         method: 'PUT',
-        headers: (() => {
-          let token = null;
-          try {
-            const raw = sessionStorage.getItem('senioridAuth') || localStorage.getItem('senioridAuth');
-            if (raw) token = JSON.parse(raw).token || null;
-          } catch (error) {
-            console.error('Unable to read authentication session:', error);
-          }
-          return {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-          };
-        })(),
+        headers: getAuthHeaders(),
         body: JSON.stringify({ membership_status: newStatus })
       }
     );
