@@ -4236,7 +4236,7 @@ function displayStaffAnalyticsInsights(insights) {
     const area = document.querySelector(`[data-ai-insight="${key}"]`);
     if (!area) continue;
     area.querySelector("[data-ai-text]").textContent = String(value?.text || "Insight is currently unavailable.");
-    area.querySelector("[data-ai-source]").textContent = ["groq","gemini"].includes(value?.source) ? `${String(value.source).toUpperCase()} AI` : "DATA SUMMARY";
+    area.querySelector("[data-ai-source]").textContent = ["groq","cerebras","openrouter"].includes(value?.source) ? `${String(value.source).toUpperCase()} AI` : "DATA SUMMARY";
   }
 }
 function scheduleStaffAnalyticsInsights(applications, source) {
