@@ -1812,6 +1812,33 @@ const updateApplicationStatus = async (req, res) => {
       statusRecord = newStatusRecord;
     }
 
+    // Automatically activate membership when staff marks an application
+    // Completed. Membership can still later be changed to Deceased through
+    // the dedicated membership-status endpoint.
+    let membershipSync = { attempted: false, updated: false };
+    if (status === "Completed") {
+      membershipSync.attempted = true;
+      try {
+        const { data: updatedApplication, error: membershipUpdateError } = await supabase
+          .from("applications")
+          .update({ membership_status: "Active" })
+          .eq("application_id", applicationId)
+          .select("application_id, membership_status")
+          .maybeSingle();
+
+        if (membershipUpdateError) throw membershipUpdateError;
+        if (!updatedApplication) {
+          throw new Error("Application was not found while setting its membership status.");
+        }
+
+        membershipSync.updated = true;
+        membershipSync.membership_status = updatedApplication.membership_status;
+      } catch (membershipError) {
+        membershipSync.error = membershipError.message;
+        console.error("[Membership] Failed to set membership Active for completed application:", membershipError);
+      }
+    }
+
     // Synchronize the existing ID Maker queue row whenever staff status is
     // Ready for Release. Keep this independent from SMS notification logic.
     let idMakerSync = { attempted: false, updated: false, found: false };
@@ -1904,6 +1931,7 @@ const updateApplicationStatus = async (req, res) => {
       status: status,
       statusHistory: statusRecord,
       idMakerSync,
+      membershipSync,
       smsNotification
     });
 
