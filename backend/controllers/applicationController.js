@@ -2048,8 +2048,6 @@ const updateMembershipStatus = async (req, res) => {
       message: "Membership status updated successfully.",
       applicationId: updatedApplication.application_id,
       membership_status: updatedApplication.membership_status,
-      applicationId: updatedApplication.application_id,
-      membership_status: updatedApplication.membership_status,
     });
   } catch (error) {
     console.error("Error updating membership status:", error);
