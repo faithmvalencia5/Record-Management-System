@@ -94,7 +94,7 @@ async function requestStaffGroq(metrics, prompt) {
             },
           ],
           temperature: 0.2,
-          max_completion_tokens: 1800,
+          max_completion_tokens: 2800,
           response_format: {
             type: "json_schema",
             json_schema: {
@@ -187,7 +187,7 @@ async function generateStaffAnalyticsInsights(req, res) {
       return res.json({ success: true, configured: false, insights });
     }
 
-    const prompt = "You write descriptive insights for an OSCA staff dashboard about senior citizen ID applications. Return JSON with an 'insights' object containing a short string for each provided analytics key. Use only supplied aggregate statistics. Do not invent numbers, infer causes, identify individuals, or make eligibility decisions. Use simple professional English, 1-2 sentences and at most 35 words per insight. Explain only what the data shows.";
+    const prompt = "You are an operational analytics advisor for an OSCA staff dashboard about senior citizen ID applications. For each analytics key, go beyond describing chart values: interpret the pattern, identify a concrete concern or noteworthy opportunity when supported by the data, explain its operational implication, and recommend a practical next action for staff. Start each insight with a short, meaningful heading on its own line, followed by 2-3 concise sentences. Prioritize urgent issues when the supplied metrics show delays, backlogs, unusual concentrations, or bottlenecks. Use only supplied aggregate statistics. Do not invent numbers, infer unsupported causes, identify individuals, make eligibility decisions, or recommend actions unrelated to the metrics. If the data does not show a problem, state the useful takeaway and an appropriate monitoring action. Use clear, professional, simple English.";
     const generated = await requestStaffGroq(metrics, prompt);
     const provider = "groq";
 
