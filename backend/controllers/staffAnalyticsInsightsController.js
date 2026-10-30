@@ -206,7 +206,7 @@ async function generateStaffAnalyticsInsights(req, res) {
     }
     return res.json({ success: true, configured: true, model: MODEL, insights });
   } catch (error) {
-    console.warn("[Staff analytics] Groq insight generation failed:", error.message);
+    console.warn("[Staff analytics] Groq decision-support insight generation failed:", error.message);
     try {
       const metrics = sanitizeMetrics(req.body?.metrics || {});
       const insights = Object.fromEntries(KEYS.map(k => [k, { text: fallback(k, metrics[k]), source: "fallback" }]));
