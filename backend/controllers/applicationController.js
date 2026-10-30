@@ -1035,6 +1035,31 @@ const getApplications = async (req, res) => {
 
 
     // ============================================================
+    // 5B. LOAD DOCUMENT AUTHENTICATIONS IN PARALLEL
+    // This lets the ID Issuance selector verify that every required
+    // document has an approved authentication record.
+    // ============================================================
+
+    const documentAuthenticationResults =
+      await Promise.all(
+        applicationIdChunks.map(
+          async (idChunk) => {
+            const { data, error } = await supabase
+              .from("document_authentications")
+              .select("application_id, document_type, authentication_status")
+              .in("application_id", idChunk);
+
+            if (error) throw error;
+            return data || [];
+          }
+        )
+      );
+
+    const documentAuthentications =
+      documentAuthenticationResults.flat();
+
+
+    // ============================================================
     // 6. BUILD FAST LOOKUP MAPS
     //
     // This avoids repeatedly using .find() for every applicant.
@@ -1112,6 +1137,17 @@ const getApplications = async (req, res) => {
     }
 
 
+    const documentAuthenticationsByApplication =
+      new Map();
+
+    for (const record of documentAuthentications) {
+      if (!record || !record.application_id) continue;
+      const records = documentAuthenticationsByApplication.get(record.application_id) || [];
+      records.push(record);
+      documentAuthenticationsByApplication.set(record.application_id, records);
+    }
+
+
     // ============================================================
     // 8. COMBINE APPLICATION + FILE + STATUS DATA
     //
@@ -1157,6 +1193,9 @@ const getApplications = async (req, res) => {
               applicationId
             );
 
+          const applicationDocumentAuthentications =
+            documentAuthenticationsByApplication.get(applicationId) || [];
+
 
           // ======================================================
           // NO FILE RECORD
@@ -1172,6 +1211,9 @@ const getApplications = async (req, res) => {
 
               status_updated_at:
                 statusUpdatedAt,
+
+              documentAuthentications:
+                applicationDocumentAuthentications,
 
               documents: {
                 idFront: null,
@@ -1203,6 +1245,9 @@ const getApplications = async (req, res) => {
 
             status_updated_at:
               statusUpdatedAt,
+
+            documentAuthentications:
+              applicationDocumentAuthentications,
 
             documents: {
               idFront:
