@@ -3446,7 +3446,8 @@ async function updateTableStatus(
 
     APP_DB[appId] = app;
 
-    // Keep the person registry and both KPI groups in sync with the saved request status.
+    // Keep the person registry, membership column, and KPI groups in sync
+    // immediately after the backend confirms the status update.
     if (typeof LIVE_APPLICATIONS !== 'undefined' && Array.isArray(LIVE_APPLICATIONS)) {
       const liveApplication = LIVE_APPLICATIONS.find(item =>
         String(item.application_id || item.id) === String(appId)
@@ -3455,10 +3456,24 @@ async function updateTableStatus(
         liveApplication.status = savedStatus;
         liveApplication.status_updated_at =
           result.statusHistory?.[0]?.updated_at || new Date().toISOString();
+
+        // The backend automatically activates membership when an application
+        // becomes Completed. Reflect that returned value without a page refresh.
+        if (
+          savedStatus === 'Completed' &&
+          result.membershipSync?.updated &&
+          result.membershipSync.membership_status
+        ) {
+          liveApplication.membership_status =
+            result.membershipSync.membership_status;
+          app.membership_status =
+            result.membershipSync.membership_status;
+        }
       }
       if (typeof updateApplicantSummaryCards === 'function') updateApplicantSummaryCards(LIVE_APPLICATIONS);
       if (typeof updateApplicationSummaryCards === 'function') updateApplicationSummaryCards(LIVE_APPLICATIONS);
       if (typeof renderLiveApplicants === 'function') renderLiveApplicants(LIVE_APPLICATIONS);
+      if (typeof renderLiveApplications === 'function') renderLiveApplications(LIVE_APPLICATIONS);
     }
     syncRecentSubmissionsStatus(appId, savedStatus);
 
