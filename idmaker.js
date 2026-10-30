@@ -1183,7 +1183,7 @@ function populateQueueFilters(){
   });
   brgys.sort((a, b) => a.localeCompare(b));
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const allLabel = (sel.options[0] && sel.options[0].value === 'all') ? sel.options[0].textContent : 'Barangay: All';
+  const allLabel = (sel.options[0] && sel.options[0].value === 'all') ? sel.options[0].textContent : 'All Barangay';
   sel.innerHTML = '<option value="all">' + esc(allLabel) + '</option>' +
     '<option value="' + QUEUE_NO_BARANGAY + '">Barangay: Not specified</option>' +
     brgys.map(b => '<option value="' + esc(b) + '">Barangay: ' + esc(b) + '</option>').join('');
