@@ -613,6 +613,24 @@
         <span class="table-footer__info" id="audit-logs-footer">Showing 0 events</span>
       </div>
     </div>
+
+    <div class="audit-detail-modal" id="audit-event-detail-modal" hidden aria-hidden="true">
+      <div class="audit-detail-modal__backdrop" onclick="closeAuditEventDetails()"></div>
+      <section class="audit-detail-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="audit-event-detail-title">
+        <header class="audit-detail-modal__header">
+          <div>
+            <div class="audit-detail-modal__eyebrow">AUDIT EVENT RECORD</div>
+            <h2 id="audit-event-detail-title">Audit event details</h2>
+          </div>
+          <button type="button" class="audit-detail-modal__close" id="audit-event-detail-close" onclick="closeAuditEventDetails()" aria-label="Close details">×</button>
+        </header>
+        <div class="audit-detail-modal__body" id="audit-event-detail-content"></div>
+        <footer class="audit-detail-modal__footer">
+          <span>Read-only audit record · Append-only history</span>
+          <button type="button" class="btn btn--ghost" onclick="closeAuditEventDetails()">Close</button>
+        </footer>
+      </section>
+    </div>
   </div>
 
   <!-- MODULE D: DATABASE BACKUP & RECOVERY -->
@@ -967,7 +985,7 @@
 
   <script src="theme.js?v=1"></script>
   <script src="app.js?v=33"></script>
-  <script src="admin.js?v=22"></script>
+  <script src="admin.js?v=23"></script>
 </body>
 
 </html>
