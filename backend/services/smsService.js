@@ -1,5 +1,5 @@
 function normalizePhilippineNumber(phone) {
-  const digits = String(phone ?? "").replace(/\\D/g, "");
+  const digits = String(phone ?? "").replace(/\D/g, "");
 
   if (digits.startsWith("639") && digits.length === 12) return `+${digits}`;
   if (digits.startsWith("09") && digits.length === 11) return `+63${digits.slice(1)}`;
