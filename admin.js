@@ -3925,7 +3925,7 @@ function renderAuditTable() {
   if (label) {
 
     label.textContent =
-      `${filtered.length} of ${AUDIT_LOG_DATA.length} system events`;
+      `${filtered.length} of ${AUDIT_LOG_DATA.length} loaded events (latest 500)`;
 
   }
 
