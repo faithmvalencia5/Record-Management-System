@@ -1620,7 +1620,9 @@ const updateDocumentAuthentication = async (req, res) => {
           authentication_status: status,
           authentication_method:
             method || "staff_review",
-          authenticated_by: req.user?.id ?? null,
+          // user_accounts.id is an integer, while this legacy column expects a UUID.
+          // Keep it null and record the authenticated account in audit_logs below.
+          authenticated_by: null,
           authenticated_at: status === "approved" ? now : null,
           authentication_remarks:
             remarks || null,
