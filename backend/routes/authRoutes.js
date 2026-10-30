@@ -20,6 +20,16 @@ const router = express.Router();
    PASSWORD VALIDATION
    ========================================================= */
 
+function normalizeDatabaseRole(role) {
+  const value = String(role || "").trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\\s+/g, " ");
+
+  if (["admin", "administrator"].includes(value)) return "admin";
+  if (["staff", "osca staff"].includes(value)) return "staff";
+  if (["idmaker", "id maker", "osca id maker"].includes(value)) return "idmaker";
+
+  return null;
+}
+
 function isStrongPassword(password) {
   const value = String(password || "");
 
@@ -579,9 +589,7 @@ router.post(
         email || ""
       ).trim();
 
-      const cleanRole = String(
-        role || "Staff"
-      ).trim();
+      const cleanRole = normalizeDatabaseRole(role || "staff");
 
       const cleanStatus =
         account_status === "Inactive"
@@ -610,13 +618,7 @@ router.post(
         });
       }
 
-      const allowedRoles = [
-        "Admin",
-        "Staff",
-        "ID Maker",
-      ];
-
-      if (!allowedRoles.includes(cleanRole)) {
+      if (!cleanRole) {
         return res.status(400).json({
           success: false,
           message: "Invalid user role.",
@@ -666,7 +668,7 @@ router.post(
         username: cleanUsername,
         full_name: String(full_name || cleanUsername).trim(),
         password_hash: passwordHash,
-        role: cleanRole === "OSCA ID Maker" ? "ID Maker" : cleanRole,
+        role: cleanRole,
         email: cleanEmail || null,
         account_status: cleanStatus,
       };
@@ -810,20 +812,16 @@ router.put(
       }
 
       if (role !== undefined) {
-        const allowedRoles = [
-          "Admin",
-          "Staff",
-          "ID Maker",
-        ];
+        const normalizedRole = normalizeDatabaseRole(role);
 
-        if (!allowedRoles.includes(role)) {
+        if (!normalizedRole) {
           return res.status(400).json({
             success: false,
-            message: "Invalid user role.",
+            message: "Invalid user role. Choose Admin, Staff, or ID Maker.",
           });
         }
 
-        updateData.role = role;
+        updateData.role = normalizedRole;
       }
 
       if (account_status !== undefined) {
@@ -849,10 +847,6 @@ router.put(
           success: false,
           message: "No changes were provided.",
         });
-      }
-
-      if (updateData.role === "OSCA ID Maker") {
-        updateData.role = "ID Maker";
       }
 
       let updateResult = await supabase
