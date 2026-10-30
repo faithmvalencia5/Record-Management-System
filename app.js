@@ -6136,6 +6136,12 @@ function getStaffExportApplications() {
   return [];
 }
 
+function staffExportEscapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[character]);
+}
+
 function openStaffExport() {
   const modal = document.getElementById('staff-export-modal');
   if (!modal) {
@@ -6151,7 +6157,7 @@ function openStaffExport() {
 
   if (barangaySelect) {
     barangaySelect.innerHTML = '<option value="">All barangays</option>' +
-      barangays.map(name => '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>').join('');
+      barangays.map(name => '<option value="' + staffExportEscapeHtml(name) + '">' + staffExportEscapeHtml(name) + '</option>').join('');
   }
 
   const statusSelect = document.getElementById('staff-export-status');
