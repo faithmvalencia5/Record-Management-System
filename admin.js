@@ -3944,31 +3944,60 @@ function positionAuditEventDetails(anchorRow) {
   const dialog = modal?.querySelector('.audit-detail-modal__dialog');
   if (!modal || !dialog) return;
 
-  const edge = 18;
-  const viewportHeight = window.innerHeight;
+  // Anchor the popup to the selected row and choose the side with the most
+  // usable space. Keep the complete popup inside the visible viewport.
+  const edge = window.innerWidth <= 640 ? 10 : 18;
+  const gap = 10;
+  const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
+  const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
   const rowRect = anchorRow?.isConnected ? anchorRow.getBoundingClientRect() : null;
+  const fullHeight = Math.max(260, viewportHeight - edge * 2);
 
-  // Measure the fully responsive dialog first, then align its visual center
-  // with the selected row. Clamp it only when the viewport edge is reached.
+  let top = edge;
+  let availableHeight = fullHeight;
+  let anchorSide = 'center';
+
+  if (rowRect) {
+    const spaceBelow = Math.max(0, viewportHeight - rowRect.bottom - gap - edge);
+    const spaceAbove = Math.max(0, rowRect.top - gap - edge);
+    const minimumUsefulSpace = Math.min(460, fullHeight * 0.62);
+    const openBelow = spaceBelow >= minimumUsefulSpace || spaceBelow >= spaceAbove;
+
+    if (openBelow) {
+      anchorSide = 'below';
+      availableHeight = Math.max(260, Math.min(fullHeight, spaceBelow));
+      top = rowRect.bottom + gap;
+    } else {
+      anchorSide = 'above';
+      availableHeight = Math.max(260, Math.min(fullHeight, spaceAbove));
+      top = rowRect.top - gap;
+    }
+  }
+
+  const targetHeight = Math.min(720, availableHeight);
+  dialog.dataset.anchorSide = anchorSide;
   dialog.style.position = 'fixed';
   dialog.style.left = '50%';
   dialog.style.right = 'auto';
   dialog.style.bottom = 'auto';
   dialog.style.transform = 'translateX(-50%)';
-  dialog.style.top = edge + 'px';
-  dialog.style.maxHeight = Math.max(240, viewportHeight - edge * 2) + 'px';
+  dialog.style.width = Math.max(280, Math.min(820, viewportWidth - edge * 2)) + 'px';
+  dialog.style.height = targetHeight + 'px';
+  dialog.style.maxHeight = targetHeight + 'px';
+  dialog.style.minHeight = Math.min(260, targetHeight) + 'px';
 
-  const dialogHeight = dialog.getBoundingClientRect().height;
-  const anchorCenter = rowRect
-    ? rowRect.top + rowRect.height / 2
-    : viewportHeight / 2;
+  const actualHeight = dialog.getBoundingClientRect().height;
+  if (anchorSide === 'above' && rowRect) {
+    top = rowRect.top - gap - actualHeight;
+  } else if (anchorSide === 'center') {
+    top = (viewportHeight - actualHeight) / 2;
+  }
 
-  const idealTop = anchorCenter - dialogHeight / 2;
-  const maxTop = Math.max(edge, viewportHeight - dialogHeight - edge);
-  const top = Math.min(Math.max(edge, idealTop), maxTop);
-
+  const maxTop = Math.max(edge, viewportHeight - actualHeight - edge);
+  top = Math.min(Math.max(edge, top), maxTop);
   dialog.style.top = Math.round(top) + 'px';
 }
+
 function openAuditEventDetails(eventId, anchorRow = null) {
   const event = AUDIT_LOG_DATA.find(log => String(log.id) === String(eventId));
   if (!event) {
