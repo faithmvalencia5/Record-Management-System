@@ -92,7 +92,7 @@ async function requestStaffGroq(metrics, prompt) {
           messages: [
             {
               role: "system",
-              content: `${prompt}\n\nReturn valid JSON with an "insights" object containing a string property for each analytics key provided.`,
+              content: `${prompt}\n\nReturn only a JSON object with an "insights" property. The "insights" property must contain all eight requested analytics keys, each with a string value.`,
             },
             {
               role: "user",
@@ -101,7 +101,28 @@ async function requestStaffGroq(metrics, prompt) {
           ],
           temperature: 0.2,
           max_completion_tokens: 1000,
-          response_format: { type: "json_object" },
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "staff_analytics_insights",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  insights: {
+                    type: "object",
+                    properties: Object.fromEntries(
+                      KEYS.map((key) => [key, { type: "string" }])
+                    ),
+                    required: KEYS,
+                    additionalProperties: false,
+                  },
+                },
+                required: ["insights"],
+                additionalProperties: false,
+              },
+            },
+          },
         }),
       }
     );
