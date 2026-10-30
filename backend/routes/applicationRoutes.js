@@ -10,6 +10,7 @@ const {
   updateApplicationStatus,
   updateMembershipStatus,
   updateDocumentAuthentication,
+  approveAllDocumentAuthentications,
   downloadIssuanceDocument,
 } = require("../controllers/applicationController");
 
@@ -25,6 +26,8 @@ router.put("/:applicationId/membership-status", authenticateToken, updateMembers
 
 router.put(
   "/:applicationId/documents/:documentType/authentication", authenticateToken, updateDocumentAuthentication);
+
+router.put("/:applicationId/documents/approve-all", authenticateToken, approveAllDocumentAuthentications);
 
 router.put("/:applicationId/validation", authenticateToken, saveApplicationValidation);
 
