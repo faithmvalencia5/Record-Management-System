@@ -59,7 +59,7 @@ function normalizeInsightLead(text, stats) {
   // The lead statistic is computed by the server. Do not rely on the model
   // to reproduce it character-for-character; retain its supporting sentence.
   const supportingText = text.trim()
-    .replace(/^\\*\\*[\\s\\S]*?\\*\\*\\s*/, "")
+    .replace(/^\*\*[\s\S]*?\*\*\s*/, "")
     .trim();
 
   return supportingText
