@@ -2481,9 +2481,15 @@ function openUserModal(
 
       if (password) {
 
-        password.value =
-          '';
+        password.value = '';
         password.type = 'password';
+        const toggle = document.querySelector('#um-password-group .admin-password-toggle');
+        if (toggle) {
+          const icon = toggle.querySelector('i');
+          if (icon) icon.className = 'fi fi-rr-eye';
+          toggle.setAttribute('aria-label', 'Show password');
+          toggle.title = 'Show password';
+        }
 
       }
 
@@ -2621,15 +2627,20 @@ function updateRolePermHint() {
 
 function togglePasswordVisibility(inputId, button) {
   const input = document.getElementById(inputId);
-  if (!input) return;
-  const showing = input.type === 'password';
-  input.type = showing ? 'text' : 'password';
-  button.setAttribute('aria-label', showing ? 'Hide password' : 'Show password');
-  button.title = showing ? 'Hide password' : 'Show password';
-  button.innerHTML = showing
-    ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M9.9 5.2A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a16 16 0 0 1-3.1 3.9M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7a10 10 0 0 0 4-.8"/></svg>'
-    : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+  if (!input || !button) return;
+
+  const shouldShow = input.type === 'password';
+  input.type = shouldShow ? 'text' : 'password';
+
+  const icon = button.querySelector('i');
+  if (icon) {
+    icon.className = shouldShow ? 'fi fi-rr-eye-crossed' : 'fi fi-rr-eye';
+  }
+
+  button.setAttribute('aria-label', shouldShow ? 'Hide password' : 'Show password');
+  button.title = shouldShow ? 'Hide password' : 'Show password';
 }
+
 function formatLastActive(value) {
   if (!value) return 'Never';
   const date = new Date(value);
