@@ -96,7 +96,7 @@ async function requestStaffGroq(metrics, prompt) {
             },
           ],
           temperature: 0.2,
-          max_completion_tokens: 2800,
+          max_completion_tokens: 5000,
           response_format: {
             type: "json_schema",
             json_schema: {
@@ -189,7 +189,7 @@ async function generateStaffAnalyticsInsights(req, res) {
       return res.json({ success: true, configured: false, insights });
     }
 
-    const prompt = "You are an operational analytics advisor for an OSCA staff dashboard about senior citizen ID applications. For each analytics key, go beyond describing chart values: interpret the pattern, identify a concrete concern or noteworthy opportunity when supported by the data, explain its operational implication, and recommend a practical next action for staff. Start each insight with a short, meaningful heading on its own line, followed by 2-3 concise sentences. For seniorRegistrationsByBarangay, analyze the top six barangays, their relative concentration, and recommend an operational response. For demographics, interpret the female/male distribution cautiously and flag missing or unrecognized values; do not infer service needs or eligibility from sex. Prioritize urgent issues when the supplied metrics show delays, backlogs, unusual concentrations, or bottlenecks. Use only supplied aggregate statistics. Do not invent numbers, infer unsupported causes, identify individuals, make eligibility decisions, or recommend actions unrelated to the metrics. If the data does not show a problem, state the useful takeaway and an appropriate monitoring action. Use clear, professional, simple English.";
+    const prompt = "You are an operational decision-support analyst for an OSCA senior-citizen application dashboard. For each of the ten analytics keys, write a useful insight, not a chart description: identify a supported trend, imbalance, backlog, delay, data-quality issue, or opportunity; explain why it matters operationally; and give one practical staff action. Use a short heading followed by exactly 2 concise sentences, maximum 45 words total per insight. For seniorRegistrationsByBarangay, compare the six leading barangays and recommend a practical workload or outreach action. For demographics, describe the female/male distribution cautiously and flag missing values; never infer needs or eligibility from sex. Use only supplied metrics. Do not invent figures, causes, or personal details. If no issue is evident, give a useful finding and monitoring action. Write clear, plain professional English.";
     const generated = await requestStaffGroq(metrics, prompt);
     const provider = "groq";
 
@@ -199,7 +199,7 @@ async function generateStaffAnalyticsInsights(req, res) {
       const nums = candidate.match(/\d[\d,]*(?:\.\d+)?%?/g) || [];
       const allowed = new Set((JSON.stringify(metrics[key] || {}).match(/\d[\d,]*(?:\.\d+)?%?/g) || []).map(v => v.replaceAll(",", "")));
       const hasUnsupportedNumber = nums.some(v => !allowed.has(v.replaceAll(",", "")));
-      insights[key] = candidate && candidate.length <= 1000 && !hasUnsupportedNumber
+      insights[key] = candidate && candidate.length <= 1400 && !hasUnsupportedNumber
         ? { text: candidate, source: provider }
         : { text: fallback(key, metrics[key]), source: "fallback" };
     }
