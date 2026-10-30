@@ -7,13 +7,6 @@ const PROVIDERS = [
     url: "https://api.groq.com/openai/v1/chat/completions",
   },
   {
-    id: "cerebras",
-    label: "Cerebras",
-    apiKey: () => process.env.CEREBRAS_API_KEY,
-    model: () => process.env.CEREBRAS_MODEL || "gpt-oss-120b",
-    url: "https://api.cerebras.ai/v1/chat/completions",
-  },
-  {
     id: "openrouter",
     label: "OpenRouter",
     apiKey: () => process.env.OPENROUTER_API_KEY,
