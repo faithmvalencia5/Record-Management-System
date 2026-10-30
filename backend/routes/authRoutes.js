@@ -21,7 +21,7 @@ const router = express.Router();
    ========================================================= */
 
 function normalizeDatabaseRole(role) {
-  const value = String(role || "").trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\\s+/g, " ");
+  const value = String(role || "").trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
 
   if (["admin", "administrator"].includes(value)) return "admin";
   if (["staff", "osca staff"].includes(value)) return "staff";
