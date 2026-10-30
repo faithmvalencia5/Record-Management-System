@@ -521,3 +521,45 @@ body.portal-mode .admin-kpi-strip {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+
+/* ID Maker insight cards now match the Staff Analytics summary treatment. */
+.analytics-insight{
+  display:block;
+  margin:0 18px 18px;
+  padding:12px 14px;
+  border:1px solid var(--border-color,#dbe3ef);
+  border-radius:12px;
+  border-left:1px solid var(--border-color,#dbe3ef);
+  background:var(--surface-muted,rgba(100,116,139,.06));
+  min-height:0;
+  font-size:13px;
+  line-height:1.55;
+}
+.analytics-insight__heading{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  margin-bottom:5px;
+  font-weight:700;
+  color:var(--text-primary);
+}
+.analytics-insight__title{display:inline-flex;align-items:center;gap:7px}
+.analytics-insight__tag{
+  margin-left:auto;
+  font-size:10px;
+  font-weight:700;
+  opacity:.7;
+  color:var(--text-muted);
+  white-space:nowrap;
+}
+.analytics-insight__text{
+  color:var(--text-primary);
+  font-size:13px;
+  line-height:1.55;
+}
+.analytics-insight__text strong{font-weight:800}
+:root[data-theme="dark"] .analytics-insight{
+  background:var(--surface-muted,rgba(148,163,184,.08));
+  border-color:var(--border-color,#334155);
+}
