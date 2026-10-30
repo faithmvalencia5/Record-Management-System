@@ -3944,55 +3944,31 @@ function positionAuditEventDetails(anchorRow) {
   const dialog = modal?.querySelector('.audit-detail-modal__dialog');
   if (!modal || !dialog) return;
 
+  const edge = 18;
   const viewportHeight = window.innerHeight;
-  const edge = 16;
-  const gap = 10;
   const rowRect = anchorRow?.isConnected ? anchorRow.getBoundingClientRect() : null;
 
-  // Measure the dialog at its natural responsive height before choosing a side.
+  // Measure the fully responsive dialog first, then align its visual center
+  // with the selected row. Clamp it only when the viewport edge is reached.
   dialog.style.position = 'fixed';
   dialog.style.left = '50%';
   dialog.style.right = 'auto';
   dialog.style.bottom = 'auto';
   dialog.style.transform = 'translateX(-50%)';
-  dialog.style.top = `${edge}px`;
-  dialog.style.maxHeight = `${Math.max(220, viewportHeight - edge * 2)}px`;
+  dialog.style.top = edge + 'px';
+  dialog.style.maxHeight = Math.max(240, viewportHeight - edge * 2) + 'px';
 
-  const desiredHeight = Math.min(
-    dialog.scrollHeight,
-    viewportHeight - edge * 2
-  );
+  const dialogHeight = dialog.getBoundingClientRect().height;
+  const anchorCenter = rowRect
+    ? rowRect.top + rowRect.height / 2
+    : viewportHeight / 2;
 
-  if (!rowRect) {
-    const centeredTop = Math.max(edge, (viewportHeight - desiredHeight) / 2);
-    dialog.style.top = `${Math.floor(centeredTop)}px`;
-    dialog.style.maxHeight = `${Math.max(220, viewportHeight - edge * 2)}px`;
-    return;
-  }
+  const idealTop = anchorCenter - dialogHeight / 2;
+  const maxTop = Math.max(edge, viewportHeight - dialogHeight - edge);
+  const top = Math.min(Math.max(edge, idealTop), maxTop);
 
-  const aboveSpace = Math.max(0, rowRect.top - edge - gap);
-  const belowSpace = Math.max(0, viewportHeight - rowRect.bottom - edge - gap);
-  const placeAbove = aboveSpace > belowSpace;
-  const availableSpace = Math.max(aboveSpace, belowSpace);
-
-  // Use the larger side of the clicked row. If neither side fits the full
-  // content, constrain the dialog to that side and let its body scroll.
-  const usableHeight = Math.max(180, Math.min(desiredHeight, availableSpace));
-  dialog.style.maxHeight = `${Math.floor(usableHeight)}px`;
-
-  const measuredHeight = dialog.getBoundingClientRect().height;
-  let top = placeAbove
-    ? rowRect.top - measuredHeight - gap
-    : rowRect.bottom + gap;
-
-  // Clamp only as a safety net for very short viewports or unusually tall rows.
-  top = Math.min(
-    Math.max(edge, top),
-    Math.max(edge, viewportHeight - measuredHeight - edge)
-  );
-  dialog.style.top = `${Math.floor(top)}px`;
+  dialog.style.top = Math.round(top) + 'px';
 }
-
 function openAuditEventDetails(eventId, anchorRow = null) {
   const event = AUDIT_LOG_DATA.find(log => String(log.id) === String(eventId));
   if (!event) {
@@ -4014,28 +3990,63 @@ function openAuditEventDetails(eventId, anchorRow = null) {
     </div>`;
 
   const detailsText = formatAuditDetailValue(event.details);
+  const actorName = event.user || event.username || 'Unknown user';
+  const actionName = event.action || 'Audit event';
+  const initials = String(actorName).trim().split(/\\s+/).slice(0, 2).map(part => part[0] || '').join('').toUpperCase() || '—';
   content.innerHTML = `
-    <div class="audit-detail-grid">
-      ${field('Timestamp', event.ts)}
-      ${field('Action / Event', event.action)}
-      ${field('User account', event.user)}
-      ${field('Username', event.username)}
-      ${field('Email', event.email)}
-      ${field('Role', event.role)}
-      ${field('Affected record type', event.entityType)}
-      ${field('Affected record ID', event.entityId)}
-      ${field('IP address', event.ip)}
-      ${field('Device', event.device)}
-    </div>
-    <section class="audit-detail-section">
-      <h3>Event details</h3>
-      <pre class="audit-detail-pre">${escHtml(detailsText)}</pre>
+    <section class="audit-detail-summary">
+      <div class="audit-detail-summary__avatar" aria-hidden="true">${escHtml(initials)}</div>
+      <div class="audit-detail-summary__copy">
+        <span class="audit-detail-summary__eyebrow">ACTIVITY SUMMARY</span>
+        <strong>${escHtml(actorName)}</strong>
+        <span>performed <b>${escHtml(actionName)}</b></span>
+        <small>${escHtml(event.ts || 'Timestamp unavailable')}</small>
+      </div>
+      <span class="audit-detail-summary__badge">${escHtml(event.role || 'Unknown role')}</span>
     </section>
-    <section class="audit-detail-section">
-      <h3>Full user-agent information</h3>
-      <pre class="audit-detail-pre audit-detail-pre--muted">${escHtml(event.userAgent || '—')}</pre>
+
+    <section class="audit-detail-section audit-detail-section--first">
+      <div class="audit-detail-section__heading"><span>01</span><h3>Event information</h3></div>
+      <div class="audit-detail-grid">
+        ${field('Timestamp', event.ts)}
+        ${field('Action / event', actionName)}
+      </div>
     </section>
-    <div class="audit-detail-meta">Audit event ID: <code>${escHtml(String(event.id))}</code></div>
+
+    <section class="audit-detail-section">
+      <div class="audit-detail-section__heading"><span>02</span><h3>Performed by</h3></div>
+      <div class="audit-detail-grid">
+        ${field('User account', event.user)}
+        ${field('Username', event.username)}
+        ${field('Email address', event.email)}
+        ${field('Role', event.role)}
+        ${field('IP address', event.ip)}
+        ${field('Device', event.device)}
+      </div>
+    </section>
+
+    <section class="audit-detail-section">
+      <div class="audit-detail-section__heading"><span>03</span><h3>Affected record</h3></div>
+      <div class="audit-detail-grid">
+        ${field('Record type', event.entityType)}
+        ${field('Record ID', event.entityId)}
+      </div>
+    </section>
+
+    <section class="audit-detail-section">
+      <div class="audit-detail-section__heading"><span>04</span><h3>Change details</h3></div>
+      <pre class="audit-detail-pre">${escHtml(detailsText || 'No additional event details were recorded.')}</pre>
+    </section>
+
+    <details class="audit-detail-technical">
+      <summary>
+        <span><b>Technical information</b><small>Full browser user-agent string</small></span>
+        <span class="audit-detail-technical__toggle" aria-hidden="true">+</span>
+      </summary>
+      <pre class="audit-detail-pre audit-detail-pre--muted">${escHtml(event.userAgent || 'Not available')}</pre>
+    </details>
+
+    <div class="audit-detail-meta">Audit event ID <code>${escHtml(String(event.id))}</code><span>Read-only · Append-only record</span></div>
   `;
 
   // IMPORTANT: this modal is authored inside the admin module. Some module
@@ -4047,9 +4058,31 @@ function openAuditEventDetails(eventId, anchorRow = null) {
     document.body.appendChild(modal);
   }
 
+  window.__auditDetailAnchorRow = anchorRow || document.activeElement;
   modal.hidden = false;
   modal.setAttribute('aria-hidden', 'false');
   document.body.classList.add('audit-detail-open');
+
+  if (window.__auditDetailEscapeHandler) {
+    document.removeEventListener('keydown', window.__auditDetailEscapeHandler);
+  }
+  window.__auditDetailEscapeHandler = (keyboardEvent) => {
+    if (keyboardEvent.key === 'Escape') {
+      keyboardEvent.preventDefault();
+      closeAuditEventDetails();
+    }
+  };
+  document.addEventListener('keydown', window.__auditDetailEscapeHandler);
+
+  if (!window.__auditDetailResizeHandler) {
+    window.__auditDetailResizeHandler = () => {
+      const activeModal = document.getElementById('audit-event-detail-modal');
+      if (!activeModal?.hidden) {
+        positionAuditEventDetails(window.__auditDetailAnchorRow);
+      }
+    };
+    window.addEventListener('resize', window.__auditDetailResizeHandler);
+  }
 
   // Capture the clicked row's viewport position before the body is locked.
   positionAuditEventDetails(anchorRow);
@@ -4072,6 +4105,15 @@ function closeAuditEventDetails() {
   modal.hidden = true;
   modal.setAttribute('aria-hidden', 'true');
   document.body.classList.remove('audit-detail-open');
+  if (window.__auditDetailEscapeHandler) {
+    document.removeEventListener('keydown', window.__auditDetailEscapeHandler);
+    window.__auditDetailEscapeHandler = null;
+  }
+  const previousFocus = window.__auditDetailAnchorRow;
+  window.__auditDetailAnchorRow = null;
+  if (previousFocus?.isConnected && typeof previousFocus.focus === 'function') {
+    previousFocus.focus({ preventScroll: true });
+  }
 }
 
 
