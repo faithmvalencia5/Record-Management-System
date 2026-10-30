@@ -5014,9 +5014,7 @@ async function runValidation() {
       {
         method: 'PUT',
 
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: getAuthHeaders(),
 
         body: JSON.stringify({
           validation_status: validationStatus,
@@ -5514,10 +5512,7 @@ async function setDocStatus(doc, state, options = {}) {
       {
         method: 'PUT',
 
-        headers: {
-          'Content-Type':
-            'application/json'
-        },
+        headers: getAuthHeaders(),
 
         body: JSON.stringify({
           status: databaseStatus,
@@ -5667,10 +5662,7 @@ async function saveDocumentAuthentication(
       {
         method: 'PUT',
 
-        headers: {
-          'Content-Type':
-            'application/json'
-        },
+        headers: getAuthHeaders(),
 
         body: JSON.stringify({
           status: databaseStatus,
@@ -6006,10 +5998,7 @@ async function saveCurrent() {
         {
           method: 'PUT',
 
-          headers: {
-            'Content-Type':
-              'application/json'
-          },
+          headers: getAuthHeaders(),
 
           body: JSON.stringify({
 
