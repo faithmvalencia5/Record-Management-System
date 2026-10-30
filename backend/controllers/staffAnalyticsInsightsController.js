@@ -102,7 +102,7 @@ async function generateStaffAnalyticsInsights(req, res) {
     try {
       const metrics = sanitizeMetrics(req.body?.metrics || {});
       const insights = Object.fromEntries(KEYS.map(k => [k, { text: fallback(k, metrics[k]), source: "fallback" }]));
-      return res.json({ success: true, configured: Boolean(process.env.GROQ_API_KEY || process.env.CEREBRAS_API_KEY || process.env.OPENROUTER_API_KEY), insights });
+      return res.json({ success: true, configured: Boolean(process.env.GROQ_API_KEY || process.env.CEREBRAS_API_KEY || process.env.OPENROUTER_API_KEY || process.env.CLOUDFLARE_API_TOKEN), insights });
     } catch (_) {
       return res.status(500).json({ success: false, message: "Unable to generate analytics insights." });
     }
