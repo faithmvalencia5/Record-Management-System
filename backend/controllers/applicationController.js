@@ -1777,7 +1777,7 @@ const updateApplicationStatus = async (req, res) => {
       error: applicationError,
     } = await supabase
       .from("applications")
-      .select("application_id, contact_number")
+      .select("application_id, contact_number, validation_status")
       .eq("application_id", applicationId)
       .maybeSingle();
 
@@ -1805,73 +1805,171 @@ const updateApplicationStatus = async (req, res) => {
       .maybeSingle();
 
     if (previousStatusError) throw previousStatusError;
+    const currentStatus = previousStatusRecord?.status || "Pending";
     const shouldNotifyReady =
       status === "Ready for Release" &&
-      previousStatusRecord?.status !== "Ready for Release";
+      currentStatus !== "Ready for Release";
 
-    // Find existing status history records
-    const {
-      data: existingRecords,
-      error: findStatusError,
-    } = await supabase
-      .from("application_status_history")
-      .select("*")
-      .eq("application_id", applicationId);
+    // When staff moves an Under Review application to In Process, the
+    // backend enforces eligibility and creates the ID Maker queue entry.
+    // This is deliberately server-side so a browser cannot bypass the rules.
+    let idMakerSync = { attempted: false, updated: false, found: false, created: false };
+    let newlyCreatedQueueEntry = false;
 
-    if (findStatusError) {
-      throw findStatusError;
-    }
+    if (status === "In Process" && currentStatus === "Under Review") {
+      idMakerSync.attempted = true;
 
-    let statusRecord;
+      if (String(application.validation_status || "").trim().toLowerCase() !== "passed") {
+        return res.status(409).json({
+          success: false,
+          message: "Cannot move this application to In Process. Eligibility validation must be saved as Passed first.",
+          eligibility: { validation_passed: false, missing_documents: [] },
+        });
+      }
 
-    // --------------------------------------------
-    // UPDATE EXISTING STATUS RECORD
-    // --------------------------------------------
-    if (existingRecords && existingRecords.length > 0) {
+      const requiredDocumentTypes = [
+        "valid_id",
+        "valid_id_back",
+        "latest_photo",
+        "birth_certificate",
+        "community_tax_certificate",
+        "signature",
+      ];
 
-      const {
-        data: updatedRecords,
-        error: updateStatusError,
-      } = await supabase
-        .from("application_status_history")
-        .update({
-          status: status,
-          updated_at: now,
-        })
+      const { data: authenticationRows, error: authenticationError } = await supabase
+        .from("document_authentications")
+        .select("document_type, authentication_status")
         .eq("application_id", applicationId)
-        .select();
+        .in("document_type", requiredDocumentTypes);
 
-      if (updateStatusError) {
-        throw updateStatusError;
+      if (authenticationError) throw authenticationError;
+
+      const approvedTypes = new Set(
+        (authenticationRows || [])
+          .filter(row => String(row.authentication_status || "").trim().toLowerCase() === "approved")
+          .map(row => String(row.document_type || "").trim().toLowerCase())
+      );
+      const missingDocuments = requiredDocumentTypes.filter(type => !approvedTypes.has(type));
+
+      if (missingDocuments.length) {
+        const documentLabels = {
+          valid_id: "Valid ID (Front)",
+          valid_id_back: "Valid ID (Back)",
+          latest_photo: "Latest Photo",
+          birth_certificate: "Birth Certificate",
+          community_tax_certificate: "Cedula",
+          signature: "Signature",
+        };
+        return res.status(409).json({
+          success: false,
+          message: "Cannot move this application to In Process. Approve all six required documents first: " +
+            missingDocuments.map(type => documentLabels[type] || type).join(", ") + ".",
+          eligibility: { validation_passed: true, missing_documents: missingDocuments },
+        });
       }
 
-      statusRecord = updatedRecords?.[0] || null;
+      const { data: existingQueueEntry, error: existingQueueError } = await supabase
+        .from("id_maker_queue")
+        .select("id, application_id, control_no, date_issued, print_status")
+        .eq("application_id", applicationId)
+        .maybeSingle();
 
+      if (existingQueueError) throw existingQueueError;
+
+      if (existingQueueEntry && String(existingQueueEntry.print_status || "") !== "Queued") {
+        return res.status(409).json({
+          success: false,
+          message: "This applicant already has an ID Maker queue record with status " +
+            existingQueueEntry.print_status + ". Review the existing queue record before changing the application status.",
+        });
+      }
+
+      if (existingQueueEntry) {
+        idMakerSync.found = true;
+        idMakerSync.queue = existingQueueEntry;
+      } else {
+        const digits = String(applicationId).replace(/\\D/g, "");
+        const year = String(new Date().getFullYear()).slice(-2);
+        const controlNo = "CTRL-" + year + "-" + (digits ? digits.slice(-4).padStart(4, "0") : "0001");
+        const today = new Date().toISOString().slice(0, 10);
+        const { data: queueEntry, error: queueInsertError } = await supabase
+          .from("id_maker_queue")
+          .upsert({
+            application_id: applicationId,
+            control_no: controlNo,
+            date_issued: today,
+            print_status: "Queued",
+            updated_at: now,
+          }, { onConflict: "application_id" })
+          .select()
+          .single();
+
+        if (queueInsertError) throw queueInsertError;
+        newlyCreatedQueueEntry = true;
+        idMakerSync.created = true;
+        idMakerSync.found = true;
+        idMakerSync.queue = queueEntry;
+      }
+
+      idMakerSync.updated = true;
+      idMakerSync.message = "Issuance form data was queued for ID Maker.";
     }
 
-    // --------------------------------------------
-    // CREATE STATUS RECORD IF NONE EXISTS
-    // --------------------------------------------
-    else {
-
+    // Write the new status only after any required ID Maker queue entry
+    // has been created successfully. If history persistence fails, remove
+    // the queue row created by this request so the two systems do not diverge.
+    let statusRecord;
+    try {
       const {
-        data: newStatusRecord,
-        error: insertStatusError,
+        data: existingRecords,
+        error: findStatusError,
       } = await supabase
         .from("application_status_history")
-        .insert({
-          application_id: applicationId,
-          status: status,
-          updated_at: now,
-        })
-        .select()
-        .single();
+        .select("*")
+        .eq("application_id", applicationId);
 
-      if (insertStatusError) {
-        throw insertStatusError;
+      if (findStatusError) throw findStatusError;
+
+      if (existingRecords && existingRecords.length > 0) {
+        const {
+          data: updatedRecords,
+          error: updateStatusError,
+        } = await supabase
+          .from("application_status_history")
+          .update({ status, updated_at: now })
+          .eq("application_id", applicationId)
+          .select();
+
+        if (updateStatusError) throw updateStatusError;
+        statusRecord = updatedRecords?.[0] || null;
+      } else {
+        const {
+          data: newStatusRecord,
+          error: insertStatusError,
+        } = await supabase
+          .from("application_status_history")
+          .insert({
+            application_id: applicationId,
+            status,
+            updated_at: now,
+          })
+          .select()
+          .single();
+
+        if (insertStatusError) throw insertStatusError;
+        statusRecord = newStatusRecord;
       }
-
-      statusRecord = newStatusRecord;
+    } catch (statusWriteError) {
+      if (newlyCreatedQueueEntry) {
+        const { error: rollbackQueueError } = await supabase
+          .from("id_maker_queue")
+          .delete()
+          .eq("application_id", applicationId);
+        if (rollbackQueueError) {
+          console.error("[ID Maker] Could not roll back queue entry after status write failure:", rollbackQueueError);
+        }
+      }
+      throw statusWriteError;
     }
 
     // Automatically activate membership when staff marks an application
@@ -1903,7 +2001,6 @@ const updateApplicationStatus = async (req, res) => {
 
     // Synchronize the existing ID Maker queue row whenever staff status is
     // Ready for Release. Keep this independent from SMS notification logic.
-    let idMakerSync = { attempted: false, updated: false, found: false };
     if (status === "Ready for Release") {
       idMakerSync.attempted = true;
       try {
