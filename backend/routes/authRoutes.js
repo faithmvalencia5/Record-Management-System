@@ -662,24 +662,44 @@ router.post(
 
       /* Insert account */
 
-      const {
-        data: newUser,
-        error,
-      } = await supabase
+      const userInsert = {
+        username: cleanUsername,
+        full_name: String(full_name || cleanUsername).trim(),
+        password_hash: passwordHash,
+        role: cleanRole === "OSCA ID Maker" ? "ID Maker" : cleanRole,
+        email: cleanEmail || null,
+        account_status: cleanStatus,
+      };
+
+      // designation is optional in older Supabase schemas.
+      let insertResult = await supabase
         .from("user_accounts")
         .insert({
-          username: cleanUsername,
-          full_name: String(full_name || cleanUsername).trim(),
+          ...userInsert,
           designation: String(designation || "").trim() || null,
-          password_hash: passwordHash,
-          role: cleanRole,
-          email: cleanEmail || null,
-          account_status: cleanStatus,
         })
         .select(
           "id, username, full_name, designation, email, role, account_status"
         )
         .single();
+
+      if (
+        insertResult.error &&
+        /designation|column .* does not exist|schema cache/i.test(
+          insertResult.error.message || ""
+        )
+      ) {
+        insertResult = await supabase
+          .from("user_accounts")
+          .insert(userInsert)
+          .select(
+            "id, username, full_name, email, role, account_status"
+          )
+          .single();
+      }
+
+      const newUser = insertResult.data;
+      const error = insertResult.error;
 
       if (error) {
         console.error(
@@ -831,10 +851,11 @@ router.put(
         });
       }
 
-      const {
-        data: updatedUser,
-        error,
-      } = await supabase
+      if (updateData.role === "OSCA ID Maker") {
+        updateData.role = "ID Maker";
+      }
+
+      let updateResult = await supabase
         .from("user_accounts")
         .update(updateData)
         .eq("id", userId)
@@ -842,6 +863,27 @@ router.put(
           "id, username, full_name, designation, email, role, account_status"
         )
         .single();
+
+      if (
+        updateResult.error &&
+        updateData.designation !== undefined &&
+        /designation|column .* does not exist|schema cache/i.test(
+          updateResult.error.message || ""
+        )
+      ) {
+        const { designation: omittedDesignation, ...compatibleUpdate } = updateData;
+        updateResult = await supabase
+          .from("user_accounts")
+          .update(compatibleUpdate)
+          .eq("id", userId)
+          .select(
+            "id, username, full_name, email, role, account_status"
+          )
+          .single();
+      }
+
+      const updatedUser = updateResult.data;
+      const error = updateResult.error;
 
       if (error) {
         console.error(
