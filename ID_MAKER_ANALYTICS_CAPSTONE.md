@@ -78,10 +78,10 @@ Run that migration in Supabase SQL Editor to enable Monthly ID Output. The queue
 
 ## Multi-provider AI analytics
 
-- **Provider order:** Groq is primary, followed by Cerebras and OpenRouter. If all configured providers fail or reach their limits, the dashboard displays its existing live-data fallback summaries.
-- **Configuration:** Set `GROQ_API_KEY`, `CEREBRAS_API_KEY`, and `OPENROUTER_API_KEY` in the backend environment. Optional model overrides are `GROQ_MODEL`, `CEREBRAS_MODEL`, and `OPENROUTER_MODEL`. Defaults are `openai/gpt-oss-20b`, `gpt-oss-120b`, and `openrouter/free`, respectively. Never place API keys in browser code or commit them.
+- **Provider order:** Groq is primary, followed by OpenRouter. If both providers fail or reach their limits, the dashboard displays its existing live-data fallback summaries. Cerebras is not part of the active provider chain.
+- **Configuration:** Set `GROQ_API_KEY` and `OPENROUTER_API_KEY` in the backend environment. Optional model overrides are `GROQ_MODEL` and `OPENROUTER_MODEL`. Defaults are `openai/gpt-oss-20b` and `openrouter/free`, respectively. Never place API keys in browser code or commit them.
 - **Data flow:** The browser posts precomputed aggregate analytics to the backend. The backend removes or rejects personal applicant fields as appropriate, then sends only the sanitized aggregate metrics to the first available AI provider. The providers return JSON insights which are validated before display.
-- **Fallback behavior:** Provider failures, rate limits, timeouts, invalid JSON, and missing keys trigger the next provider in order. If no provider succeeds, the fixed live-data summaries remain visible.
+- **Fallback behavior:** Provider failures, rate limits, timeouts, invalid JSON, and missing keys trigger the next provider in order. If neither provider succeeds, the fixed live-data summaries remain visible.
 - **Caching:** Successfully validated insights are cached for six hours per analytics snapshot in the running backend process.
 
 ## PDF report
