@@ -49,6 +49,24 @@ function numericTokens(value, output = new Set()) {
   return output;
 }
 
+function normalizeInsightLead(text, stats) {
+  if (typeof text !== "string") return text;
+  const expectedLead = typeof stats?.expectedLead === "string"
+    ? stats.expectedLead.trim()
+    : "";
+  if (!expectedLead) return text.trim();
+
+  // The lead statistic is computed by the server. Do not rely on the model
+  // to reproduce it character-for-character; retain its supporting sentence.
+  const supportingText = text.trim()
+    .replace(/^\\*\\*[\\s\\S]*?\\*\\*\\s*/, "")
+    .trim();
+
+  return supportingText
+    ? `**${expectedLead}** ${supportingText}`
+    : `**${expectedLead}**`;
+}
+
 function validateInsight(text, stats) {
   if (typeof text !== "string") return "response was not text";
   const cleaned = text.trim();
@@ -332,7 +350,10 @@ const generateIdMakerAnalyticsInsights = async (req, res) => {
         const key = item.cardKey;
         const stats = needsAI[key].stats;
         const provider = item.provider || (typeof groqInsights[key] === "string" ? "groq" : null);
-        const candidate = item.provider ? item.text : groqInsights[key];
+        const rawCandidate = item.provider ? item.text : groqInsights[key];
+        const candidate = provider === "groq"
+          ? normalizeInsightLead(rawCandidate, stats)
+          : rawCandidate;
         const validationFailure = provider ? validateInsight(candidate, stats) : "AI providers did not return an insight";
 
         if (validationFailure) {
