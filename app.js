@@ -1900,6 +1900,11 @@ function applyRoleToUI() {
 async function handleLogin(event) {
   event.preventDefault();
 
+  const submitButton = document.getElementById('login-submit-btn');
+  if (submitButton?.classList.contains('loading')) {
+    return;
+  }
+
   const usernameEl = document.getElementById('login-username');
   const passwordEl = document.getElementById('login-password');
   const recaptchaError = document.getElementById('err-recaptcha');
