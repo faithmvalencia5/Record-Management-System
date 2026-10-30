@@ -466,7 +466,6 @@ const bulkUpdateIdMakerQueue = async (req, res) => {
         .filter(Boolean)
     )];
     const printStatus = req.body?.print_status;
-    const allowedApplicationStatuses = ["In Process", "Ready for Release"];
 
     if (!ids.length) {
       return res.status(400).json({ success: false, message: "Select at least one applicant." });
@@ -497,24 +496,37 @@ const bulkUpdateIdMakerQueue = async (req, res) => {
       });
     }
 
+    let existingQueueResult = await supabase
+      .from("id_maker_queue")
+      .select("application_id, completed_at")
+      .in("application_id", ids);
+    let completionTimestampAvailable = true;
+    if (existingQueueResult.error && isMissingCompletedAtColumn(existingQueueResult.error)) {
+      completionTimestampAvailable = false;
+      existingQueueResult = { data: [], error: null };
+    }
+    if (existingQueueResult.error) throw existingQueueResult.error;
+
+    const completedAtById = new Map(
+      (existingQueueResult.data || []).map((row) => [String(row.application_id), row.completed_at || null])
+    );
     const queueRows = ids.map((applicationId) => ({
       application_id: applicationId,
       print_status: printStatus,
       updated_at: now,
-      ...(printStatus === "Completed" ? { completed_at: now } : { completed_at: null }),
+      ...(completionTimestampAvailable ? {
+        completed_at: printStatus === "Completed"
+          ? (completedAtById.get(applicationId) || now)
+          : completedAtById.get(applicationId),
+      } : {}),
     }));
 
     let queueResult = await supabase
       .from("id_maker_queue")
       .upsert(queueRows, { onConflict: "application_id" })
-      .select("application_id, print_status, updated_at, completed_at");
-
-    if (queueResult.error && isMissingCompletedAtColumn(queueResult.error)) {
-      queueResult = await supabase
-        .from("id_maker_queue")
-        .upsert(queueRows.map(({ completed_at, ...row }) => row), { onConflict: "application_id" })
-        .select("application_id, print_status, updated_at");
-    }
+      .select(completionTimestampAvailable
+        ? "application_id, print_status, updated_at, completed_at"
+        : "application_id, print_status, updated_at");
     if (queueResult.error) throw queueResult.error;
 
     const { data: historyRows, error: historyReadError } = await supabase
