@@ -1715,7 +1715,7 @@ const updateApplicationStatus = async (req, res) => {
       error: applicationError,
     } = await supabase
       .from("applications")
-      .select("application_id")
+      .select("application_id, contact_number")
       .eq("application_id", applicationId)
       .maybeSingle();
 
@@ -1731,6 +1731,21 @@ const updateApplicationStatus = async (req, res) => {
     }
 
     const now = new Date().toISOString();
+
+    // Read the current status before writing, so notification is sent only
+    // when the application actually transitions into Ready for Release.
+    const { data: previousStatusRecord, error: previousStatusError } = await supabase
+      .from("application_status_history")
+      .select("status")
+      .eq("application_id", applicationId)
+      .order("updated_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (previousStatusError) throw previousStatusError;
+    const shouldNotifyReady =
+      status === "Ready for Release" &&
+      previousStatusRecord?.status !== "Ready for Release";
 
     // Find existing status history records
     const {
@@ -1797,11 +1812,38 @@ const updateApplicationStatus = async (req, res) => {
       statusRecord = newStatusRecord;
     }
 
+    let smsNotification = { attempted: false, sent: false };
+    if (shouldNotifyReady) {
+      smsNotification.attempted = true;
+      try {
+        const { sendReadyForReleaseSms } = require("../services/smsService");
+        const smsResult = await sendReadyForReleaseSms({
+          phone: application.contact_number,
+          applicationId
+        });
+        smsNotification = {
+          attempted: true,
+          sent: true,
+          message: "The ready-for-release SMS was accepted by the SMS provider.",
+          referenceId: smsResult?.message?.reference_id ?? null
+        };
+      } catch (smsError) {
+        smsNotification = {
+          attempted: true,
+          sent: false,
+          message: "Status was saved, but the SMS could not be sent.",
+          error: smsError.message
+        };
+        console.error("[SMS] Ready-for-release notification failed:", smsError.message);
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: "Application status updated successfully.",
       status: status,
       statusHistory: statusRecord,
+      smsNotification
     });
 
   } catch (error) {
