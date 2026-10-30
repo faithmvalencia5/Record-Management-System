@@ -1,5 +1,5 @@
 const CARD_KEYS = ["production", "barangay", "aging", "monthly"];
-const MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
+const { generateAnalyticsInsights } = require("../config/analyticsAIProvider");
 const INSIGHT_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const insightCache = new Map();
 
@@ -132,72 +132,6 @@ function validateInsight(text, stats) {
   return unsupported ? `response introduced an unsupported number: ${unsupported}` : null;
 }
 
-async function requestGroq(metrics, prompt) {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) throw new Error("GROQ_API_KEY is not configured.");
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30000);
-  try {
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      signal: controller.signal,
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          {
-            role: "system",
-            content: `${prompt}\n\nReturn only a JSON object with an "insights" property. The "insights" property must contain all four requested analytics keys, each with a string value.`,
-          },
-          { role: "user", content: JSON.stringify(metrics) },
-        ],
-        temperature: 0.2,
-        max_completion_tokens: 3000,
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "id_maker_analytics_insights",
-            strict: true,
-            schema: {
-              type: "object",
-              properties: {
-                insights: {
-                  type: "object",
-                  properties: Object.fromEntries(CARD_KEYS.map((key) => [key, { type: "string" }])),
-                  required: CARD_KEYS,
-                  additionalProperties: false,
-                },
-              },
-              required: ["insights"],
-              additionalProperties: false,
-            },
-          },
-        },
-      }),
-    });
-
-    const responseText = await response.text();
-    let result = {};
-    try { result = responseText ? JSON.parse(responseText) : {}; }
-    catch { throw new Error("Groq returned an invalid API response."); }
-
-    if (!response.ok) {
-      console.error("[ID Maker analytics] Groq API error:", responseText);
-      throw new Error(result.error?.message || result.message || `Groq returned HTTP ${response.status}`);
-    }
-
-    const choice = result.choices?.[0];
-    if (choice?.finish_reason === "length") throw new Error("Groq reached its completion-token limit.");
-    const raw = choice?.message?.content || "";
-    const parsed = JSON.parse(raw);
-    if (!plainObject(parsed.insights)) throw new Error("Groq returned an invalid insights object.");
-    return parsed.insights;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 async function generateIdMakerAnalyticsInsights(req, res) {
   try {
     if (!plainObject(req.body?.cards)) {
@@ -214,20 +148,13 @@ async function generateIdMakerAnalyticsInsights(req, res) {
     const cacheKey = JSON.stringify(metrics);
     const cached = getCachedInsights(cacheKey);
     if (cached) {
-      return res.json({ success: true, configured: true, cached: true, model: MODEL, insights: cached });
-    }
-
-    const groqKey = process.env.GROQ_API_KEY;
-    if (!groqKey) {
-      const insights = Object.fromEntries(CARD_KEYS.map((key) => [
-        key, { text: fallbackInsight(key, metrics[key]), source: "fallback" },
-      ]));
-      return res.json({ success: true, configured: false, insights });
+      return res.json({ success: true, configured: true, cached: true, insights: cached });
     }
 
     const prompt = "You are an operational analytics advisor for an OSCA ID Maker queue dashboard. For each analytics key (production, barangay, aging, monthly), do more than restate the chart: interpret the pattern, identify a concrete operational concern or useful opportunity when supported by the metrics, explain its likely workflow impact without guessing at causes, and recommend a specific practical next action. Start each insight with a short, meaningful heading on its own line, followed by 2-3 concise sentences. Give urgent attention to large backlogs, records exceeding aging thresholds, concentrated barangay workloads, and changes in monthly ID output when the supplied data supports those conclusions. Recommend reviewing the oldest records, checking stalled status updates, following up with the responsible workflow stage, or monitoring output trends only when relevant to the supplied metrics. Use only the supplied aggregate statistics. Do not invent numbers, infer unsupported causes, identify individuals, or make eligibility decisions. If a metric does not indicate a problem, provide a useful takeaway and a suitable monitoring action. Use clear, professional, simple English.";
-    const generated = await requestGroq(metrics, prompt);
-    const provider = "groq";
+    const result = await generateAnalyticsInsights(metrics, prompt, CARD_KEYS, 1800);
+    const generated = result.insights;
+    const provider = result.provider;
 
     const insights = {};
     for (const key of CARD_KEYS) {
@@ -238,12 +165,12 @@ async function generateIdMakerAnalyticsInsights(req, res) {
         : { text: fallbackInsight(key, metrics[key]), source: "fallback", ...(validationFailure ? { reason: validationFailure } : {}) };
     }
 
-    if (Object.values(insights).every((item) => item.source === "gemini" || item.source === "groq")) {
+    if (Object.values(insights).every((item) => ["groq", "cerebras", "openrouter"].includes(item.source))) {
       cacheInsights(cacheKey, insights);
     }
-    return res.json({ success: true, configured: true, model: MODEL, insights });
+    return res.json({ success: true, configured: true, provider, model: result.model, insights });
   } catch (error) {
-    console.warn(`[ID Maker analytics] Groq decision-support insight generation failed: ${error.message}`);
+    console.warn(`[ID Maker analytics] Multi-provider decision-support insight generation failed: ${error.message}`);
     try {
       const metrics = sanitizeCards(req.body?.cards || {});
       const insights = Object.fromEntries(CARD_KEYS.map((key) => [
@@ -251,7 +178,7 @@ async function generateIdMakerAnalyticsInsights(req, res) {
       ]));
       return res.json({
         success: true,
-        configured: Boolean(process.env.GROQ_API_KEY),
+        configured: Boolean(process.env.GROQ_API_KEY || process.env.CEREBRAS_API_KEY || process.env.OPENROUTER_API_KEY),
         insights,
       });
     } catch (_) {
