@@ -702,6 +702,45 @@ function selectStatusOption(btn, event) {
   const status = btn.dataset.status;
   const icon = btn.dataset.icon;
   const color = btn.dataset.color;
+  const appId = String(root.dataset.appId || '');
+
+  // Fast client-side eligibility feedback. The backend repeats these checks
+  // against the database and remains the final authority.
+  if (
+    status === 'In Process' &&
+    normalizeApplicationStatus(previousStatus) === 'review'
+  ) {
+    const app = (typeof APP_DB !== 'undefined' && APP_DB[appId]) ||
+      (typeof LIVE_APPLICATIONS !== 'undefined' && LIVE_APPLICATIONS.find(item =>
+        String(item.application_id || item.id) === appId
+      ));
+    if (app) {
+      if (String(app.validation_status || '').trim().toLowerCase() !== 'passed') {
+        showToast('Status not changed. Save a Passed eligibility validation first.', 'error');
+        closeAllStatusMenus();
+        return;
+      }
+      if (Array.isArray(app.documentAuthentications)) {
+        const required = [
+          ['valid_id', 'Valid ID (Front)'],
+          ['valid_id_back', 'Valid ID (Back)'],
+          ['latest_photo', 'Latest Photo'],
+          ['birth_certificate', 'Birth Certificate'],
+          ['community_tax_certificate', 'Cedula'],
+          ['signature', 'Signature']
+        ];
+        const approved = new Set(app.documentAuthentications
+          .filter(record => String(record.authentication_status || '').trim().toLowerCase() === 'approved')
+          .map(record => String(record.document_type || '').trim().toLowerCase()));
+        const missing = required.filter(([type]) => !approved.has(type)).map(([, label]) => label);
+        if (missing.length) {
+          showToast('Status not changed. Approve all required documents first: ' + missing.join(', ') + '.', 'error');
+          closeAllStatusMenus();
+          return;
+        }
+      }
+    }
+  }
 
   root
     .querySelectorAll('.status-select__option')
@@ -3515,6 +3554,35 @@ async function updateTableStatus(
     }
     syncRecentSubmissionsStatus(appId, savedStatus);
 
+    // Reflect the automatically created ID Maker queue entry immediately.
+    if (result.idMakerSync?.updated && result.idMakerSync?.queue) {
+      const queueRecord = result.idMakerSync.queue;
+      const queueEntry = {
+        id: appId,
+        application_id: appId,
+        name: app.name || getApplicationName?.(app) || appId,
+        firstName: app.firstName || '',
+        middleName: app.middleName || '',
+        surname: app.surname || app.name || '',
+        address: app.address || '—',
+        barangay: app.barangay || app.barangay_district || '—',
+        dob: app.dob || app.date_of_birth || '',
+        gender: app.gender || app.sex || '',
+        controlNo: queueRecord.control_no || buildControlNo(appId),
+        dateIssued: queueRecord.date_issued || new Date().toISOString().slice(0, 10),
+        printStatus: queueRecord.print_status || 'Queued',
+        updatedAt: queueRecord.updated_at || new Date().toISOString(),
+        sentAt: queueRecord.sent_at || new Date().toISOString()
+      };
+      const queueIndex = ID_MAKER_QUEUE.findIndex(item =>
+        String(item.id || item.application_id) === String(appId)
+      );
+      if (queueIndex >= 0) ID_MAKER_QUEUE[queueIndex] = { ...ID_MAKER_QUEUE[queueIndex], ...queueEntry };
+      else ID_MAKER_QUEUE.unshift(queueEntry);
+      if (typeof saveLocalIdMakerQueue === 'function') saveLocalIdMakerQueue(queueEntry, false);
+      if (typeof updateIssuanceKPIs === 'function') updateIssuanceKPIs();
+    }
+
     // Reapply the Applicants status filter without rebuilding 4,251 rows
     if (
       row &&
@@ -3546,7 +3614,9 @@ async function updateTableStatus(
     );
 
     showToast(
-      `Status saved as ${savedStatus} for ${appId}`,
+      result.idMakerSync?.updated
+        ? `Eligibility passed. Issuance form generated and sent to ID Maker for ${appId}.`
+        : `Status saved as ${savedStatus} for ${appId}`,
       'success'
     );
 
