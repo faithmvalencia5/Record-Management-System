@@ -3595,7 +3595,7 @@ function exportUsers() {
     return;
   }
 
-  const headers = ['Full Name', 'Username', 'Email', 'Role', 'Designation', 'Status'];
+  const headers = ['Full Name', 'Username', 'Email', 'Role', 'Status'];
   const csvCell = value => {
     const safe = String(value ?? '').replace(/"/g, '""');
     return '"' + safe + '"';
@@ -3605,7 +3605,6 @@ function exportUsers() {
     user.username,
     user.email === '—' ? '' : user.email,
     user.role,
-    user.designation,
     user.status
   ]);
   const csv = '\uFEFF' + [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n');
