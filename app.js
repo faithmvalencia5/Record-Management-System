@@ -2655,6 +2655,14 @@ function syncApplicationsToAppDB(applications) {
         application.status ||
         'Pending',
 
+      validation_status:
+        application.validation_status || null,
+
+      documentAuthentications:
+        Array.isArray(application.documentAuthentications)
+          ? application.documentAuthentications
+          : [],
+
       regDate:
         application.created_at ||
         application.createdAt ||
@@ -6623,17 +6631,26 @@ function initSmallFormIssuance() {
   // Prevent duplicate event listeners
   select.onchange = null;
 
-  // Rebuild applicant options — only show applicants whose status is 'In Process'
-  // and who have not already been queued or sent to ID Maker
+  // Include applicants already In Process, plus Under Review applicants
+  // whose eligibility validation passed and all six required documents
+  // have been approved in the database.
   select.innerHTML = '<option value="">Select applicant</option>';
 
   const localQueue = getLocalIdMakerQueue();
+  const requiredDocumentTypes = [
+    'valid_id',
+    'valid_id_back',
+    'latest_photo',
+    'birth_certificate',
+    'community_tax_certificate',
+    'signature'
+  ];
 
   Object.keys(APP_DB).forEach((id) => {
     const app = APP_DB[id];
     if (!app) return;
 
-    // If marked sent or already in memory / local queue, exclude from dropdown
+    // Exclude applicants already sent or already present in either queue.
     if (app.sentToIdMaker) return;
 
     const inMem = ID_MAKER_QUEUE.some(q => String(q.id || q.application_id) === String(id));
@@ -6642,13 +6659,33 @@ function initSmallFormIssuance() {
     const inLocal = localQueue.some(q => String(q.id || q.application_id) === String(id));
     if (inLocal) return;
 
-    // Only populate applicants that are currently In Process
-    const status = (app.status || '').trim();
-    if (status !== 'In Process') return;
+    const status = String(app.status || '').trim().toLowerCase();
+    const isInProcess = status === 'in process';
+
+    const validationStatus = String(app.validation_status || '').trim().toLowerCase();
+    const validationPassed = validationStatus === 'passed';
+
+    const authentications = Array.isArray(app.documentAuthentications)
+      ? app.documentAuthentications
+      : [];
+
+    const allDocumentsApproved = requiredDocumentTypes.every(documentType =>
+      authentications.some(record =>
+        String(record.document_type || '').trim().toLowerCase() === documentType &&
+        String(record.authentication_status || '').trim().toLowerCase() === 'approved'
+      )
+    );
+
+    const isQualifiedUnderReview =
+      status === 'under review' &&
+      validationPassed &&
+      allDocumentsApproved;
+
+    if (!isInProcess && !isQualifiedUnderReview) return;
 
     const opt = document.createElement('option');
     opt.value = id;
-    opt.textContent = `${app.name || 'Unnamed Applicant'} (${id})`;
+    opt.textContent = `${app.name || 'Unnamed Applicant'} (${id})${isQualifiedUnderReview ? ' — Ready for ID Issuance' : ''}`;
 
     select.appendChild(opt);
   });
