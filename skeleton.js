@@ -71,6 +71,12 @@ window.Skeleton = (function () {
     document.body.removeAttribute('aria-busy');
   }
 
+  // The page-level overlay is shared across portals, so its cleanup must not
+  // depend on a portal-specific initializer succeeding. Page markup is ready
+  // at DOMContentLoaded; the timeout is a last-resort guard for stalled loads.
+  document.addEventListener('DOMContentLoaded', pageReady, { once: true });
+  window.setTimeout(pageReady, 12000);
+
   /** Returns HTML for a set of KPI skeleton cards matching Staff Dashboard structure. */
   function kpiCardsHtml(count, type) {
     let html = '';
