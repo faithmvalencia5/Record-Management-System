@@ -361,7 +361,7 @@
                 </svg>
                 <select class="filter-select" id="recent-barangay-filter" onchange="filterRecentSubmissions()"
                   aria-label="Filter recent submissions by barangay">
-                  <option value="">All Barangay</option>
+                  <option value="">Barangay: All</option>
                   <option value="Alagao">Barangay: Alagao</option>
                   <option value="Aplaya">Barangay: Aplaya</option>
                   <option value="As-Is">Barangay: As-Is</option>
@@ -587,7 +587,7 @@
                 </svg>
                 <select class="filter-select" onchange="filterApplicantsByBarangay(this.value)"
                   aria-label="Filter applicants by barangay">
-                  <option value="">All Barangay</option>
+                  <option value="">Barangay: All</option>
                   <option value="Alagao">Barangay: Alagao</option>
                   <option value="Aplaya">Barangay: Aplaya</option>
                   <option value="As-Is">Barangay: As-Is</option>
@@ -887,7 +887,7 @@
                 <select
                   class="filter-select appearance-none shrink-0 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 pl-7 pr-7 text-xs font-medium text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/15"
                   onchange="filterApplicationsByBarangay(this.value)" aria-label="Filter applications by barangay">
-                  <option value="">All Barangay</option>
+                  <option value="">Barangay: All</option>
                   <option value="Alagao">Alagao</option>
                   <option value="Aplaya">Aplaya</option>
                   <option value="As-Is">As-Is</option>

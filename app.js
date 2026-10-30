@@ -6156,7 +6156,7 @@ function openStaffExport() {
   ).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
   if (barangaySelect) {
-    barangaySelect.innerHTML = '<option value="">All barangays</option>' +
+    barangaySelect.innerHTML = '<option value="">Barangay: All</option>'  +
       barangays.map(name => '<option value="' + staffExportEscapeHtml(name) + '">' + staffExportEscapeHtml(name) + '</option>').join('');
   }
 
