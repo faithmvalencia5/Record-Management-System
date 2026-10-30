@@ -765,9 +765,7 @@ async function updateReplacementStatus(
       `https://management-backend-3cij.onrender.com/api/replacements/${encodeURIComponent(requestId)}/decision`,
       {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           status: newStatus
         })
@@ -4445,9 +4443,7 @@ async function sendToIdMaker() {
         `https://management-backend-3cij.onrender.com/api/replacements/${linkedRequest.id}/decision`,
         {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             status: 'In Process'
           })
@@ -7001,9 +6997,7 @@ async function sendFromIssuanceToIdMaker() {
         `${apiBase}/replacements/${linkedRequest.id}/decision`,
         {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             status: 'In Process'
           })
