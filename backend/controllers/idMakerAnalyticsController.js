@@ -178,7 +178,7 @@ async function generateIdMakerAnalyticsInsights(req, res) {
       ]));
       return res.json({
         success: true,
-        configured: Boolean(process.env.GROQ_API_KEY || process.env.CEREBRAS_API_KEY || process.env.OPENROUTER_API_KEY),
+        configured: Boolean(process.env.GROQ_API_KEY || process.env.CEREBRAS_API_KEY || process.env.OPENROUTER_API_KEY || process.env.CLOUDFLARE_API_TOKEN),
         insights,
       });
     } catch (_) {
