@@ -1,4 +1,4 @@
-const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+const MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
 const KEYS = ["applicationFlow", "queueMix", "replacementRequests", "readyForHandoff", "barangayWorkload", "ageDistribution", "issuanceOverTime", "turnaroundTime"];
 
 const INSIGHT_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
@@ -122,7 +122,7 @@ async function requestStaffGroq(metrics, prompt) {
         },
         signal: controller.signal,
         body: JSON.stringify({
-          model: "openai/gpt-oss-20b",
+          model: MODEL,
           messages: [
             {
               role: "system",
@@ -215,107 +215,21 @@ async function generateStaffAnalyticsInsights(req, res) {
         insights: cachedInsights,
       });
     }
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+    const groqKey = process.env.GROQ_API_KEY;
 
-    if (!apiKey && !process.env.GROQ_API_KEY) {
+    if (!groqKey) {
       const insights = Object.fromEntries(
         KEYS.map(k => [
           k,
           { text: fallback(k, metrics[k]), source: "fallback" }
         ])
       );
-
       return res.json({ success: true, configured: false, insights });
     }
 
     const prompt = "You write descriptive insights for an OSCA staff dashboard about senior citizen ID applications. Return JSON with an 'insights' object containing a short string for each provided analytics key. Use only supplied aggregate statistics. Do not invent numbers, infer causes, identify individuals, or make eligibility decisions. Use simple professional English, 1-2 sentences and at most 35 words per insight. Explain only what the data shows.";
-    let generated = {};
-    let provider = "gemini";
-
-    try {
-      if (!apiKey) {
-        throw new Error("Gemini API key is not configured");
-      }
-      if (geminiQuotaIsCoolingDown()) {
-        throw new Error("Gemini quota cooldown is active; routing directly to Groq.");
-      }
-      const abort = new AbortController();
-      const timer = setTimeout(() => abort.abort(), 30000);
-
-      let response;
-
-      try {
-        response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
-            MODEL.replace(/^models\//, "")
-          )}:generateContent`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "x-goog-api-key": apiKey,
-            },
-            signal: abort.signal,
-            body: JSON.stringify({
-              systemInstruction: { parts: [{ text: prompt }] },
-              contents: [{
-                role: "user",
-                parts: [{ text: JSON.stringify(metrics) }],
-              }],
-              generationConfig: {
-                temperature: 0.2,
-                maxOutputTokens: 700,
-                responseMimeType: "application/json",
-                responseSchema: {
-                  type: "OBJECT",
-                  properties: {
-                    insights: {
-                      type: "OBJECT",
-                      properties: Object.fromEntries(
-                        KEYS.map(k => [k, { type: "STRING" }])
-                      ),
-                    },
-                  },
-                  required: ["insights"],
-                },
-              },
-            }),
-          }
-        );
-      } finally {
-        clearTimeout(timer);
-      }
-
-      const body = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        throw new Error(
-          body.error?.message || `Gemini returned HTTP ${response.status}`
-        );
-      }
-
-      const raw = body.candidates?.[0]?.content?.parts
-        ?.map(p => p.text || "")
-        .join("") || "";
-
-      const parsed = JSON.parse(raw);
-      generated = plainObject(parsed.insights) ? parsed.insights : {};
-
-    } catch (geminiError) {
-      const quotaState = noteGeminiQuotaFailure(geminiError);
-      if (quotaState.newlyLimited) {
-        console.warn(
-          `[Staff analytics] Gemini quota/rate limit reached; temporarily routing requests directly to Groq: ${geminiError.message}`
-        );
-      } else if (!quotaState.coolingDown) {
-        console.warn(
-          `[Staff analytics] Gemini failed; trying Groq: ${geminiError.message}`
-        );
-      }
-
-      generated = await requestStaffGroq(metrics, prompt);
-      provider = "groq";
-    }
+    const generated = await requestStaffGroq(metrics, prompt);
+    const provider = "groq";
 
     const insights = {};
     for (const key of KEYS) {
@@ -336,7 +250,7 @@ async function generateStaffAnalyticsInsights(req, res) {
     try {
       const metrics = sanitizeMetrics(req.body?.metrics || {});
       const insights = Object.fromEntries(KEYS.map(k => [k, { text: fallback(k, metrics[k]), source: "fallback" }]));
-      return res.json({ success: true, configured: Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GROQ_API_KEY), insights });
+      return res.json({ success: true, configured: Boolean(process.env.GROQ_API_KEY), insights });
     } catch (_) {
       return res.status(500).json({ success: false, message: "Unable to generate analytics insights." });
     }
