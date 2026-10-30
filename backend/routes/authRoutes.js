@@ -733,7 +733,6 @@ router.put(
         role,
         account_status,
         full_name,
-        designation,
       } = req.body;
 
       if (Object.prototype.hasOwnProperty.call(req.body, "password")) {
