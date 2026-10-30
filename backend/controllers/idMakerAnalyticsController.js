@@ -192,74 +192,62 @@ async function requestGemini(stats) {
   }
 }
 
-async function requestGroq(stats) {
+async function requestGroqBatch(statsByCard) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) throw new Error("GROQ_API_KEY is not configured");
 
+  const cardKeys = Object.keys(statsByCard);
+  if (!cardKeys.length) return {};
+  const properties = Object.fromEntries(cardKeys.map((key) => [key, { type: "string" }]));
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
 
   try {
-    const response = await fetch(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: "openai/gpt-oss-20b",
-          messages: [
-            {
-              role: "system",
-              content: `${SYSTEM_PROMPT}\n\nReturn your answer as a JSON object with one property named "insight", whose value is the insight text.`,
-            },
-            {
-              role: "user",
-              content: JSON.stringify(stats),
-            },
-          ],
-          temperature: 0,
-          max_completion_tokens: 250,
-          response_format: { type: "json_object" },
-        }),
-      }
-    );
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      signal: controller.signal,
+      body: JSON.stringify({
+        model: "openai/gpt-oss-20b",
+        messages: [
+          { role: "system", content: `${SYSTEM_PROMPT}
+
+You receive statistics for multiple analytics cards. Return one JSON object with an "insights" property containing exactly these keys: ${cardKeys.join(", ")}. Each value must be one concise insight string following all rules above. Do not omit or add keys.` },
+          { role: "user", content: JSON.stringify(statsByCard) }
+        ],
+        temperature: 0,
+        max_completion_tokens: 1200,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "id_maker_analytics_insights",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: { insights: { type: "object", properties, required: cardKeys, additionalProperties: false } },
+              required: ["insights"],
+              additionalProperties: false
+            }
+          }
+        }
+      })
+    });
 
     const responseText = await response.text();
-
     let result = {};
-
-    try {
-      result = responseText ? JSON.parse(responseText) : {};
-    } catch {
-      throw new Error("Groq returned an invalid JSON response.");
-    }
+    try { result = responseText ? JSON.parse(responseText) : {}; }
+    catch { throw new Error("Groq returned an invalid API response."); }
 
     if (!response.ok) {
-      console.error("[Groq] Full API error response:", responseText);
-
-      const errorMessage =
-        result.error?.message ||
-        result.message ||
-        responseText ||
-        "Unknown Groq API error";
-
-      throw new Error(
-        `Groq request failed (${response.status}): ${errorMessage}`
-      );
+      const message = result.error?.message || result.message || responseText || "Unknown Groq API error";
+      throw new Error(`Groq request failed (${response.status}): ${message}`);
     }
 
-    const content = result.choices?.[0]?.message?.content || "";
-    const parsed = JSON.parse(content);
-
-    if (typeof parsed.insight !== "string") {
-      throw new Error("Groq returned an invalid insight response.");
-    }
-
-    return parsed.insight;
+    const choice = result.choices?.[0];
+    if (choice?.finish_reason === "length") throw new Error("Groq reached its completion-token limit before finishing the structured response.");
+    const parsed = JSON.parse(choice?.message?.content || "");
+    if (!parsed.insights || typeof parsed.insights !== "object" || Array.isArray(parsed.insights)) throw new Error("Groq returned an invalid insights object.");
+    return parsed.insights;
   } finally {
     clearTimeout(timeout);
   }
@@ -267,107 +255,80 @@ async function requestGroq(stats) {
 
 const generateIdMakerAnalyticsInsights = async (req, res) => {
   const cards = req.body?.cards;
-  if (!cards || typeof cards !== "object" || Array.isArray(cards)) {
-    return res.status(400).json({ success: false, message: "Computed card statistics are required." });
-  }
+  if (!cards || typeof cards !== "object" || Array.isArray(cards)) return res.status(400).json({ success: false, message: "Computed card statistics are required." });
 
   const serialized = JSON.stringify(cards);
-  if (serialized.length > 16000) {
-    return res.status(413).json({ success: false, message: "Analytics statistics payload is too large." });
-  }
-  if (containsPersonalDataKey(cards)) {
-    return res.status(400).json({ success: false, message: "Personal applicant fields are not allowed in analytics insight requests." });
-  }
+  if (serialized.length > 16000) return res.status(413).json({ success: false, message: "Analytics statistics payload is too large." });
+  if (containsPersonalDataKey(cards)) return res.status(400).json({ success: false, message: "Personal applicant fields are not allowed in analytics insight requests." });
 
-  const sanitizedCards = Object.fromEntries(CARD_KEYS.map((key) => [
-    key,
-    sanitizeCardStats(key, cards[key]),
-  ]));
+  const sanitizedCards = Object.fromEntries(CARD_KEYS.map((key) => [key, sanitizeCardStats(key, cards[key])]));
+  const batchCacheKey = `batch:${JSON.stringify(sanitizedCards)}`;
+  let pending = insightInFlight.get(batchCacheKey);
 
-  const insights = {};
-  await Promise.all(CARD_KEYS.map(async (cardKey) => {
-    const stats = sanitizedCards[cardKey];
-    if (!stats || stats.hasData !== true) {
-      insights[cardKey] = {
-        text: "No data available for this period.",
-        source: "fallback",
-      };
-      return;
-    }
+  if (!pending) {
+    pending = (async () => {
+      const insights = {};
+      const needsAI = {};
 
-    try {
-      const cacheKey = `${cardKey}:${JSON.stringify(stats)}`;
-
-      // Reuse a previous successful AI insight if the stats are unchanged.
-      const cached = getCachedInsight(cacheKey);
-      if (cached) {
-        insights[cardKey] = { ...cached, cached: true };
-        return;
+      for (const cardKey of CARD_KEYS) {
+        const stats = sanitizedCards[cardKey];
+        if (!stats || stats.hasData !== true) {
+          insights[cardKey] = { text: stats?.fallback || "No data available for this period.", source: "fallback" };
+          continue;
+        }
+        const cacheKey = `${cardKey}:${JSON.stringify(stats)}`;
+        const cached = getCachedInsight(cacheKey);
+        if (cached) insights[cardKey] = { ...cached, cached: true };
+        else needsAI[cardKey] = { stats, cacheKey };
       }
 
-      // Share an in-progress request if another call has the same stats.
-      let pending = insightInFlight.get(cacheKey);
+      const cardKeys = Object.keys(needsAI);
+      if (!cardKeys.length) return insights;
 
-      if (!pending) {
-        pending = requestGemini(stats)
-          .then((text) => ({
-            text,
-            provider: "gemini",
-          }))
-          .catch(async (geminiError) => {
-            console.warn(
-              `[ID Maker analytics] Gemini failed; trying Groq: ${geminiError.message}`
-            );
+      const geminiResults = await Promise.all(cardKeys.map(async (cardKey) => {
+        try {
+          return { cardKey, text: await requestGemini(needsAI[cardKey].stats), provider: "gemini" };
+        } catch (error) {
+          console.warn(`[ID Maker analytics] Gemini failed for ${cardKey}; will use Groq batch fallback: ${error.message}`);
+          return { cardKey, error };
+        }
+      }));
 
-            const text = await requestGroq(stats);
-
-            return {
-              text,
-              provider: "groq",
-            };
-          })
-          .then(({ text, provider }) => {
-            const validationFailure = validateInsight(text, stats);
-
-            if (validationFailure) {
-              console.warn(
-                `[ID Maker analytics] Rejected ${provider} insight: ${validationFailure}`
-              );
-
-              return {
-                text: stats.fallback,
-                source: "fallback",
-                reason: validationFailure,
-              };
-            }
-
-            const result = {
-              text: text.trim(),
-              source: "ai",
-              provider,
-            };
-
-            cacheInsight(cacheKey, result);
-            return result;
-          })
-          .finally(() => {
-            insightInFlight.delete(cacheKey);
-          });
+      const failedKeys = geminiResults.filter((item) => item.error).map((item) => item.cardKey);
+      let groqInsights = {};
+      if (failedKeys.length) {
+        const failedStats = Object.fromEntries(failedKeys.map((key) => [key, needsAI[key].stats]));
+        try { groqInsights = await requestGroqBatch(failedStats); }
+        catch (error) { console.warn(`[ID Maker analytics] Groq batch fallback failed: ${error.message}`); }
       }
 
-      insights[cardKey] = await pending;
-    } catch (error) {
-      const reason = error.name === "AbortError" ? "AI provider request timed out" : error.message;
-      console.warn(`[ID Maker analytics] AI provider ${cardKey} insight failed: ${reason}`);
-      insights[cardKey] = { text: stats.fallback, source: "fallback", reason };
-    }
-  }));
+      for (const item of geminiResults) {
+        const key = item.cardKey;
+        const stats = needsAI[key].stats;
+        const provider = item.provider || (typeof groqInsights[key] === "string" ? "groq" : null);
+        const candidate = item.provider ? item.text : groqInsights[key];
+        const validationFailure = provider ? validateInsight(candidate, stats) : "AI providers did not return an insight";
 
+        if (validationFailure) {
+          insights[key] = { text: stats.fallback || "No data available for this period.", source: "fallback", reason: validationFailure };
+          continue;
+        }
+
+        const result = { text: candidate.trim(), source: "ai", provider };
+        cacheInsight(needsAI[key].cacheKey, result);
+        insights[key] = result;
+      }
+      return insights;
+    })().finally(() => insightInFlight.delete(batchCacheKey));
+    insightInFlight.set(batchCacheKey, pending);
+  }
+
+  const insights = await pending;
   return res.status(200).json({
     success: true,
     configured: Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GROQ_API_KEY),
     model: GEMINI_MODEL,
-    insights,
+    insights
   });
 };
 
