@@ -355,6 +355,7 @@ async function bulkUpdateQueueStatus() {
   const statusSelect = document.getElementById('bulk-update-status');
   const newStatus = statusSelect?.value || '';
   const selectedIds = [...SELECTED_QUEUE_IDS];
+
   if (!selectedIds.length) {
     showToast('Select at least one applicant first.', 'warning');
     return;
@@ -369,6 +370,7 @@ async function bulkUpdateQueueStatus() {
     .filter(Boolean);
   const unchanged = selectedItems.filter(item => item.printStatus === newStatus).length;
   const toUpdate = selectedItems.filter(item => item.printStatus !== newStatus);
+
   if (!toUpdate.length) {
     showToast('All selected applicants already have this status.', 'info');
     return;
@@ -377,40 +379,59 @@ async function bulkUpdateQueueStatus() {
   const confirmed = window.confirm(
     'Update ' + toUpdate.length + ' applicant' + (toUpdate.length === 1 ? '' : 's') +
     ' to "' + newStatus + '"?' +
-    (unchanged ? '\n' + unchanged + ' applicant(s) already have this status and will be skipped.' : '')
+    (unchanged ? '\\n' + unchanged + ' applicant(s) already have this status and will be skipped.' : '')
   );
   if (!confirmed) return;
 
   const button = document.getElementById('bulk-update-button');
+  const originalButtonText = button?.textContent || 'Update Selected';
   if (button) {
     button.disabled = true;
     button.textContent = 'Updating…';
   }
 
-  const tbody = document.getElementById('id-maker-queue-tbody');
-  const originalOrder = tbody
-    ? [...tbody.querySelectorAll('tr[data-app-id]')].map(row => row.dataset.appId)
-    : [];
-  const failedIds = [];
-  let succeeded = 0;
-  const applicationStatus = newStatus === 'Completed' ? 'Ready for Release' : 'In Process';
-
-  for (const item of toUpdate) {
-    const id = String(item.id);
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
+    let response;
+    let result;
     try {
-      const response = await fetch(ID_MAKER_API + '/' + encodeURIComponent(id), {
+      response = await fetch(ID_MAKER_API + '/bulk-status', {
         method: 'PUT',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ print_status: newStatus })
+        body: JSON.stringify({
+          application_ids: toUpdate.map(item => String(item.id)),
+          print_status: newStatus
+        }),
+        signal: controller.signal
       });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || result.error || 'Queue status could not be saved.');
-      }
+      result = await response.json().catch(() => ({}));
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
+    if (!response.ok || !result.success) {
+      const details = result.failed_ids?.length
+        ? ' Applicants needing attention: ' + result.failed_ids.join(', ')
+        : '';
+      throw new Error((result.message || result.error || 'The server could not save the bulk update.') + details);
+    }
+
+    const savedAt = new Date().toISOString();
+    const returnedQueue = new Map(
+      (result.queue || []).map(row => [String(row.application_id), row])
+    );
+
+    toUpdate.forEach(item => {
+      const id = String(item.id);
+      const saved = returnedQueue.get(id);
       item.printStatus = newStatus;
-      item.updatedAt = result.queue?.updated_at || new Date().toISOString();
-      if (result.queue?.completed_at) item.completedAt = result.queue.completed_at;
+      item.updatedAt = saved?.updated_at || savedAt;
+      if (saved && Object.prototype.hasOwnProperty.call(saved, 'completed_at')) {
+        item.completedAt = saved.completed_at;
+      } else if (newStatus === 'Completed') {
+        item.completedAt = savedAt;
+      }
 
       const analyticsRecord = ID_MAKER_ANALYTICS_DATA?.find(
         record => String(record.application_id || record.id) === id
@@ -418,85 +439,47 @@ async function bulkUpdateQueueStatus() {
       if (analyticsRecord) {
         analyticsRecord.printStatus = newStatus;
         analyticsRecord.updatedAt = item.updatedAt;
-        analyticsRecord.completedAt = result.queue?.completed_at || analyticsRecord.completedAt || null;
+        if (newStatus === 'Completed') analyticsRecord.completedAt = item.completedAt;
       }
 
+      if (typeof APP_DB !== 'undefined' && APP_DB[id]) APP_DB[id].status = result.application_status;
+      if (typeof LIVE_APPLICATIONS !== 'undefined' && Array.isArray(LIVE_APPLICATIONS)) {
+        const live = LIVE_APPLICATIONS.find(record => String(record.application_id || record.id) === id);
+        if (live) live.status = result.application_status;
+      }
+      if (typeof FULL_APPLICANTS !== 'undefined' && Array.isArray(FULL_APPLICANTS)) {
+        const full = FULL_APPLICANTS.find(record => String(record.id) === id);
+        if (full) full.status = result.application_status;
+      }
+      if (typeof syncApplicationsTableBadge === 'function') {
+        syncApplicationsTableBadge(id, result.application_status);
+      }
       if (typeof saveLocalIdMakerQueue === 'function') saveLocalIdMakerQueue(item, false);
-
-      // Keep the application workflow status synchronized with the ID queue.
-      try {
-        const appResponse = await fetch(
-          'https://management-backend-3cij.onrender.com/api/applications/' + encodeURIComponent(id) + '/status',
-          {
-            method: 'PUT',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ status: applicationStatus })
-          }
-        );
-        const appResult = await appResponse.json().catch(() => ({}));
-        if (appResponse.ok && appResult.success) {
-          if (typeof APP_DB !== 'undefined' && APP_DB[id]) APP_DB[id].status = applicationStatus;
-          if (typeof LIVE_APPLICATIONS !== 'undefined' && Array.isArray(LIVE_APPLICATIONS)) {
-            const live = LIVE_APPLICATIONS.find(record => String(record.application_id || record.id) === id);
-            if (live) live.status = applicationStatus;
-          }
-          if (typeof FULL_APPLICANTS !== 'undefined' && Array.isArray(FULL_APPLICANTS)) {
-            const full = FULL_APPLICANTS.find(record => String(record.id) === id);
-            if (full) full.status = applicationStatus;
-          }
-          if (typeof syncApplicationsTableBadge === 'function') syncApplicationsTableBadge(id, applicationStatus);
-        } else {
-          console.warn('Queue status saved, but application status sync failed for', id, appResult.message || appResponse.status);
-        }
-      } catch (syncError) {
-        console.warn('Queue status saved, but application status sync failed for', id, syncError);
-      }
-
-      appendAudit(
-        CURRENT_USER?.displayName || 'ID Maker',
-        'Bulk status set to: ' + newStatus + ' for ' + (item.name || id),
-        CURRENT_ROLE
-      );
       SELECTED_QUEUE_IDS.delete(id);
-      succeeded++;
-    } catch (error) {
-      console.error('Bulk status update failed for ' + id + ':', error);
-      failedIds.push(id);
-    }
-  }
-
-  systemAlertDismissed = false;
-  updateIdMakerKPIs();
-  renderQueueTable();
-
-  // Keep rows in their pre-update visual order; filtering still removes rows
-  // that no longer match the active filters.
-  if (tbody && originalOrder.length) {
-    const rowMap = new Map(
-      [...tbody.querySelectorAll('tr[data-app-id]')].map(row => [row.dataset.appId, row])
-    );
-    originalOrder.forEach(id => {
-      const row = rowMap.get(id);
-      if (row) tbody.appendChild(row);
     });
-  }
 
-  updateBulkSelectionUI();
-  if (button) {
-    button.disabled = false;
-    button.textContent = 'Update Selected';
-  }
+    systemAlertDismissed = false;
+    updateIdMakerKPIs();
+    renderQueueTable();
+    updateBulkSelectionUI();
 
-  if (failedIds.length) {
     showToast(
-      succeeded + ' updated; ' + failedIds.length + ' failed. Failed applicants remain selected so you can retry.',
-      'warning'
-    );
-  } else {
-    showToast(
-      succeeded + ' applicant' + (succeeded === 1 ? '' : 's') + ' updated to "' + newStatus + '".',
+      result.updated_count + ' applicant' + (result.updated_count === 1 ? '' : 's') +
+      ' successfully updated to "' + newStatus + '".' +
+      (unchanged ? ' ' + unchanged + ' unchanged applicant(s) were skipped.' : ''),
       'success'
     );
+  } catch (error) {
+    console.error('Bulk ID Maker status update failed:', error);
+    const message = error.name === 'AbortError'
+      ? 'The bulk update timed out. Refresh the queue before retrying to check which records were saved.'
+      : error.message || 'Bulk update failed. Please try again.';
+    showToast(message, 'error');
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.textContent = originalButtonText;
+    }
   }
 }
 
