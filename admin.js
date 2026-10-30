@@ -3977,12 +3977,12 @@ function auditEventMatches(e, f) {
     e.ip, e.device, e.entityType, e.entityId, e.details
   ].map(value => String(value ?? '')).join(' ')
     .normalize('NFD')
-    .replace(/[\\u0300-\\u036f]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase();
 
   const searchTerm = String(f.q || '')
     .normalize('NFD')
-    .replace(/[\\u0300-\\u036f]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase();
 
   const matchQ = !searchTerm || searchableText.includes(searchTerm);
