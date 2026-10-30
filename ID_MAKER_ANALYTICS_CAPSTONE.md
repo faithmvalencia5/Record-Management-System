@@ -97,7 +97,7 @@ The PDF report button opens the browser print dialog with an analytics-only prin
 5. Run the read-only timestamp-quality query above; compare missing/future counts and oldest timestamp with staff’s Supabase records. Do not edit those records during this check.
 6. Verify barangay ordering and top-three share against a manual grouped count. Confirm missing barangay data prevents a claim rather than appearing as a real barangay.
 7. Verify six monthly counts against rows with `completed_at`; compare latest and previous month counts. Confirm old Completed records without timestamps cause a no-data/incomplete state, not a guessed month.
-8. With an AI provider configured, inspect one response per card and compare all numbers to the exact submitted JSON. Confirm code-set status labels do not come from Gemini.
+8. With an AI provider configured, inspect one response per card and compare all numbers to the exact submitted JSON. Confirm code-set status labels do not come from the AI provider.
 9. Send controlled invalid responses to the validator: unsupported number (`**99% ...**` when 99 is absent), incorrect bold lead, the phrase `should increase`, and a 46-word output. Confirm each is rejected, fallback is displayed, and one backend rejection log is recorded for that card.
 10. Test missing/invalid provider credentials, API error, malformed JSON, and timeout. Confirm fallback text remains visible, marked “Generated from live data,” and does not expose applicant data.
 11. Verify Loading, empty, incomplete, and API-error states for all four cards and insights; verify dark/light contrast, mobile stacking, and PDF print output.
