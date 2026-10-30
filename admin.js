@@ -3981,7 +3981,7 @@ function positionAuditEventDetails(anchorRow) {
   dialog.style.right = 'auto';
   dialog.style.bottom = 'auto';
   dialog.style.transform = 'translateX(-50%)';
-  dialog.style.width = Math.max(280, Math.min(820, viewportWidth - edge * 2)) + 'px';
+  dialog.style.width = Math.max(0, Math.min(820, viewportWidth - edge * 2)) + 'px';
   dialog.style.height = targetHeight + 'px';
   dialog.style.maxHeight = targetHeight + 'px';
   dialog.style.minHeight = Math.min(260, targetHeight) + 'px';
