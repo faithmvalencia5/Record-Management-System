@@ -456,6 +456,124 @@ const getIdMakerQueue = async (req, res) => {
 };
 
 // ============================================
+// BULK UPDATE ID MAKER QUEUE + APPLICATION STATUS
+// ============================================
+const bulkUpdateIdMakerQueue = async (req, res) => {
+  try {
+    const ids = [...new Set(
+      (Array.isArray(req.body?.application_ids) ? req.body.application_ids : [])
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+    )];
+    const printStatus = req.body?.print_status;
+    const allowedApplicationStatuses = ["In Process", "Ready for Release"];
+
+    if (!ids.length) {
+      return res.status(400).json({ success: false, message: "Select at least one applicant." });
+    }
+    if (ids.length > 250) {
+      return res.status(400).json({ success: false, message: "A maximum of 250 applicants can be updated at once." });
+    }
+    if (!ALLOWED_STATUSES.includes(printStatus)) {
+      return res.status(400).json({ success: false, message: "Invalid ID Maker queue status." });
+    }
+
+    const now = new Date().toISOString();
+    const applicationStatus = printStatus === "Completed" ? "Ready for Release" : "In Process";
+
+    const { data: applications, error: applicationsError } = await supabase
+      .from("applications")
+      .select("application_id")
+      .in("application_id", ids);
+    if (applicationsError) throw applicationsError;
+
+    const validIds = (applications || []).map((item) => String(item.application_id));
+    const missingIds = ids.filter((id) => !validIds.includes(id));
+    if (missingIds.length) {
+      return res.status(400).json({
+        success: false,
+        message: "Some selected applicants no longer exist. Refresh the queue and try again.",
+        failed_ids: missingIds,
+      });
+    }
+
+    const queueRows = ids.map((applicationId) => ({
+      application_id: applicationId,
+      print_status: printStatus,
+      updated_at: now,
+      ...(printStatus === "Completed" ? { completed_at: now } : { completed_at: null }),
+    }));
+
+    let queueResult = await supabase
+      .from("id_maker_queue")
+      .upsert(queueRows, { onConflict: "application_id" })
+      .select("application_id, print_status, updated_at, completed_at");
+
+    if (queueResult.error && isMissingCompletedAtColumn(queueResult.error)) {
+      queueResult = await supabase
+        .from("id_maker_queue")
+        .upsert(queueRows.map(({ completed_at, ...row }) => row), { onConflict: "application_id" })
+        .select("application_id, print_status, updated_at");
+    }
+    if (queueResult.error) throw queueResult.error;
+
+    const { data: historyRows, error: historyReadError } = await supabase
+      .from("application_status_history")
+      .select("application_id")
+      .in("application_id", ids);
+    if (historyReadError) throw historyReadError;
+
+    const existingHistoryIds = [...new Set((historyRows || []).map((row) => String(row.application_id)))];
+    const missingHistoryIds = ids.filter((id) => !existingHistoryIds.includes(id));
+
+    const historyWrites = [];
+    if (existingHistoryIds.length) {
+      historyWrites.push(
+        supabase.from("application_status_history")
+          .update({ status: applicationStatus, updated_at: now })
+          .in("application_id", existingHistoryIds)
+      );
+    }
+    if (missingHistoryIds.length) {
+      historyWrites.push(
+        supabase.from("application_status_history")
+          .insert(missingHistoryIds.map((application_id) => ({
+            application_id, status: applicationStatus, updated_at: now
+          })))
+      );
+    }
+    const historyResults = await Promise.all(historyWrites);
+    const historyFailure = historyResults.find((result) => result.error);
+    if (historyFailure) throw historyFailure.error;
+
+    await Promise.all(ids.map((applicationId) =>
+      createAuditLogFromRequest(req, {
+        action: "ID_MAKER_BULK_STATUS_UPDATED",
+        entityType: "APPLICATION",
+        entityId: applicationId,
+        details: `ID Maker queue status bulk-updated to "${printStatus}" by ${req.user?.username || "authenticated user"}.`,
+      })
+    ));
+
+    return res.status(200).json({
+      success: true,
+      message: "Selected applicants were updated successfully.",
+      updated_count: ids.length,
+      print_status: printStatus,
+      application_status: applicationStatus,
+      queue: queueResult.data || [],
+    });
+  } catch (error) {
+    console.error("Bulk ID Maker queue update failed:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to bulk-update the selected applicants.",
+      error: error.message,
+    });
+  }
+};
+
+// ============================================
 // UPDATE ID MAKER QUEUE STATUS
 // ============================================
 const updateIdMakerQueue = async (req, res) => {
