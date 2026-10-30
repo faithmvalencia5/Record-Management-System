@@ -302,18 +302,6 @@ router.put(
 
       const updateData = {};
 
-      if (full_name !== undefined) {
-        const cleanFullName = String(full_name || "").trim();
-        if (!cleanFullName) {
-          return res.status(400).json({ success: false, message: "Full name cannot be empty." });
-        }
-        updateData.full_name = cleanFullName;
-      }
-
-      if (designation !== undefined) {
-        updateData.designation = String(designation || "").trim() || null;
-      }
-
       if (username !== undefined) {
         const cleanUsername = String(
           username || ""
@@ -488,7 +476,7 @@ router.get(
       const { data: users, error } = await supabase
         .from("user_accounts")
         .select(
-          "id, username, email, role, account_status"
+          "id, username, full_name, designation, email, role, account_status"
         )
         .order("id", {
           ascending: true,
@@ -511,6 +499,8 @@ router.get(
         users: (users || []).map((user) => ({
           id: user.id,
           username: user.username,
+          full_name: user.full_name || user.username,
+          designation: user.designation || null,
           email: user.email || "",
           role: user.role || "Staff",
           account_status:
@@ -660,7 +650,7 @@ router.post(
           account_status: cleanStatus,
         })
         .select(
-          "id, username, email, role, account_status"
+          "id, username, full_name, designation, email, role, account_status"
         )
         .single();
 
@@ -740,6 +730,18 @@ router.put(
       }
 
       const updateData = {};
+
+      if (full_name !== undefined) {
+        const cleanFullName = String(full_name || "").trim();
+        if (!cleanFullName) {
+          return res.status(400).json({ success: false, message: "Full name cannot be empty." });
+        }
+        updateData.full_name = cleanFullName;
+      }
+
+      if (designation !== undefined) {
+        updateData.designation = String(designation || "").trim() || null;
+      }
 
       if (username !== undefined) {
         const cleanUsername =
