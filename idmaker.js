@@ -1570,24 +1570,9 @@ function renderIdMakerInsightCard(key, insight, stats) {
     monthly: 'idmaker-monthly',
   }[key];
   if (!prefix) return;
-  const statusElement = document.getElementById(`${prefix}-status`);
-  const sourceElement = document.getElementById(`${prefix}-source`);
   const textElement = document.getElementById(`${prefix}-insight-text`);
-  const card = document.querySelector(`[data-insight-card="${key}"]`);
   if (!textElement || !stats) return;
 
-  const status = stats.statusLabel || 'Incomplete';
-  if (statusElement) {
-    statusElement.textContent = status;
-    statusElement.dataset.status = status.toLowerCase();
-  }
-  if (sourceElement) sourceElement.textContent = insight?.source === 'ai'
-    ? 'AI-generated from live data'
-    : 'Generated from live data';
-  if (card) {
-    card.dataset.status = status.toLowerCase();
-    card.dataset.source = insight?.source === 'ai' ? 'ai' : 'fallback';
-  }
   analyticsRenderBoldText(textElement, insight?.text || stats.fallback || 'No data available for this period.');
 }
 
@@ -1635,14 +1620,7 @@ function updateIdMakerAnalyticsInsights() {
     ['production', 'barangay', 'aging', 'monthly'].forEach(key => {
       const prefix = { production: 'idmaker-status', barangay: 'idmaker-barangay', aging: 'idmaker-aging', monthly: 'idmaker-monthly' }[key];
       const text = document.getElementById(`${prefix}-insight-text`);
-      const status = document.getElementById(`${prefix}-status`);
-      const source = document.getElementById(`${prefix}-source`);
       if (text) text.textContent = ID_MAKER_ANALYTICS_REFRESH_ERROR ? 'Queue data could not be loaded.' : 'Loading live data…';
-      if (status) {
-        status.textContent = ID_MAKER_ANALYTICS_REFRESH_ERROR ? 'Unavailable' : 'Loading';
-        status.dataset.status = ID_MAKER_ANALYTICS_REFRESH_ERROR ? 'unavailable' : 'incomplete';
-      }
-      if (source) source.textContent = 'Generated from live data';
     });
     return;
   }
