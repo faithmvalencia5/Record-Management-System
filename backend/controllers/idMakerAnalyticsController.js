@@ -77,7 +77,10 @@ function validateInsight(text, stats) {
   if (words.length > 45) return "response exceeded the 45-word limit";
 
   const boldLead = cleaned.match(/^\*\*(.+?)\*\*/)?.[1];
-  if (!boldLead || boldLead !== stats.expectedLead) {
+  const expectedLead = typeof stats.expectedLead === "string"
+    ? stats.expectedLead.trim()
+    : String(stats.expectedLead ?? "").trim();
+  if (!boldLead || boldLead !== expectedLead) {
     return "bold lead statistic did not match the computed lead";
   }
 
