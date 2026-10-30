@@ -231,10 +231,24 @@ async function requestGroq(stats) {
     const result = await response.json().catch(() => ({}));
 
     if (!response.ok) {
+      const errorText = await response.text();
+
+      console.error("[Groq] Full API error response:", errorText);
+
+      let errorMessage = errorText;
+
+      try {
+        const errorData = JSON.parse(errorText);
+        errorMessage =
+          errorData.error?.message ||
+          errorData.message ||
+          errorText;
+      } catch {
+        // Keep the original response if it isn't valid JSON.
+      }
+
       throw new Error(
-        `Groq request failed (${response.status}): ${
-          result.error?.message || "unknown API error"
-        }`
+        `Groq request failed (${response.status}): ${errorMessage}`
       );
     }
 
