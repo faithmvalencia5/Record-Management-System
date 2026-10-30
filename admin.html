@@ -26,11 +26,18 @@
   <link rel="stylesheet" href="admin.css?v=25" />
   <script src="skeleton.js?v=3"></script>
 <style>
-.password-input-wrap{position:relative;width:100%}
-.password-input-wrap .form-input{padding-right:48px}
-.password-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:32px;height:32px;border:0;background:transparent;color:var(--text-muted);cursor:pointer;border-radius:8px}
-.password-toggle:hover{background:rgba(100,116,139,.12);color:var(--text-primary)}
-.password-toggle svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+/* User account form: one full-width field per row */
+.user-account-modal{width:min(680px,calc(100vw - 32px));max-height:90vh;display:flex;flex-direction:column}
+.user-account-modal .modal__body{overflow-y:auto;min-height:0}
+.user-account-form-grid{display:grid;grid-template-columns:minmax(0,1fr)!important;gap:14px}
+.user-account-form-grid .form-group{width:100%;min-width:0}
+.user-account-form-grid .form-input,.user-account-form-grid .form-select{width:100%;max-width:none;box-sizing:border-box}
+.admin-password-wrap{position:relative;display:block;width:100%;min-width:0}
+.admin-password-wrap .admin-password-input{display:block;width:100%!important;max-width:none!important;box-sizing:border-box;padding-right:48px!important}
+.admin-password-toggle{position:absolute;z-index:2;right:12px;top:50%;transform:translateY(-50%);display:flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:0;background:transparent;color:var(--text-muted);cursor:pointer;border-radius:50%}
+.admin-password-toggle:hover{color:var(--primary);background:transparent}
+.admin-password-toggle i{font-size:17px;line-height:1}
+@media(max-width:600px){.user-account-modal{width:calc(100vw - 20px);max-height:94vh}.user-account-form-grid{gap:12px}}
 </style>
 </head>
 
@@ -768,7 +775,7 @@
         </button>
       </div>
       <div class="modal__body">
-        <div class="form-grid form-grid-2">
+        <div class="form-grid user-account-form-grid">
           <div class="form-group">
             <label class="form-label">Full Name <span>*</span></label>
             <input class="form-input" id="um-fullname" placeholder="e.g., Cindy H. Bulanhagui" />
@@ -798,10 +805,10 @@
           </div>
           <div class="form-group" id="um-password-group" style="grid-column:1/-1">
             <label class="form-label">Password <span>*</span></label>
-            <div class="password-input-wrap">
-              <input class="form-input" type="password" id="um-password" placeholder="Set secure initial password" minlength="8" autocomplete="new-password" oninput="validatePasswordField('um-password')" />
-              <button class="password-toggle" type="button" onclick="togglePasswordVisibility('um-password', this)" aria-label="Show password" title="Show password">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+            <div class="admin-password-wrap">
+              <input class="form-input admin-password-input" type="password" id="um-password" placeholder="Set secure initial password" minlength="8" autocomplete="new-password" oninput="validatePasswordField('um-password')" />
+              <button class="admin-password-toggle" type="button" onclick="togglePasswordVisibility('um-password', this)" aria-label="Show password" title="Show password" tabindex="-1">
+                <i class="fi fi-rr-eye" aria-hidden="true"></i>
               </button>
             </div>
 
