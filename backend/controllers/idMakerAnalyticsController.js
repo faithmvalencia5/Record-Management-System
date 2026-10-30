@@ -218,17 +218,7 @@ You receive statistics for multiple analytics cards. Return one JSON object with
         temperature: 0,
         max_completion_tokens: 1200,
         response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "id_maker_analytics_insights",
-            strict: true,
-            schema: {
-              type: "object",
-              properties: { insights: { type: "object", properties, required: cardKeys, additionalProperties: false } },
-              required: ["insights"],
-              additionalProperties: false
-            }
-          }
+          type: "json_object"
         }
       })
     });
@@ -239,8 +229,22 @@ You receive statistics for multiple analytics cards. Return one JSON object with
     catch { throw new Error("Groq returned an invalid API response."); }
 
     if (!response.ok) {
-      const message = result.error?.message || result.message || responseText || "Unknown Groq API error";
-      throw new Error(`Groq request failed (${response.status}): ${message}`);
+      const message =
+        result.error?.message ||
+        result.message ||
+        responseText ||
+        "Unknown Groq API error";
+
+      const failedGeneration = result.error?.failed_generation;
+
+      const diagnostic =
+        typeof failedGeneration === "string" && failedGeneration.trim()
+          ? ` | failed_generation: ${failedGeneration.slice(0, 1200)}`
+          : "";
+
+      throw new Error(
+        `Groq request failed (${response.status}): ${message}${diagnostic}`
+      );
     }
 
     const choice = result.choices?.[0];
