@@ -228,24 +228,24 @@ async function requestGroq(stats) {
       }
     );
 
-    const result = await response.json().catch(() => ({}));
+    const responseText = await response.text();
+
+    let result = {};
+
+    try {
+      result = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      throw new Error("Groq returned an invalid JSON response.");
+    }
 
     if (!response.ok) {
-      const errorText = await response.text();
+      console.error("[Groq] Full API error response:", responseText);
 
-      console.error("[Groq] Full API error response:", errorText);
-
-      let errorMessage = errorText;
-
-      try {
-        const errorData = JSON.parse(errorText);
-        errorMessage =
-          errorData.error?.message ||
-          errorData.message ||
-          errorText;
-      } catch {
-        // Keep the original response if it isn't valid JSON.
-      }
+      const errorMessage =
+        result.error?.message ||
+        result.message ||
+        responseText ||
+        "Unknown Groq API error";
 
       throw new Error(
         `Groq request failed (${response.status}): ${errorMessage}`
