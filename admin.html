@@ -515,6 +515,10 @@
         <p class="page-header__sub">Timestamped system events across all roles — RA 10173 (DPA) compliant</p>
       </div>
       <div class="page-header__controls">
+        <button class="btn btn--ghost" id="refresh-audit-logs-btn" type="button" onclick="refreshAuditLogs()" title="Reload audit events without refreshing the whole portal">
+          <i class="fi fi-rr-refresh" aria-hidden="true" style="margin-right:6px"></i>
+          Refresh
+        </button>
         <button class="btn btn--ghost" onclick="exportAuditReport()">
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
             style="width:14px;height:14px;margin-right:6px">
@@ -939,7 +943,7 @@
 
   <script src="theme.js?v=1"></script>
   <script src="app.js?v=33"></script>
-  <script src="admin.js?v=20"></script>
+  <script src="admin.js?v=21"></script>
 </body>
 
 </html>
