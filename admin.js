@@ -747,15 +747,12 @@ async function loadAdminUsers() {
           role:
             normalizeAdminUserRole(user.role),
 
-          designation:
-            user.designation || getUserDesignation(user.role),
-
           status:
             user.account_status ||
             'Active',
 
           lastActive:
-            '—'
+            formatLastActive(user.last_active_at)
 
         })
       );
@@ -2090,7 +2087,7 @@ function renderUserMgmtTable() {
 
   const filtered = ADMIN_USER_ACCOUNTS.filter(u => {
     const searchable = [
-      u.fullName, u.username, u.email, u.role, u.designation, u.status
+      u.fullName, u.username, u.email, u.role, u.status
     ].join(' ').toLowerCase();
 
     const matchQ = !q || searchable.includes(q);
@@ -2205,18 +2202,6 @@ function renderUserMgmtTable() {
 
             ${escHtml(u.role)}
 
-          </span>
-
-        </td>
-
-
-        <td data-label="Position">
-
-          <span
-            class="cell-text"
-            title="${escHtml(u.designation)}"
-          >
-            ${escHtml(u.designation)}
           </span>
 
         </td>
@@ -2437,19 +2422,6 @@ function openUserModal(
       }
 
 
-      const designation =
-        document.getElementById(
-          'um-designation'
-        );
-
-      if (designation) {
-
-        designation.value =
-          u.designation;
-
-      }
-
-
       const username =
         document.getElementById(
           'um-username'
@@ -2511,6 +2483,7 @@ function openUserModal(
 
         password.value =
           '';
+        password.type = 'password';
 
       }
 
@@ -2520,7 +2493,6 @@ function openUserModal(
 
     [
       'um-fullname',
-      'um-designation',
       'um-username',
       'um-email',
       'um-password'
@@ -2646,6 +2618,24 @@ function updateRolePermHint() {
 
 }
 
+
+function togglePasswordVisibility(inputId, button) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const showing = input.type === 'password';
+  input.type = showing ? 'text' : 'password';
+  button.setAttribute('aria-label', showing ? 'Hide password' : 'Show password');
+  button.title = showing ? 'Hide password' : 'Show password';
+  button.innerHTML = showing
+    ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M9.9 5.2A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a16 16 0 0 1-3.1 3.9M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7a10 10 0 0 0 4-.8"/></svg>'
+    : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+}
+function formatLastActive(value) {
+  if (!value) return 'Never';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleString([], { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
 
 function isStrongPassword(
   password
@@ -2859,7 +2849,6 @@ async function saveUser() {
 
       const body = {
         full_name: fullName,
-        designation: document.getElementById('um-designation').value.trim(),
         username,
         email,
         role,
@@ -2902,8 +2891,7 @@ async function saveUser() {
             body:
               JSON.stringify({
                 full_name: fullName,
-                designation: document.getElementById('um-designation').value.trim(),
-                username,
+                        username,
                 password,
                 email,
                 role,
