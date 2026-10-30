@@ -942,10 +942,17 @@ async function inlineStatusChange(appId, newStatus) {
     // ========================================
 
     // The row's status label was already updated in place by
-    // selectRowStatus(). Refresh only the KPIs and alert counts here.
-    // Rebuilding the table would re-sort by updatedAt and move this
-    // applicant to the top immediately after a status change.
+    // selectRowStatus(). Keep it in place if it still matches the active
+    // filters; remove it from the visible table if the new status/search/
+    // delayed state no longer matches those filters.
     updateIdMakerKPIs();
+
+    const stillMatchesActiveFilters = getFilteredQueue().some(
+      item => String(item.id) === String(appId)
+    );
+    if (!stillMatchesActiveFilters) {
+      renderQueueTable();
+    }
 
     appendAudit(
       CURRENT_USER?.displayName ||
