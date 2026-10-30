@@ -4089,9 +4089,17 @@ function auditEventMatches(
       ' ' +
       e.user +
       ' ' +
+      e.username +
+      ' ' +
       e.role +
       ' ' +
       e.ip +
+      ' ' +
+      e.device +
+      ' ' +
+      e.entityType +
+      ' ' +
+      e.entityId +
       ' ' +
       e.details
     )
@@ -4142,11 +4150,8 @@ function auditEventMatches(
 
     if (f.from) {
 
-      const fromMs =
-        Date.parse(
-          f.from +
-          'T00:00:00'
-        );
+      const [fromYear, fromMonth, fromDay] = f.from.split('-').map(Number);
+      const fromMs = new Date(fromYear, fromMonth - 1, fromDay).getTime();
 
 
       if (
@@ -4170,19 +4175,17 @@ function auditEventMatches(
       f.to
     ) {
 
-      const toMs =
-        Date.parse(
-          f.to +
-          'T23:59:59.999'
-        );
+      const [toYear, toMonth, toDay] = f.to.split('-').map(Number);
+      // Exclusive next-day boundary includes all events on the selected end date.
+      const toExclusiveMs = new Date(toYear, toMonth - 1, toDay + 1).getTime();
 
 
       if (
         !Number.isNaN(
-          toMs
+          toExclusiveMs
         ) &&
-        ts >
-          toMs
+        ts >=
+          toExclusiveMs
       ) {
 
         matchDate =
