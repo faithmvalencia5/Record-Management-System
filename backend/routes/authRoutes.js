@@ -473,7 +473,10 @@ router.get(
   requireAdmin,
   async (req, res) => {
     try {
-      const { data: users, error } = await supabase
+      // Some existing deployments may not have the optional
+      // designation column yet. Retry without it so account
+      // retrieval does not fail for every user.
+      let { data: users, error } = await supabase
         .from("user_accounts")
         .select(
           "id, username, full_name, designation, email, role, account_status"
@@ -481,6 +484,29 @@ router.get(
         .order("id", {
           ascending: true,
         });
+
+      if (
+        error &&
+        /designation|column .* does not exist|schema cache/i.test(
+          error.message || ""
+        )
+      ) {
+        console.warn(
+          "[Admin Users] Optional designation column unavailable; retrying without it."
+        );
+
+        const fallback = await supabase
+          .from("user_accounts")
+          .select(
+            "id, username, full_name, email, role, account_status"
+          )
+          .order("id", {
+            ascending: true,
+          });
+
+        users = fallback.data;
+        error = fallback.error;
+      }
 
       if (error) {
         console.error(
@@ -491,6 +517,7 @@ router.get(
         return res.status(500).json({
           success: false,
           message: "Unable to load user accounts.",
+          // Keep database details in server logs, not the public response.
         });
       }
 
