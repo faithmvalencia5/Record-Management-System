@@ -179,22 +179,25 @@ const STAFF_SELECTED_APP_IDS = new Set();
 
 function getVisibleStaffApplicationCheckboxes() {
   return Array.from(document.querySelectorAll(
-    '#applications-tbody tr[data-app-id] .row-check[data-app-id]'
+    '#applications-tbody .row-check[data-app-id]'
   )).filter(checkbox => {
     const row = checkbox.closest('tr');
-    return row && row.style.display !== 'none';
+    return row && window.getComputedStyle(row).display !== 'none';
   });
 }
 
 function toggleSelectAllApps(checked) {
+  const shouldSelect = Boolean(checked);
   const visibleCheckboxes = getVisibleStaffApplicationCheckboxes();
+
   visibleCheckboxes.forEach(checkbox => {
     const id = String(checkbox.dataset.appId || '');
     if (!id) return;
-    checkbox.checked = Boolean(checked);
-    if (checked) STAFF_SELECTED_APP_IDS.add(id);
+    checkbox.checked = shouldSelect;
+    if (shouldSelect) STAFF_SELECTED_APP_IDS.add(id);
     else STAFF_SELECTED_APP_IDS.delete(id);
   });
+
   updateBatchState();
 }
 
@@ -234,6 +237,25 @@ function updateBatchState() {
   if (label) label.textContent = selectedCount
     ? 'Batch Operations (' + selectedCount.toLocaleString() + ')'
     : 'Batch Operations';
+}
+
+// Delegate checkbox events from the live applications table. This remains
+// reliable when renderLiveApplications replaces the table rows dynamically.
+if (!window.__staffApplicationSelectionBound) {
+  window.__staffApplicationSelectionBound = true;
+  document.addEventListener('change', event => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement)) return;
+
+    if (target.id === 'select-all-apps') {
+      toggleSelectAllApps(target.checked);
+      return;
+    }
+
+    if (target.matches('#applications-tbody .row-check[data-app-id]')) {
+      toggleApplicationSelection(target);
+    }
+  });
 }
 
 window.toggleSelectAllApps = toggleSelectAllApps;
@@ -3976,7 +3998,7 @@ function renderLiveApplications(applications) {
     const barangay = application.barangay_district || application.barangay || '';
     const days = getApplicationDaysPending(application);
     return `<tr data-app-id="${escapeApplicationHtml(id)}" data-status="${escapeApplicationHtml(String(status).toLowerCase())}" data-barangay="${escapeApplicationHtml(String(barangay).toLowerCase())}" >
-      <td style="width:36px;text-align:center"><input type="checkbox" class="row-check" data-app-id="${escapeApplicationHtml(id)}" aria-label="Select ${escapeApplicationHtml(name)}" ${STAFF_SELECTED_APP_IDS.has(String(id)) ? 'checked' : ''} onchange="toggleApplicationSelection(this)" /></td>
+      <td style="width:36px;text-align:center"><input type="checkbox" class="row-check" data-app-id="${escapeApplicationHtml(id)}" aria-label="Select ${escapeApplicationHtml(name)}" ${STAFF_SELECTED_APP_IDS.has(String(id)) ? 'checked' : ''}  /></td>
       <td data-label="Applicant"><div class="applicant-cell"><div class="applicant-avatar" style="background:${avatarBg}">${escapeApplicationHtml(initials)}</div><div class="applicant-info"><span class="applicant-name">${escapeApplicationHtml(name)}</span><span class="applicant-id">${escapeApplicationHtml(id)}</span></div></div></td>
       <td data-label="Submitted"><span class="cell-text">${escapeApplicationHtml(formatStaffDate(getApplicationSubmittedDate(application)))}</span></td>
       <td data-label="Documents">${docs}</td><td data-label="Stage">${statusHtml}</td><td data-label="Membership">${membershipHtml}</td>
