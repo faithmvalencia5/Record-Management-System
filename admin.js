@@ -1156,8 +1156,12 @@ function normalizeAuditLog(
         log.user_agent
       ),
 
+    userAgent:
+      log.user_agent ||
+      '—',
+
     details:
-      log.details ||
+      log.details ??
       '—',
 
     entityType:
@@ -3814,8 +3818,10 @@ function renderAuditTable() {
 
             return `
 
-              <tr>
-
+              <tr class="audit-log-row" tabindex="0" role="button"
+                aria-label="View details for audit event ${escHtml(e.action)}"
+                onclick="openAuditEventDetails('${escHtml(String(e.id))}')"
+                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAuditEventDetails('${escHtml(String(e.id))}')}">
                 <td data-label="Time">
 
                   <span class="cell-text">
@@ -3919,6 +3925,77 @@ function renderAuditTable() {
 
   }
 
+}
+
+
+function formatAuditDetailValue(value) {
+  if (value === null || value === undefined || value === '') return '—';
+  if (typeof value === 'object') return JSON.stringify(value, null, 2);
+  const textValue = String(value);
+  try {
+    const parsed = JSON.parse(textValue);
+    if (parsed && typeof parsed === 'object') return JSON.stringify(parsed, null, 2);
+  } catch (_error) {}
+  return textValue;
+}
+
+function openAuditEventDetails(eventId) {
+  const event = AUDIT_LOG_DATA.find(log => String(log.id) === String(eventId));
+  if (!event) {
+    showToast('This audit event is no longer available. Refresh the logs and try again.', 'error');
+    return;
+  }
+
+  const modal = document.getElementById('audit-event-detail-modal');
+  const content = document.getElementById('audit-event-detail-content');
+  const title = document.getElementById('audit-event-detail-title');
+  if (!modal || !content) return;
+
+  if (title) title.textContent = event.action || 'Audit event details';
+
+  const field = (label, value, extraClass = '') => `
+    <div class="audit-detail-field ${extraClass}">
+      <span class="audit-detail-field__label">${escHtml(label)}</span>
+      <div class="audit-detail-field__value">${escHtml(value ?? '—')}</div>
+    </div>`;
+
+  const detailsText = formatAuditDetailValue(event.details);
+  content.innerHTML = `
+    <div class="audit-detail-grid">
+      ${field('Timestamp', event.ts)}
+      ${field('Action / Event', event.action)}
+      ${field('User account', event.user)}
+      ${field('Username', event.username)}
+      ${field('Email', event.email)}
+      ${field('Role', event.role)}
+      ${field('Affected record type', event.entityType)}
+      ${field('Affected record ID', event.entityId)}
+      ${field('IP address', event.ip)}
+      ${field('Device', event.device)}
+    </div>
+    <section class="audit-detail-section">
+      <h3>Event details</h3>
+      <pre class="audit-detail-pre">${escHtml(detailsText)}</pre>
+    </section>
+    <section class="audit-detail-section">
+      <h3>Full user-agent information</h3>
+      <pre class="audit-detail-pre audit-detail-pre--muted">${escHtml(event.userAgent || '—')}</pre>
+    </section>
+    <div class="audit-detail-meta">Audit event ID: <code>${escHtml(String(event.id))}</code></div>
+  `;
+
+  modal.hidden = false;
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('audit-detail-open');
+  document.getElementById('audit-event-detail-close')?.focus();
+}
+
+function closeAuditEventDetails() {
+  const modal = document.getElementById('audit-event-detail-modal');
+  if (!modal) return;
+  modal.hidden = true;
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('audit-detail-open');
 }
 
 
