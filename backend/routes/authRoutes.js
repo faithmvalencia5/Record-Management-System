@@ -213,6 +213,37 @@ router.post("/login", async (req, res) => {
 
 
 /* =========================================================
+   LOGOUT AUDIT EVENT
+   POST /api/auth/logout
+   ========================================================= */
+router.post("/logout", authenticateToken, async (req, res) => {
+  try {
+    const { error } = await supabase.from("audit_logs").insert({
+      user_id: req.user.id || null,
+      username: req.user.username || null,
+      role: req.user.role || null,
+      action: "LOGOUT",
+      entity_type: "USER",
+      entity_id: req.user.id == null ? null : String(req.user.id),
+      details: "User logged out of the system.",
+      ip_address: req.ip,
+      user_agent: req.get("user-agent"),
+    });
+
+    if (error) {
+      console.error("Logout audit insert error:", error);
+      return res.status(500).json({ success: false, message: "Unable to record logout event." });
+    }
+
+    return res.json({ success: true, message: "Logout recorded." });
+  } catch (error) {
+    console.error("Logout audit error:", error);
+    return res.status(500).json({ success: false, message: "Unable to record logout event." });
+  }
+});
+
+
+/* =========================================================
    CREATE SESSION TOKEN
    ========================================================= */
 
