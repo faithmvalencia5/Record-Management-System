@@ -3939,7 +3939,7 @@ function formatAuditDetailValue(value) {
   return textValue;
 }
 
-function openAuditEventDetails(eventId) {
+function openAuditEventDetails(eventId, anchorRow = null) {
   const event = AUDIT_LOG_DATA.find(log => String(log.id) === String(eventId));
   if (!event) {
     showToast('This audit event is no longer available. Refresh the logs and try again.', 'error');
@@ -3988,25 +3988,42 @@ function openAuditEventDetails(eventId) {
   // upward; rows near the top open below, while the dialog stays in view.
   const dialog = modal.querySelector('.audit-detail-modal__dialog');
   const detailBody = modal.querySelector('.audit-detail-modal__body');
-  const anchorRow = document.querySelector(`.audit-log-row[data-audit-event-id="${CSS.escape(String(eventId))}"]`);
   modal.hidden = false;
   modal.setAttribute('aria-hidden', 'false');
   document.body.classList.add('audit-detail-open');
 
   if (dialog) {
-    dialog.style.top = '16px';
-    dialog.style.maxHeight = 'calc(100vh - 32px)';
-    dialog.scrollTop = 0;
     const viewportHeight = window.innerHeight;
+    const gap = 10;
+    const edge = 16;
     const rowRect = anchorRow?.getBoundingClientRect();
-    const dialogHeight = dialog.getBoundingClientRect().height;
-    let top = rowRect ? rowRect.top : (viewportHeight - dialogHeight) / 2;
-    if (rowRect && top + dialogHeight > viewportHeight - 16) {
-      top = rowRect.bottom - dialogHeight;
+    dialog.style.top = `${edge}px`;
+    dialog.style.maxHeight = `${Math.floor(viewportHeight * 0.72)}px`;
+    dialog.scrollTop = 0;
+
+    const desiredHeight = dialog.getBoundingClientRect().height;
+    if (rowRect) {
+      const aboveSpace = Math.max(0, rowRect.top - edge - gap);
+      const belowSpace = Math.max(0, viewportHeight - rowRect.bottom - edge - gap);
+      const preferAbove = rowRect.top > viewportHeight * 0.55;
+      let placeAbove = preferAbove;
+      let available = placeAbove ? aboveSpace : belowSpace;
+      if (available < Math.min(320, desiredHeight)) {
+        placeAbove = aboveSpace >= belowSpace;
+        available = placeAbove ? aboveSpace : belowSpace;
+      }
+
+      const maxHeight = Math.max(220, Math.min(desiredHeight, available));
+      dialog.style.maxHeight = `${Math.floor(maxHeight)}px`;
+      const actualHeight = dialog.getBoundingClientRect().height;
+      const top = placeAbove
+        ? Math.max(edge, rowRect.top - actualHeight - gap)
+        : Math.min(viewportHeight - actualHeight - edge, rowRect.bottom + gap);
+      dialog.style.top = `${Math.floor(top)}px`;
+    } else {
+      const actualHeight = dialog.getBoundingClientRect().height;
+      dialog.style.top = `${Math.max(edge, (viewportHeight - actualHeight) / 2)}px`;
     }
-    top = Math.max(16, Math.min(top, viewportHeight - dialogHeight - 16));
-    dialog.style.top = `${top}px`;
-    dialog.style.maxHeight = `${Math.max(240, viewportHeight - top - 16)}px`;
   }
   if (detailBody) detailBody.scrollTop = 0;
   modal.scrollTop = 0;
