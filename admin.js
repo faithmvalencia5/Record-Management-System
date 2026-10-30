@@ -735,7 +735,7 @@ async function loadAdminUsers() {
             user.id,
 
           fullName:
-            user.username,
+            user.full_name || user.username,
 
           username:
             user.username,
@@ -749,9 +749,7 @@ async function loadAdminUsers() {
             'Staff',
 
           designation:
-            getUserDesignation(
-              user.role
-            ),
+            user.designation || getUserDesignation(user.role),
 
           status:
             user.account_status ||
@@ -2855,16 +2853,12 @@ async function saveUser() {
 
 
       const body = {
-
+        full_name: fullName,
+        designation: document.getElementById('um-designation').value.trim(),
         username,
-
         email,
-
         role,
-
-        account_status:
-          status
-
+        account_status: status
       };
 
 
@@ -2902,12 +2896,13 @@ async function saveUser() {
 
             body:
               JSON.stringify({
+                full_name: fullName,
+                designation: document.getElementById('um-designation').value.trim(),
                 username,
                 password,
                 email,
                 role,
-                account_status:
-                  status
+                account_status: status
               })
           }
         );
