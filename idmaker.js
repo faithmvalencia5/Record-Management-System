@@ -837,9 +837,7 @@ async function inlineStatusChange(appId, newStatus) {
       {
         method: 'PUT',
 
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: getAuthHeaders(),
 
         body: JSON.stringify({
           print_status: newStatus
@@ -894,9 +892,7 @@ async function inlineStatusChange(appId, newStatus) {
         '/status',
         {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json'
-          },
+          headers: getAuthHeaders(),
           body: JSON.stringify({
             status: applicationStatus
           })
