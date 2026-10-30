@@ -806,11 +806,21 @@ async function loadAdminUsers() {
 
 
 function normalizeAdminUserRole(role) {
-  const value = String(role || 'Staff').trim().toLowerCase();
-  if (value === 'id maker' || value === 'osca id maker' || value === 'idmaker') return 'ID Maker';
-  if (value === 'osca staff') return 'Staff';
-  if (value === 'administrator') return 'Admin';
-  return role || 'Staff';
+  const value = String(role || 'Staff')
+    .trim()
+    .toLowerCase()
+    .replace(/[ _-]+/g, ' ');
+
+  if (['id maker', 'osca id maker', 'idmaker', 'id card maker'].includes(value)) {
+    return 'ID Maker';
+  }
+  if (['staff', 'osca staff'].includes(value)) {
+    return 'Staff';
+  }
+  if (['admin', 'administrator', 'system administrator'].includes(value)) {
+    return 'Admin';
+  }
+  return String(role || 'Staff').trim();
 }
 
 
