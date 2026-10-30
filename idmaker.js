@@ -37,6 +37,7 @@ let ID_MAKER_INSIGHT_REQUEST_KEY = '';
 let ID_MAKER_INSIGHT_REQUEST_VERSION = 0;
 let ID_MAKER_ANALYTICS_REFRESH_ERROR = false;
 let ID_MAKER_COMPLETION_TIMESTAMP_AVAILABLE = true;
+let ID_MAKER_QUEUE_DATA_STATE = 'loading';
 
 const ID_MAKER_ANALYTICS_CONFIG = Object.freeze({
   within24Hours: 24,
@@ -89,12 +90,12 @@ let QUEUE_FILTER_SIG = '';
 // Queued: measured from sent_at. In Production / In Transit: measured from updated_at.
 // Printed and Completed are never delayed.
 function isQueueItemDelayed(app, now = Date.now()) {
-  const ref =
-    app.printStatus === 'Queued'
-      ? app.sentAt
-      : (app.printStatus === 'In Production' || app.printStatus === 'In Transit')
-        ? app.updatedAt
-        : null;
+  const status = String(app.printStatus || '').trim().toLowerCase();
+  const ref = status === 'queued'
+    ? (app.sentAt || app.updatedAt)
+    : (status === 'in production' || status === 'in transit')
+      ? (app.updatedAt || app.sentAt)
+      : null;
   if (!ref) return false;
   const t = new Date(ref).getTime();
   return Number.isFinite(t) && t <= now && (now - t) > QUEUE_STALE_MS;
@@ -128,6 +129,9 @@ function normalizeQueueBarangay(value) {
 // LOAD QUEUE FROM DATABASE
 
 async function loadIdMakerQueueFromDatabase(showMessage = false) {
+  ID_MAKER_QUEUE_DATA_STATE = 'loading';
+  updateAlertCounts();
+
   if (typeof Skeleton !== 'undefined') {
     Skeleton.setKpiLoading('#mod-id-maker-dashboard .admin-kpi-strip', true);
     Skeleton.setLoading(
@@ -200,6 +204,8 @@ async function loadIdMakerQueueFromDatabase(showMessage = false) {
       });
     }
 
+    ID_MAKER_QUEUE_DATA_STATE = 'ready';
+
     ID_MAKER_ANALYTICS_DATA = ID_MAKER_QUEUE.map(item => ({ ...item }));
     ID_MAKER_ANALYTICS_UPDATED_AT = new Date();
     ID_MAKER_ANALYTICS_REFRESH_ERROR = false;
@@ -227,6 +233,8 @@ async function loadIdMakerQueueFromDatabase(showMessage = false) {
     return ID_MAKER_QUEUE;
 
   } catch (error) {
+
+    ID_MAKER_QUEUE_DATA_STATE = 'error';
 
     console.error(
       'Error loading ID Maker queue:',
@@ -634,11 +642,17 @@ function computeIdMakerAnalyticsStats(records, now = new Date()) {
   let completedWithoutTimestamp = 0;
   let completedWithTimestamp = 0;
   data.forEach(app => {
-    if (app.printStatus === 'Completed' && !app.completedAt) completedWithoutTimestamp++;
-    if (!app.completedAt) return;
-    const completedAt = new Date(app.completedAt);
+    if (app.printStatus !== 'Completed') return;
+    // Older queue rows may predate completed_at. date_issued is the reliable
+    // historical output date for those records.
+    const outputDate = app.completedAt || app.dateIssued;
+    if (!outputDate) {
+      completedWithoutTimestamp++;
+      return;
+    }
+    const completedAt = new Date(outputDate);
     if (!Number.isFinite(completedAt.getTime())) {
-      if (app.printStatus === 'Completed') completedWithoutTimestamp++;
+      completedWithoutTimestamp++;
       return;
     }
     completedWithTimestamp++;
@@ -665,7 +679,7 @@ function computeIdMakerAnalyticsStats(records, now = new Date()) {
   const barangayState = total && missingBarangay === 0
     ? (barangayRanking[0]?.count / total > ID_MAKER_ANALYTICS_CONFIG.barangayElevatedTopShare ? 'Elevated' : 'Normal')
     : null;
-  const monthlyState = !ID_MAKER_COMPLETION_TIMESTAMP_AVAILABLE || completedWithoutTimestamp > 0 || completedTotal === 0
+  const monthlyState = completedWithoutTimestamp > 0 || completedTotal === 0
     ? null
     : (latestMonth.count < previousMonth.count ? 'Elevated' : 'Normal');
 
@@ -763,7 +777,7 @@ function computeIdMakerAnalyticsStats(records, now = new Date()) {
         fallback: agingFallback,
       },
       monthly: {
-        hasData: ID_MAKER_COMPLETION_TIMESTAMP_AVAILABLE && completedTotal > 0 && completedWithoutTimestamp === 0,
+        hasData: completedTotal > 0,
         months: monthly.map(month => ({ ...month })),
         latestMonth: latestMonth.label,
         latestCount: latestMonth.count,
@@ -1222,6 +1236,22 @@ function updateAlertCounts(){
   const list = banner.querySelector('.alert-banner__list');
   if (!list) return;
 
+  if (ID_MAKER_QUEUE_DATA_STATE !== 'ready') {
+    if (title) {
+      title.textContent = ID_MAKER_QUEUE_DATA_STATE === 'error'
+        ? 'Queue status unavailable'
+        : 'Loading queue status';
+    }
+    list.replaceChildren();
+    const stateItem = document.createElement('li');
+    stateItem.textContent = ID_MAKER_QUEUE_DATA_STATE === 'error'
+      ? 'Queue data could not be loaded, so delayed items could not be verified.'
+      : 'Checking saved queue records for delayed items.';
+    list.appendChild(stateItem);
+    banner.style.display = systemAlertDismissed ? 'none' : '';
+    return;
+  }
+
   const now = Date.now();
   const delayedCount = ID_MAKER_QUEUE.filter(app => isQueueItemDelayed(app, now)).length;
 
@@ -1431,10 +1461,8 @@ function initIdMakerMonthlyOutputChart() {
   if (empty) {
     empty.textContent = ID_MAKER_ANALYTICS_REFRESH_ERROR
       ? 'Queue data could not be loaded.'
-      : !ID_MAKER_COMPLETION_TIMESTAMP_AVAILABLE
-        ? 'Monthly output is unavailable until the completion timestamp migration is applied.'
       : incomplete
-        ? 'No data available for this period. Completion timestamps are missing for some completed records.'
+        ? 'Some completed IDs have no usable completion or issue date.'
         : 'No data available for this period.';
     empty.style.display = stats.cards.monthly.hasData ? 'none' : 'flex';
   }

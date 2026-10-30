@@ -3,6 +3,35 @@
 .main-queue-header{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:16px;flex-wrap:nowrap}
 .main-queue-header__title{display:flex;flex-direction:column;min-width:0;flex:1 1 auto}
 .main-queue-header__controls{display:flex;flex-direction:row;align-items:center;gap:10px;flex-wrap:nowrap}
+/* Use one blue border for each main queue toolbar control, including while focused. */
+.main-queue-header__controls .table-search,
+.main-queue-header__controls .queue-filter-trigger,
+.main-queue-header__controls > .btn{
+  border:1.5px solid var(--primary);
+  outline:none;
+  box-shadow:none;
+}
+.main-queue-header__controls .barangay-select-wrap{
+  border-radius:var(--r-md);
+  box-shadow:none;
+}
+.main-queue-header__controls .table-search:focus-within{
+  border-color:var(--primary);
+  box-shadow:none;
+}
+.main-queue-header__controls button:focus-visible{
+  outline:none;
+  box-shadow:none;
+}
+.main-queue-header__controls .barangay-select-wrap select.filter-select{
+  border:1.5px solid var(--primary);
+}
+.main-queue-header__controls .barangay-select-wrap select.filter-select:focus,
+.main-queue-header__controls .barangay-select-wrap select.filter-select:focus-visible{
+  outline:none;
+  box-shadow:none;
+  border-color:var(--primary);
+}
 .row-action--icon{position:relative;display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border-radius:var(--r-md);color:var(--primary);background:var(--primary-muted);border:1px solid var(--primary-border)}
 .row-action--icon:hover,.row-action--icon:focus-visible{color:var(--primary-dark);background:var(--primary-border)}
 .row-action--icon:focus-visible{outline:2px solid var(--primary);outline-offset:2px}

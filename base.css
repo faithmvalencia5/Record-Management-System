@@ -179,6 +179,12 @@ button {
   background: none
 }
 
+button:not(:disabled):focus-visible {
+  outline: 2.5px solid var(--primary);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px var(--primary-glass);
+}
+
 ul {
   list-style: none
 }
