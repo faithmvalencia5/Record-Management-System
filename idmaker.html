@@ -329,9 +329,29 @@
             </div>
           </div>
 
+          <div class="bulk-update-toolbar" id="bulk-update-toolbar" hidden>
+            <div class="bulk-update-toolbar__summary">
+              <strong id="bulk-selected-count">0 applicants selected</strong>
+              <span>Choose one status to apply to all selected applicants.</span>
+            </div>
+            <div class="bulk-update-toolbar__actions">
+              <select id="bulk-update-status" aria-label="New status for selected applicants">
+                <option value="">Select new status</option>
+                <option value="Queued">Queued</option>
+                <option value="In Production">In Production</option>
+                <option value="Printed">Printed</option>
+                <option value="In Transit">In Transit</option>
+                <option value="Completed">Completed</option>
+              </select>
+              <button type="button" class="btn btn--primary" id="bulk-update-button" onclick="bulkUpdateQueueStatus()">Update Selected</button>
+              <button type="button" class="btn btn--ghost" onclick="clearQueueSelection()">Clear selection</button>
+            </div>
+          </div>
+
           <table class="data-table">
             <thead>
               <tr>
+                <th class="queue-select-header"><input type="checkbox" id="queue-select-all" aria-label="Select all filtered applicants" onchange="toggleSelectAllFiltered(this)" /></th>
                 <th>Applicant Name</th>
                 <th>Control No.</th>
                 <th>Barangay</th>
