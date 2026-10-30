@@ -226,7 +226,7 @@
                   <circle cx="6.5" cy="6.5" r="4.5" />
                   <path d="M11 11l3 3" />
                 </svg>
-                <input type="search" placeholder="Search queue…" oninput="filterIdMakerQueue(this.value)" />
+                <input type="search" id="queue-search" placeholder="Search queue…" oninput="filterIdMakerQueue(this.value)" />
               </div>
               <div class="barangay-select-wrap">
                 <svg class="barangay-select-wrap__pin" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -285,7 +285,7 @@
                       <path
                         d="M2 4.5A.5.5 0 012.5 4h15a.5.5 0 010 1h-15A.5.5 0 012 4.5zm2 4A.5.5 0 014.5 8h11a.5.5 0 010 1h-11A.5.5 0 014 8.5zm3 4a.5.5 0 01.5-.5h5a.5.5 0 010 1h-5a.5.5 0 01-.5-.5z" />
                     </svg></span>
-                  <span class="queue-filter-label" id="queue-filter-label">All</span>
+                  <span class="queue-filter-label" id="queue-filter-label">Status: All</span>
                   <svg class="queue-filter-chevron" viewBox="0 0 12 12" fill="none" stroke="currentColor"
                     stroke-width="1.6">
                     <path d="M3 4.5L6 7.5L9 4.5" />
@@ -298,29 +298,29 @@
                     <span class="qfo-count" id="qf-count-all">0</span>
                   </button>
                   <button class="queue-filter-option" data-filter="Queued" onclick="selectQueueFilter(this,'Queued')">
-                    <span class="qfo-dot" style="background:var(--warning)"></span>
+                    <span class="qfo-dot" style="background:#94A3B8"></span>
                     <span class="qfo-label">Queued</span>
                     <span class="qfo-count" id="qf-count-queued">0</span>
                   </button>
                   <button class="queue-filter-option" data-filter="In Production"
                     onclick="selectQueueFilter(this,'In Production')">
-                    <span class="qfo-dot" style="background:var(--primary)"></span>
+                    <span class="qfo-dot" style="background:#3B82F6"></span>
                     <span class="qfo-label">In Production</span>
                     <span class="qfo-count" id="qf-count-production">0</span>
                   </button>
                   <button class="queue-filter-option" data-filter="Printed" onclick="selectQueueFilter(this,'Printed')">
-                    <span class="qfo-dot" style="background:var(--purple)"></span>
+                    <span class="qfo-dot" style="background:#6366F1"></span>
                     <span class="qfo-label">Printed</span>
                     <span class="qfo-count" id="qf-count-printed">0</span>
                   </button>
                   <button class="queue-filter-option" data-filter="In Transit"
                     onclick="selectQueueFilter(this,'In Transit')">
-                    <span class="qfo-dot" style="background:var(--success)"></span>
+                    <span class="qfo-dot" style="background:#14B8A6"></span>
                     <span class="qfo-label">In Transit</span>
                     <span class="qfo-count" id="qf-count-transit">0</span>
                   </button>
                   <button class="queue-filter-option" data-filter="Completed" onclick="selectQueueFilter(this,'Completed')">
-                    <span class="qfo-dot" style="background:var(--success)"></span>
+                    <span class="qfo-dot" style="background:#22C55E"></span>
                     <span class="qfo-label">Completed</span>
                     <span class="qfo-count" id="qf-count-completed">0</span>
                   </button>
@@ -1242,7 +1242,7 @@
 
 <script src="theme.js?v=1"></script>
 <script src="app.js?v=25"></script>
-  <script src="idmaker.js?v=17"></script>
+  <script src="idmaker.js?v=20"></script>
 </body>
 
 </html>

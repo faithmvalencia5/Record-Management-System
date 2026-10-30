@@ -22,7 +22,7 @@ if (typeof Chart !== 'undefined') {
     Chart.defaults.font.size = 11;
     Chart.defaults.color = C.text;
   } catch (_err) { /* chart defaults are non-critical */ }
-}
+}   
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 /* Analytics data bootstrap */
@@ -1147,6 +1147,13 @@ function fmt(n) {
   return Number(n).toLocaleString('en-US');
 }
 
+// One control-number format everywhere: CTRL-YY-####
+function buildControlNo(appId) {
+  const digits = String(appId || '').replace(/\D/g, '');
+  const yy = String(new Date().getFullYear()).slice(-2);
+  return 'CTRL-' + yy + '-' + (digits ? digits.slice(-4).padStart(4, '0') : '0001');
+}
+
 function applyDashboardMetrics() {
   const data = analyticsScope();
   const cards = document.querySelectorAll('#mod-dashboard > .cards-grid .stat-card');
@@ -1962,17 +1969,6 @@ function saveLocalIdMakerQueue(queueEntry) {
   }
 }
 
-// Pre-fill in-memory queue from localStorage so it is available immediately
-try {
-  const initLocalQ = getLocalIdMakerQueue();
-  if (Array.isArray(initLocalQ)) {
-    initLocalQ.forEach(item => {
-      if (!ID_MAKER_QUEUE.some(q => String(q.id || q.application_id) === String(item.id || item.application_id))) {
-        ID_MAKER_QUEUE.push(item);
-      }
-    });
-  }
-} catch (e) { }
 let CURRENT_APP_ID = null;
 
 function syncApplicationsToAppDB(applications) {
@@ -3284,14 +3280,9 @@ async function _populateDigitalIssuance(appId) {
           '________________'
         );
 
-  const controlNo =
+   const controlNo =
     app.controlNo ||
-    (
-      'CTL-' +
-      String(
-        app.id || ''
-      ).replace('SCB-', '')
-    );
+    (DI_MODE === 'staff' ? buildControlNo(app.id) : 'Not assigned');
 
   // ==================================================
   // PHOTO
@@ -3573,9 +3564,9 @@ async function sendToIdMaker() {
     }
   }
 
-  const editedControlNo =
+    const editedControlNo =
     document.getElementById('di-preview-control-no')?.textContent?.trim() ||
-    ('CTL-' + String(appId).replace('SCB-', ''));
+    buildControlNo(appId);
 
   // --------------------------------------------------
   // 1. SAVE STATUS TO BACKEND FIRST
@@ -5763,8 +5754,7 @@ function updatePreview() {
 
   // Auto-fill default control number if empty (e.g. CTRL-26-0143)
   if (controlNoEl && !controlNoEl.value) {
-    const rawNum = String(app.id || '').replace(/\D/g, '');
-    controlNoEl.value = 'CTRL-26-' + (rawNum ? rawNum.slice(-4).padStart(4, '0') : '0001');
+    controlNoEl.value = buildControlNo(app.id);
   }
 
   // Update the preview on the right
@@ -6062,9 +6052,8 @@ async function sendFromIssuanceToIdMaker() {
     if (dateInput) dateInput.value = dateIssued;
   }
 
-  if (!controlNo) {
-    const rawNum = String(appId).replace(/\D/g, '');
-    controlNo = 'CTRL-26-' + (rawNum ? rawNum.slice(-4).padStart(4, '0') : '0001');
+    if (!controlNo) {
+    controlNo = buildControlNo(appId);
     const ctrlInput = document.getElementById('id-control-no');
     if (ctrlInput) ctrlInput.value = controlNo;
   }
