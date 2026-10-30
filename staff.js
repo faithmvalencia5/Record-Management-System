@@ -4275,7 +4275,7 @@ async function requestStaffAnalyticsInsights(applications) {
   displayStaffAnalyticsInsights(fallback);
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 35000);
+    const timeoutId = setTimeout(() => controller.abort(), 50000);
 
     let response;
 
