@@ -3643,7 +3643,7 @@ function determineAuditActionType(
 
   // Keep all authentication outcomes together, but don't classify unrelated
   // failures (for example PASSWORD_RESET_FAILED) as login attempts.
-  if (/(^|_)(LOGIN|SIGN_IN|SIGNIN)(_|$)/.test(normalizedAction)) {
+  if (/(^|_)(LOGIN|LOGOUT|SIGN_IN|SIGN_OUT|SIGNIN|SIGNOUT)(_|$)/.test(normalizedAction)) {
     return 'login';
   }
 
