@@ -3820,8 +3820,8 @@ function renderAuditTable() {
 
               <tr class="audit-log-row" data-audit-event-id="${escHtml(String(e.id))}" tabindex="0" role="button"
                 aria-label="View details for audit event ${escHtml(e.action)}"
-                onclick="openAuditEventDetails('${escHtml(String(e.id))}')"
-                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAuditEventDetails('${escHtml(String(e.id))}')}">
+                onclick="openAuditEventDetails('${escHtml(String(e.id))}', this)"
+                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAuditEventDetails('${escHtml(String(e.id))}', this)}">
                 <td data-label="Time">
 
                   <span class="cell-text">
