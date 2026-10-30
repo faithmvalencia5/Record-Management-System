@@ -243,7 +243,7 @@ async function generateIdMakerAnalyticsInsights(req, res) {
     }
     return res.json({ success: true, configured: true, model: MODEL, insights });
   } catch (error) {
-    console.warn(`[ID Maker analytics] Groq insight generation failed: ${error.message}`);
+    console.warn(`[ID Maker analytics] Groq decision-support insight generation failed: ${error.message}`);
     try {
       const metrics = sanitizeCards(req.body?.cards || {});
       const insights = Object.fromEntries(CARD_KEYS.map((key) => [
