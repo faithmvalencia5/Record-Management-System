@@ -812,3 +812,82 @@ body.audit-detail-open { overflow: hidden; }
     to { opacity: 1; }
   }
 }
+
+
+/* Adaptive audit event popup: anchored to the selected row and constrained
+   to the available viewport space on every screen size. */
+.audit-detail-modal {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  isolation: isolate;
+}
+.audit-detail-modal__backdrop {
+  position: absolute;
+  inset: 0;
+}
+.audit-detail-modal__dialog {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  contain: layout paint;
+}
+.audit-detail-modal__header,
+.audit-detail-modal__footer {
+  flex: 0 0 auto;
+}
+.audit-detail-modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.audit-detail-modal__dialog[data-anchor-side="below"] {
+  transform: translateX(-50%);
+}
+.audit-detail-modal__dialog[data-anchor-side="above"] {
+  transform: translateX(-50%);
+}
+@media (max-width: 640px) {
+  .audit-detail-modal__dialog {
+    width: calc(100vw - 20px);
+    border-radius: 15px;
+  }
+  .audit-detail-modal__header {
+    gap: 10px;
+    padding: 15px 16px;
+  }
+  .audit-detail-modal__header h2 {
+    font-size: 16px;
+    line-height: 1.3;
+  }
+  .audit-detail-modal__body {
+    padding: 14px 14px 18px;
+  }
+  .audit-detail-modal__footer {
+    min-height: 54px;
+    padding: 10px 14px;
+  }
+}
+@media (max-height: 620px) {
+  .audit-detail-modal__header {
+    padding-top: 12px;
+    padding-bottom: 11px;
+  }
+  .audit-detail-modal__body {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+  .audit-detail-modal__footer {
+    min-height: 48px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+}
