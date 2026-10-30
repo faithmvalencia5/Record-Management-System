@@ -3818,7 +3818,7 @@ function renderAuditTable() {
 
             return `
 
-              <tr class="audit-log-row" tabindex="0" role="button"
+              <tr class="audit-log-row" data-audit-event-id="${escHtml(String(e.id))}" tabindex="0" role="button"
                 aria-label="View details for audit event ${escHtml(e.action)}"
                 onclick="openAuditEventDetails('${escHtml(String(e.id))}')"
                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openAuditEventDetails('${escHtml(String(e.id))}')}">
@@ -3984,20 +3984,34 @@ function openAuditEventDetails(eventId) {
     <div class="audit-detail-meta">Audit event ID: <code>${escHtml(String(event.id))}</code></div>
   `;
 
-  // Every record must open at the beginning, not at the previous
-  // event's retained scroll position.
+  // Anchor the popup to the selected log row. Rows near the bottom open
+  // upward; rows near the top open below, while the dialog stays in view.
   const dialog = modal.querySelector('.audit-detail-modal__dialog');
   const detailBody = modal.querySelector('.audit-detail-modal__body');
+  const anchorRow = document.querySelector(`.audit-log-row[data-audit-event-id="${CSS.escape(String(eventId))}"]`);
   modal.hidden = false;
   modal.setAttribute('aria-hidden', 'false');
   document.body.classList.add('audit-detail-open');
 
-  if (dialog) dialog.scrollTop = 0;
+  if (dialog) {
+    dialog.style.top = '16px';
+    dialog.style.maxHeight = 'calc(100vh - 32px)';
+    dialog.scrollTop = 0;
+    const viewportHeight = window.innerHeight;
+    const rowRect = anchorRow?.getBoundingClientRect();
+    const dialogHeight = dialog.getBoundingClientRect().height;
+    let top = rowRect ? rowRect.top : (viewportHeight - dialogHeight) / 2;
+    if (rowRect && top + dialogHeight > viewportHeight - 16) {
+      top = rowRect.bottom - dialogHeight;
+    }
+    top = Math.max(16, Math.min(top, viewportHeight - dialogHeight - 16));
+    dialog.style.top = `${top}px`;
+    dialog.style.maxHeight = `${Math.max(240, viewportHeight - top - 16)}px`;
+  }
   if (detailBody) detailBody.scrollTop = 0;
   modal.scrollTop = 0;
 
-  // Focus the close control without allowing the browser to scroll it
-  // into view and move the detail content away from the top.
+  // Focus the close control without moving the page or dialog.
   document.getElementById('audit-event-detail-close')?.focus({ preventScroll: true });
 }
 
