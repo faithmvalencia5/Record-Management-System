@@ -3081,7 +3081,7 @@ async function loadApplicationsFromDatabase() {
       );
 
       if (typeof requestStaffAnalyticsInsights === "function") {
-        requestStaffAnalyticsInsights(applications);
+        scheduleStaffAnalyticsInsights(applications, "applications");
       }
 
     }
@@ -4123,6 +4123,10 @@ function formatReplacementDate(value) {
 // GEMINI STAFF ANALYTICS INSIGHTS - BEGIN
 const STAFF_ANALYTICS_INSIGHTS_API = "https://management-backend-3cij.onrender.com/api/analytics-insights";
 let staffAnalyticsInsightRequest = 0;
+let staffInsightsApplicationsReady = false;
+let staffInsightsReplacementsReady = false;
+let staffInsightsScheduleTimer = null;
+let staffInsightsLatestApplications = [];
 
 function staffAnalyticsStatus(app) {
   return typeof normalizeApplicationStatus === "function" ? normalizeApplicationStatus(app.status) : String(app.status || "pending").toLowerCase();
@@ -4235,6 +4239,22 @@ function displayStaffAnalyticsInsights(insights) {
     area.querySelector("[data-ai-source]").textContent = ["groq","gemini"].includes(value?.source) ? `${String(value.source).toUpperCase()} AI` : "DATA SUMMARY";
   }
 }
+function scheduleStaffAnalyticsInsights(applications, source) {
+  staffInsightsLatestApplications = Array.isArray(applications) ? applications : [];
+  if (source === "applications") staffInsightsApplicationsReady = true;
+  if (source === "replacements") staffInsightsReplacementsReady = true;
+
+  // Wait until both initial datasets are loaded so the first request
+  // contains application and replacement-request statistics together.
+  if (!staffInsightsApplicationsReady || !staffInsightsReplacementsReady) return;
+
+  if (staffInsightsScheduleTimer) clearTimeout(staffInsightsScheduleTimer);
+  staffInsightsScheduleTimer = setTimeout(() => {
+    staffInsightsScheduleTimer = null;
+    requestStaffAnalyticsInsights(staffInsightsLatestApplications);
+  }, 350);
+}
+
 async function requestStaffAnalyticsInsights(applications) {
   ensureStaffAnalyticsInsightAreas();
   const id = ++staffAnalyticsInsightRequest;
@@ -4313,7 +4333,7 @@ async function loadReplacementRequests() {
     updateReplacementAnalytics(replacementRequests);
 
     if (typeof requestStaffAnalyticsInsights === "function") {
-      requestStaffAnalyticsInsights(typeof LIVE_APPLICATIONS !== "undefined" ? LIVE_APPLICATIONS : []);
+      scheduleStaffAnalyticsInsights(typeof LIVE_APPLICATIONS !== "undefined" ? LIVE_APPLICATIONS : [], "replacements");
     }
 
     // Always refresh the sidebar badge when data loads.
