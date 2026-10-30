@@ -555,9 +555,33 @@
             <option value="backup">Backups & Restore</option>
             <option value="user">User Management</option>
           </select>
-          <input type="date" class="form-input" id="audit-date-from" onchange="filterAuditLogs()" title="From date" />
-          <input type="date" class="form-input" id="audit-date-to" onchange="filterAuditLogs()"
-            title="To date" />
+          <details class="audit-date-range" id="audit-date-range">
+            <summary aria-label="Choose audit log date range">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+                <rect x="2" y="3.5" width="12" height="10.5" rx="1.5"></rect>
+                <path d="M5 2v3M11 2v3M2 6.5h12"></path>
+              </svg>
+              <span id="audit-date-range-label">Date range</span>
+              <span class="audit-date-range__chevron" aria-hidden="true">▾</span>
+            </summary>
+            <div class="audit-date-range__panel">
+              <div class="audit-date-range__heading">Filter by date</div>
+              <div class="audit-date-range__fields">
+                <label>
+                  <span>From</span>
+                  <input type="date" class="form-input" id="audit-date-from" onchange="updateAuditDateRangeLabel(); filterAuditLogs()" />
+                </label>
+                <label>
+                  <span>To</span>
+                  <input type="date" class="form-input" id="audit-date-to" onchange="updateAuditDateRangeLabel(); filterAuditLogs()" />
+                </label>
+              </div>
+              <div class="audit-date-range__footer">
+                <span>Includes the full selected end date</span>
+                <button type="button" class="btn btn--ghost" onclick="clearAuditDateRange()">Clear dates</button>
+              </div>
+            </div>
+          </details>
           <button class="btn btn--ghost" onclick="resetAuditFilters()" style="height:36px;font-size:12px">Reset</button>
         </div>
       </div>
@@ -943,7 +967,7 @@
 
   <script src="theme.js?v=1"></script>
   <script src="app.js?v=33"></script>
-  <script src="admin.js?v=21"></script>
+  <script src="admin.js?v=22"></script>
 </body>
 
 </html>
