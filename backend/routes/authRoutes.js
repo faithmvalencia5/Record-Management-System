@@ -531,6 +531,25 @@ router.get(
         });
       }
 
+      const { data: loginEvents, error: loginEventsError } = await supabase
+        .from("audit_logs")
+        .select("username, created_at")
+        .eq("action", "LOGIN")
+        .order("created_at", { ascending: false })
+        .limit(2000);
+
+      if (loginEventsError) {
+        console.warn("Unable to load last-active timestamps:", loginEventsError);
+      }
+
+      const lastLoginByUsername = new Map();
+      for (const event of loginEvents || []) {
+        const key = String(event.username || "").trim().toLowerCase();
+        if (key && !lastLoginByUsername.has(key)) {
+          lastLoginByUsername.set(key, event.created_at);
+        }
+      }
+
       return res.json({
         success: true,
         users: (users || []).map((user) => ({
@@ -542,6 +561,7 @@ router.get(
           role: user.role || "Staff",
           account_status:
             user.account_status || "Active",
+          last_active_at: lastLoginByUsername.get(String(user.username || "").trim().toLowerCase()) || null,
         })),
       });
 
