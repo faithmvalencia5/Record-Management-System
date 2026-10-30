@@ -52,14 +52,14 @@ function sanitizeMetrics(input) {
 function fallback(key, m = {}) {
   const n = (k) => Number.isFinite(m[k]) ? m[k].toLocaleString() : "0";
   const text = {
-    applicationFlow: `The chart summarizes ${n("submitted")} submitted applications, ${n("approved")} approved or completed applications, and ${n("rejected")} rejected applications.`,
-    queueMix: `The current queue contains ${n("total")} applications: ${n("pending")} pending, ${n("review")} under review, ${n("approved")} approved or completed, and ${n("rejected")} rejected.`,
-    replacementRequests: `There are ${n("total")} replacement requests: ${n("pending")} pending, ${n("inProcess")} in process, ${n("completed")} completed, and ${n("rejected")} rejected.`,
-    readyForHandoff: `${n("ready")} applications are currently marked ready for handoff to the ID Maker workflow.`,
-    barangayWorkload: `The chart summarizes ${n("total")} applications across ${n("barangayCount")} barangay groups.`,
-    ageDistribution: `The age distribution covers ${n("total")} applications with a recorded age.`,
-    issuanceOverTime: `${n("issued")} applications are counted as issued or completed in the current year's monthly chart.`,
-    turnaroundTime: m.averageDays == null ? "A processing-time summary is unavailable because there are not enough valid dates." : `The average recorded turnaround time is ${m.averageDays} days across ${n("sampleSize")} applications with usable dates.`
+    applicationFlow: `${n("submitted")} applications are represented in the current-year flow, with ${n("approved")} approved or completed and ${n("rejected")} rejected. Staff should review the pending-to-approved progression regularly and check whether unresolved applications are accumulating.`,
+    queueMix: `${n("pending")} applications are pending and ${n("review")} are under review out of ${n("total")} records. This unresolved workload may slow the next processing stages; prioritize the oldest pending and review cases and update their statuses after action.`,
+    replacementRequests: `${n("pending")} of ${n("total")} replacement requests are pending and ${n("inProcess")} are in process. Review requests that have not moved forward and confirm whether documents or staff action are holding them up.`,
+    readyForHandoff: `${n("ready")} applications are marked ready for ID Maker handoff. Check that these records are complete and visible to the ID Maker team, then coordinate the next production batch.`,
+    barangayWorkload: `${n("total")} applications are distributed across ${n("barangayCount")} barangay groups. Compare the leading barangays in the chart and monitor whether workload is becoming concentrated; coordinate review capacity if one area consistently dominates.`,
+    ageDistribution: `${n("total")} applications have a recorded age for this distribution. Use the largest age groups to plan service and validation workload, while checking records with missing age values for data completeness.`,
+    issuanceOverTime: `${n("issued")} applications are counted as issued or completed in the current-year monthly chart. Compare the monthly bars to identify changes in output and review workflow capacity if completed IDs begin to decline.`,
+    turnaroundTime: m.averageDays == null ? "A reliable turnaround-time estimate is not available because there are not enough records with valid submission and completion dates. Ensure these dates are recorded so processing delays can be monitored." : `The average recorded turnaround time is ${m.averageDays} days across ${n("sampleSize")} applications with usable dates. Review long-running cases individually and check which processing stage is taking the most time.`
   };
   return text[key] || "Analytics data is available for this panel.";
 }
