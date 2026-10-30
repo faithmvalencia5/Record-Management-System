@@ -7594,3 +7594,32 @@ body.portal-mode #toast-container {
     font-size: 14px
   }
 }
+
+
+/* User account add/edit modal: compact, content-sized layout */
+#user-modal .modal.user-account-modal {
+  width: min(680px, 100%);
+  min-height: 0;
+  max-height: calc(100dvh - 36px);
+}
+#user-modal .user-account-modal .modal__body {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: calc(100dvh - 150px);
+  padding: 16px 22px;
+  gap: 12px;
+}
+#user-modal .user-account-modal .form-grid {
+  gap: 14px 16px;
+}
+#user-modal .user-account-modal .form-group {
+  min-width: 0;
+}
+@media (max-width: 600px) {
+  #user-modal .user-account-modal {
+    width: 100%;
+  }
+  #user-modal .user-account-modal .modal__body {
+    padding: 14px 16px;
+  }
+}
