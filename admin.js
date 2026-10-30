@@ -745,8 +745,7 @@ async function loadAdminUsers() {
             '—',
 
           role:
-            user.role ||
-            'Staff',
+            normalizeAdminUserRole(user.role),
 
           designation:
             user.designation || getUserDesignation(user.role),
@@ -806,6 +805,15 @@ async function loadAdminUsers() {
 }
 
 
+function normalizeAdminUserRole(role) {
+  const value = String(role || 'Staff').trim().toLowerCase();
+  if (value === 'id maker' || value === 'osca id maker' || value === 'idmaker') return 'ID Maker';
+  if (value === 'osca staff') return 'Staff';
+  if (value === 'administrator') return 'Admin';
+  return role || 'Staff';
+}
+
+
 function getUserDesignation(
   role
 ) {
@@ -849,8 +857,8 @@ function updateAdminUserDashboardMetrics() {
       user =>
         user.status === 'Active' &&
         (
-          user.role === 'Staff' ||
-          user.role === 'ID Maker'
+          normalizeAdminUserRole(user.role) === 'Staff' ||
+          normalizeAdminUserRole(user.role) === 'ID Maker'
         )
     ).length;
 
