@@ -8,6 +8,25 @@ const ALLOWED_STATUSES = [
   "Completed",
 ];
 
+const normalizeControlNo = (value, applicationId) => {
+  const controlNo = String(value || "").trim();
+  if (!controlNo) return "";
+
+  if (/^CTRL-\d{2}-\d{4}$/i.test(controlNo)) return controlNo.toUpperCase();
+  if (/^CTL-\d{2}-\d{4}$/i.test(controlNo)) {
+    return controlNo.replace(/^CTL-/i, "CTRL-").toUpperCase();
+  }
+
+  if (/OSCA/i.test(controlNo)) {
+    const digits = String(applicationId || controlNo).replace(/\D/g, "");
+    if (digits.length >= 6) {
+      return `CTRL-${digits.slice(0, 2)}-${digits.slice(-4)}`;
+    }
+  }
+
+  return controlNo;
+};
+
 const isMissingCompletedAtColumn = (error) => {
   const message = String(error?.message || "").toLowerCase();
   return Boolean(error) && (
@@ -114,7 +133,7 @@ const addToIdMakerQueue = async (req, res) => {
 
     const queuePayload = {
       application_id: application_id,
-      control_no: control_no || null,
+      control_no: normalizeControlNo(control_no, application_id) || null,
       date_issued: date_issued || null,
       print_status: queueStatus,
       updated_at: new Date().toISOString(),
@@ -292,7 +311,7 @@ const getIdMakerQueue = async (req, res) => {
           gender: application?.sex || application?.gender || "",
           age: application?.age || "",
 
-          controlNo: queueItem?.control_no || "",
+          controlNo: normalizeControlNo(queueItem?.control_no, applicationId),
           dateIssued: queueItem?.date_issued || "",
 
           photo,
@@ -393,7 +412,10 @@ const updateIdMakerQueue = async (req, res) => {
     const queuePayload = {
       application_id: applicationId,
       print_status: print_status ?? existingQueueItem?.print_status ?? "Queued",
-      control_no: control_no ?? existingQueueItem?.control_no ?? null,
+      control_no: normalizeControlNo(
+        control_no ?? existingQueueItem?.control_no,
+        applicationId
+      ) || null,
       date_issued: date_issued ?? existingQueueItem?.date_issued ?? null,
       updated_at: updatedAt,
     };

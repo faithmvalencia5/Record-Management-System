@@ -17,6 +17,18 @@ if (typeof buildControlNo !== 'function') {
   };
 }
 
+function normalizeQueueControlNo(value, appId) {
+  const controlNo = String(value || '').trim();
+  if (!controlNo) return '';
+  if (/^CTRL-\d{2}-\d{4}$/i.test(controlNo)) return controlNo.toUpperCase();
+  if (/^CTL-\d{2}-\d{4}$/i.test(controlNo)) return controlNo.replace(/^CTL-/i, 'CTRL-').toUpperCase();
+  if (/OSCA/i.test(controlNo)) {
+    const digits = String(appId || controlNo).replace(/\D/g, '');
+    if (digits.length >= 6) return 'CTRL-' + digits.slice(0, 2) + '-' + digits.slice(-4);
+  }
+  return controlNo;
+}
+
 let systemAlertDismissed = false;
 let ID_MAKER_ANALYTICS_DATA = null;
 let ID_MAKER_ANALYTICS_UPDATED_AT = null;
@@ -159,7 +171,7 @@ async function loadIdMakerQueueFromDatabase(showMessage = false) {
         // Filter out orphaned / ghost records with no valid applicant data
         if (!name && !linked) return;
 
-        const ctrl = String(item.controlNo || '').trim();
+        const ctrl = normalizeQueueControlNo(item.controlNo, id);
 
         ID_MAKER_QUEUE.push({
           ...item,
@@ -387,7 +399,7 @@ function buildQueueRow(app) {
 
   const name = String(app.name || '').trim();
   const barangay = String(app.barangay || '').trim();
-  const controlNo = String(app.controlNo || '').trim();
+  const controlNo = normalizeQueueControlNo(app.controlNo, app.id);
 
   const missingTip = escapeQueueHtml(
     linked ? 'Missing in application record' : 'No matching application record for this queue ID'
