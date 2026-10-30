@@ -2761,6 +2761,11 @@ async function saveUser() {
       'um-email'
     ).value.trim();
 
+  const password =
+    editingUserKey
+      ? ''
+      : (document.getElementById('um-password')?.value || '');
+
   const role =
     document.getElementById(
       'um-role'
@@ -2781,6 +2786,19 @@ async function saveUser() {
 
     return;
 
+  }
+
+  if (
+    !editingUserKey &&
+    password &&
+    !isStrongPassword(password)
+  ) {
+    showToast(
+      'Password must be at least 8 characters and include a capital letter, a number, and a special character.',
+      'error'
+    );
+    document.getElementById('um-password')?.focus();
+    return;
   }
 
   if (
