@@ -1500,13 +1500,6 @@ const saveApplicationValidation = async (req, res) => {
       details: `Validation status set to "${validation_status}".`,
     });
 
-    await createAuditLogFromRequest(req, {
-      action: "DOCUMENT_AUTHENTICATION_UPDATED",
-      entityType: "APPLICATION_DOCUMENT",
-      entityId: applicationId,
-      details: `Document "${documentType}" authentication set to "${status}".`,
-    });
-
     res.status(200).json({
       success: true,
 
@@ -2043,7 +2036,14 @@ const updateMembershipStatus = async (req, res) => {
       details: `Membership status changed to "${updatedApplication.membership_status}".`,
     });
 
-    return res.status(200).json({
+    return await createAuditLogFromRequest(req, {
+      action: "DOCUMENT_AUTHENTICATION_UPDATED",
+      entityType: "APPLICATION_DOCUMENT",
+      entityId: applicationId,
+      details: `Document "${documentType}" authentication set to "${status}".`,
+    });
+
+    res.status(200).json({
       success: true,
       message: "Membership status updated successfully.",
       applicationId: updatedApplication.application_id,
