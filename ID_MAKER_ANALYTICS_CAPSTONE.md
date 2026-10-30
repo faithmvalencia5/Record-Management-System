@@ -2,7 +2,7 @@
 
 ## Purpose and scope
 
-The page provides **descriptive analytics**: it reports the current queue state and recorded completions, with short AI-generated natural-language summaries. Code calculates every count, percentage, ranking, age bucket, comparison, and status label. Gemini only rewrites the supplied statistics into a short description. It does not discover patterns, make decisions, diagnose causes, predict future output, or recommend actions. Diagnostic, predictive, and prescriptive analytics are outside this release and may be considered as future work after the underlying data and evaluation method are established.
+The page provides **descriptive analytics**: it reports the current queue state and recorded completions, with short AI-generated natural-language insights. Code calculates every count, percentage, ranking, age bucket, comparison, and status label. The configured AI provider interprets only the supplied aggregate statistics and may identify a supported operational concern or practical next step. It does not calculate metrics, identify individuals, make eligibility decisions, or establish unsupported causes or predictions.
 
 The analytics source is the successful `GET /api/id-maker-queue` response. Browser local-storage records are deliberately excluded from analytics. The operational queue may continue to merge local records for its existing workflow.
 
@@ -30,9 +30,9 @@ The values are application configuration constants in `idmaker.js`. They are ope
 | Queue Aging / SLA | High when over 48 hours is **over 50%** of active queue; Elevated when it is **over 25%**; otherwise Normal. |
 | Monthly ID Output | Elevated when the latest month is lower than the previous month; otherwise Normal. |
 
-Missing or incomplete data is labelled Incomplete and does not receive a Normal/Elevated/High claim. These labels are set by code; Gemini does not choose them.
+Missing or incomplete data is labelled Incomplete and does not receive a Normal/Elevated/High claim. These labels are set by code; the AI provider does not choose them.
 
-## Statistics supplied to Gemini
+## Statistics supplied to the AI provider
 
 Only aggregate card statistics are sent. Applicant names, application IDs, addresses, photos, signatures, birth dates, and other applicant-level fields are not included. The backend also rejects payloads containing sensitive applicant field names.
 
@@ -51,7 +51,7 @@ Queue age is computed from the database `sent_at` timestamp returned by the queu
 
 The age buckets are mutually exclusive: **within 24 hours** (`age <= 24`), **24–48 hours** (`24 < age <= 48`), and **over 48 hours** (`age > 48`). Records with a missing, invalid, or future `sent_at` are placed in a separate Unknown segment; the three age buckets plus Unknown always add up to the active queue. If any active timestamp is unknown, the aging insight is suppressed and reports that data is unavailable rather than treating unknown records as on time.
 
-The queue is fetched on portal load and when staff refresh the queue. “Last updated” is the browser’s local time immediately after a successful queue response. Insights are requested once per card after a successful refresh when that card has complete data. Re-rendering unchanged statistics does not repeat Gemini calls. A changed queue status recomputes the statistics and summaries.
+The queue is fetched on portal load and when staff refresh the queue. “Last updated” is the browser’s local time immediately after a successful queue response. Insights are requested once per card after a successful refresh when that card has complete data. Re-rendering unchanged statistics does not repeat provider calls. A changed queue status recomputes the statistics and summaries.
 
 To inspect source timestamp quality without changing records, run a read-only query in Supabase SQL Editor:
 
@@ -78,8 +78,8 @@ Run that migration in Supabase SQL Editor to enable Monthly ID Output. The queue
 
 ## Multi-provider AI analytics
 
-- **Provider order:** Groq is primary, followed by OpenRouter. If both providers fail or reach their limits, the dashboard displays its existing live-data fallback summaries. Cerebras is not part of the active provider chain.
-- **Configuration:** Set `GROQ_API_KEY` and `OPENROUTER_API_KEY` in the backend environment. Optional model overrides are `GROQ_MODEL` and `OPENROUTER_MODEL`. Defaults are `openai/gpt-oss-20b` and `openrouter/free`, respectively. Never place API keys in browser code or commit them.
+- **Provider order:** Groq is primary, followed by OpenRouter, then Cloudflare Workers AI. If all configured providers fail or reach their limits, the dashboard displays its existing live-data fallback summaries.
+- **Configuration:** Set the provider credentials in the backend environment: `GROQ_API_KEY`, `OPENROUTER_API_KEY`, and/or `CLOUDFLARE_API_TOKEN` with `CLOUDFLARE_ACCOUNT_ID`. Optional model overrides are `GROQ_MODEL`, `OPENROUTER_MODEL`, and `CLOUDFLARE_AI_MODEL`. Defaults are `openai/gpt-oss-20b`, `openrouter/free`, and `@cf/meta/llama-3.3-70b-instruct-fp8-fast`, respectively. Never place API keys in browser code or commit them.
 - **Data flow:** The browser posts precomputed aggregate analytics to the backend. The backend removes or rejects personal applicant fields as appropriate, then sends only the sanitized aggregate metrics to the first available AI provider. The providers return JSON insights which are validated before display.
 - **Fallback behavior:** Provider failures, rate limits, timeouts, invalid JSON, and missing keys trigger the next provider in order. If neither provider succeeds, the fixed live-data summaries remain visible.
 - **Caching:** Successfully validated insights are cached for six hours per analytics snapshot in the running backend process.
@@ -97,9 +97,9 @@ The PDF report button opens the browser print dialog with an analytics-only prin
 5. Run the read-only timestamp-quality query above; compare missing/future counts and oldest timestamp with staff’s Supabase records. Do not edit those records during this check.
 6. Verify barangay ordering and top-three share against a manual grouped count. Confirm missing barangay data prevents a claim rather than appearing as a real barangay.
 7. Verify six monthly counts against rows with `completed_at`; compare latest and previous month counts. Confirm old Completed records without timestamps cause a no-data/incomplete state, not a guessed month.
-8. With Gemini configured, inspect one response per card and compare all numbers to the exact submitted JSON. Confirm code-set status labels do not come from Gemini.
+8. With an AI provider configured, inspect one response per card and compare all numbers to the exact submitted JSON. Confirm code-set status labels do not come from Gemini.
 9. Send controlled invalid responses to the validator: unsupported number (`**99% ...**` when 99 is absent), incorrect bold lead, the phrase `should increase`, and a 46-word output. Confirm each is rejected, fallback is displayed, and one backend rejection log is recorded for that card.
-10. Test missing/invalid Gemini key, API error, malformed JSON, and timeout. Confirm fallback text remains visible, marked “Generated from live data,” and does not expose applicant data.
+10. Test missing/invalid provider credentials, API error, malformed JSON, and timeout. Confirm fallback text remains visible, marked “Generated from live data,” and does not expose applicant data.
 11. Verify Loading, empty, incomplete, and API-error states for all four cards and insights; verify dark/light contrast, mobile stacking, and PDF print output.
 12. Have ID Maker staff compare a selected refresh’s displayed totals, rankings, ages, completion months, and summaries with their own records; record the date, sample size, disagreements, validation-failure count, and examples of rejected outputs.
 
@@ -113,11 +113,8 @@ No staff validation, live data audit, or test execution is claimed by this imple
 | How are totals computed? | One successful queue response is counted once. Each status count is grouped from `print_status`; active is exactly Queued plus In Production. Stage and barangay shares use total queue applications; aging shares use active queue. |
 | How do you know AI did not invent a number? | The application computes the values first. The AI receives only those values. Before display, the backend rejects any number not in the submitted JSON and requires the bold lead to exactly match the computed lead. |
 | Why use AI? | It makes precomputed figures easier to read as short natural-language summaries. It does not improve the calculation, detect causes, predict outcomes, or make workflow decisions. |
-| What if Gemini is unavailable? | The card shows a fixed text template generated from the same computed data. If the data is incomplete, it shows “No data available for this period” instead of making a claim. |
+| What if all AI providers are unavailable? | The card shows a fixed text template generated from the same computed data. If the data is incomplete, it shows “No data available for this period” instead of making a claim. |
 | How were the insights validated with ID Maker staff? | The planned validation compares card figures and generated/fallback text with Supabase records and staff records for a documented sample. This review has not yet been completed and must be recorded before presenting it as validated. |
 
 ## References
 
-- [Gemini Generate Content API](https://ai.google.dev/api/generate-content)
-- [Gemini structured output](https://ai.google.dev/gemini-api/docs/structured-output)
-- [Gemini API key guidance](https://ai.google.dev/gemini-api/docs/generate-content/api-key)
