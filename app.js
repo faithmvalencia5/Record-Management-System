@@ -6106,57 +6106,200 @@ function sendBulkReminder() {
 /* Exports — real CSV download, PDF/Excel as demo */
 function exportPDF() { showToast('Exported PDF (demo)', 'success'); }
 function exportExcel() { showToast('Exported Excel (demo)', 'success'); }
-function exportCSV() {
-  const data = analyticsScope();
-  const staffProfiles = typeof STAFF_APPLICANT_PROFILES !== 'undefined' && document.getElementById('mod-applicants')
-    ? STAFF_APPLICANT_PROFILES
-    : null;
-  if (staffProfiles) {
-    const header = ['Application ID', 'Name', 'Barangay', 'Age', 'Registration Date', 'Status'];
-    const rows = staffProfiles.map(profile => [
-      profile.seniorId || '',
-      profile.name || '',
-      profile.barangay || '',
-      profile.age === '—' ? '' : profile.age,
-      profile.registeredAt ? formatStaffDate(profile.registeredAt) : '',
-      profile.status || ''
-    ]).map(row => row.map(value => '"' + String(value ?? '').replace(/"/g, '""') + '"'));
-    const csv = [header.join(','), ...rows.map(row => row.join(','))].join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `osca-applicant-registry-${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    appendAudit(CURRENT_USER?.displayName || 'Staff', 'Exported applicant registry (CSV)', 'System');
-    showToast('CSV exported with ' + staffProfiles.length + ' unique profiles', 'success');
+const STAFF_EXPORT_FIELDS = {
+  barangay: [
+    { key: 'barangay', label: 'Barangay', checked: true, locked: true },
+    { key: 'male', label: 'Male', checked: true },
+    { key: 'female', label: 'Female', checked: true },
+    { key: 'total', label: 'Overall Total', checked: true }
+  ],
+  records: [
+    { key: 'application_id', label: 'Application ID', checked: true },
+    { key: 'name', label: 'Applicant Name', checked: true },
+    { key: 'barangay', label: 'Barangay', checked: true },
+    { key: 'sex', label: 'Sex', checked: true },
+    { key: 'age', label: 'Age', checked: false },
+    { key: 'application_type', label: 'Application Type', checked: false },
+    { key: 'status', label: 'Application Status', checked: true },
+    { key: 'membership_status', label: 'Membership Status', checked: false },
+    { key: 'created_at', label: 'Date Submitted', checked: false }
+  ]
+};
+
+function getStaffExportApplications() {
+  if (typeof LIVE_APPLICATIONS !== 'undefined' && Array.isArray(LIVE_APPLICATIONS)) {
+    return LIVE_APPLICATIONS;
+  }
+  if (typeof FULL_APPLICANTS !== 'undefined' && Array.isArray(FULL_APPLICANTS)) {
+    return FULL_APPLICANTS;
+  }
+  return [];
+}
+
+function openStaffExport() {
+  const modal = document.getElementById('staff-export-modal');
+  if (!modal) {
+    showToast('Export options are unavailable. Please refresh the page.', 'error');
     return;
   }
-  const scope = CURRENT_ROLE === 'Admin' ? FULL_APPLICANTS : FULL_APPLICANTS.slice(0, 30);
-  const header = ['ID', 'Name', 'Age', 'Gender', 'Barangay', 'Civil Status', 'Occupation', 'Status', 'Date Registered'];
-  const rows = scope.map(a => [
-    a.id || '',
-    (a.name || '').replace(/,/g, ';'),
-    a.age || '',
-    a.gender || '',
-    (a.barangay || '').replace(/,/g, ';'),
-    (a.civilStatus || '').replace(/,/g, ';'),
-    (a.occupation || '').replace(/,/g, ';'),
-    a.status || '',
-    a.regDate || ''
-  ]);
-  const csv = [header.join(','), ...rows.map(r => r.join(','))].join('\n');
+
+  const applications = getStaffExportApplications();
+  const barangaySelect = document.getElementById('staff-export-barangay');
+  const barangays = [...new Set(applications.map(a =>
+    String(a.barangay_district || a.barangay || '').trim()
+  ).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+
+  if (barangaySelect) {
+    barangaySelect.innerHTML = '<option value="">All barangays</option>' +
+      barangays.map(name => '<option value="' + escapeHtml(name) + '">' + escapeHtml(name) + '</option>').join('');
+  }
+
+  const statusSelect = document.getElementById('staff-export-status');
+  const membershipSelect = document.getElementById('staff-export-membership');
+  if (statusSelect) statusSelect.value = '';
+  if (membershipSelect) membershipSelect.value = '';
+
+  const typeSelect = document.getElementById('staff-export-type');
+  if (typeSelect) typeSelect.value = 'barangay';
+  updateStaffExportFields();
+  const error = document.getElementById('staff-export-error');
+  if (error) error.style.display = 'none';
+  modal.classList.add('show');
+}
+
+function closeStaffExport() {
+  document.getElementById('staff-export-modal')?.classList.remove('show');
+}
+
+function updateStaffExportFields() {
+  const type = document.getElementById('staff-export-type')?.value || 'barangay';
+  const container = document.getElementById('staff-export-fields');
+  if (!container) return;
+
+  const fields = STAFF_EXPORT_FIELDS[type] || STAFF_EXPORT_FIELDS.barangay;
+  container.innerHTML = fields.map(field => `
+    <label style="display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid var(--border-color,#dbe3ef);border-radius:9px">
+      <input type="checkbox" name="staff-export-field" value="${field.key}" ${field.checked ? 'checked' : ''} ${field.locked ? 'disabled checked' : ''}>
+      <span>${field.label}</span>
+    </label>
+  `).join('');
+}
+
+function staffExportValue(application, key) {
+  const name = [
+    application.first_name || application.firstName,
+    application.middle_name || application.middleName,
+    application.surname || application.last_name || application.lastName
+  ].filter(Boolean).join(' ').trim();
+  const values = {
+    application_id: application.application_id || application.id || '',
+    name: name || application.name || '',
+    barangay: application.barangay_district || application.barangay || '',
+    sex: application.sex || application.gender || '',
+    age: application.age ?? '',
+    application_type: application.application_type || application.applicationType || '',
+    status: application.status || '',
+    membership_status: application.membership_status || '',
+    created_at: application.created_at || application.submitted_at || application.application_date || ''
+  };
+  return values[key] ?? '';
+}
+
+function staffExportCsvCell(value) {
+  return '"' + String(value ?? '').replace(/"/g, '""') + '"';
+}
+
+function downloadStaffExport() {
+  const type = document.getElementById('staff-export-type')?.value || 'barangay';
+  const barangayFilter = document.getElementById('staff-export-barangay')?.value || '';
+  const statusFilter = document.getElementById('staff-export-status')?.value || '';
+  const membershipFilter = document.getElementById('staff-export-membership')?.value || '';
+  const errorEl = document.getElementById('staff-export-error');
+  const selectedFields = [...document.querySelectorAll('input[name="staff-export-field"]:checked')].map(input => input.value);
+
+  const source = getStaffExportApplications();
+  const filtered = source.filter(application => {
+    const barangay = String(application.barangay_district || application.barangay || '').trim();
+    const status = String(application.status || '').trim().toLowerCase();
+    const membership = String(application.membership_status || '').trim().toLowerCase();
+    if (barangayFilter && barangay !== barangayFilter) return false;
+    if (statusFilter && status !== statusFilter.toLowerCase()) return false;
+    if (membershipFilter === 'Unassigned' && membership) return false;
+    if (membershipFilter && membershipFilter !== 'Unassigned' && membership !== membershipFilter.toLowerCase()) return false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    if (errorEl) {
+      errorEl.textContent = 'No applicant records match the selected filters.';
+      errorEl.style.display = 'block';
+    }
+    return;
+  }
+
+  let header = [];
+  let rows = [];
+  if (type === 'barangay') {
+    const chosen = selectedFields.filter(key => ['male', 'female', 'total'].includes(key));
+    if (!chosen.length) {
+      if (errorEl) {
+        errorEl.textContent = 'Select at least one count field: Male, Female, or Overall Total.';
+        errorEl.style.display = 'block';
+      }
+      return;
+    }
+    const summary = new Map();
+    filtered.forEach(application => {
+      const barangay = String(application.barangay_district || application.barangay || 'Unknown').trim() || 'Unknown';
+      if (!summary.has(barangay)) summary.set(barangay, { male: 0, female: 0, total: 0 });
+      const item = summary.get(barangay);
+      const sex = String(application.sex || application.gender || '').trim().toLowerCase();
+      if (sex === 'male' || sex === 'm') item.male++;
+      else if (sex === 'female' || sex === 'f') item.female++;
+      item.total++;
+    });
+    header = ['Barangay', ...chosen.map(key => key === 'total' ? 'Overall Total' : key.charAt(0).toUpperCase() + key.slice(1))];
+    const ordered = [...summary.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    rows = ordered.map(([barangay, counts]) => [barangay, ...chosen.map(key => counts[key])]);
+    const grand = ordered.reduce((acc, [, counts]) => ({
+      male: acc.male + counts.male,
+      female: acc.female + counts.female,
+      total: acc.total + counts.total
+    }), { male: 0, female: 0, total: 0 });
+    rows.push(['TOTAL', ...chosen.map(key => grand[key])]);
+  } else {
+    const keys = selectedFields.filter(key => STAFF_EXPORT_FIELDS.records.some(field => field.key === key));
+    if (!keys.length) {
+      if (errorEl) {
+        errorEl.textContent = 'Select at least one field to include in the export.';
+        errorEl.style.display = 'block';
+      }
+      return;
+    }
+    header = keys.map(key => STAFF_EXPORT_FIELDS.records.find(field => field.key === key).label);
+    rows = filtered.map(application => keys.map(key => staffExportValue(application, key)));
+  }
+
+  const csv = '\uFEFF' + [header, ...rows].map(row => row.map(staffExportCsvCell).join(',')).join('\r\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `osca-applicants-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.download = `osca-${type === 'barangay' ? 'barangay-summary' : 'applicant-records'}-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
   link.click();
+  link.remove();
   URL.revokeObjectURL(url);
-  appendAudit(CURRENT_USER?.displayName || 'Staff', 'Exported applicant data (CSV)', 'System');
-  showToast('CSV exported with ' + scope.length + ' records', 'success');
+
+  appendAudit(CURRENT_USER?.displayName || 'Staff', `Exported ${type === 'barangay' ? 'barangay summary' : 'applicant records'} (CSV)`, 'System');
+  closeStaffExport();
+  showToast(`CSV exported: ${filtered.length} application records included in the selected report.`, 'success');
 }
+
+function exportCSV() {
+  openStaffExport();
+}
+
 function exportData(format) {
   if (format === 'pdf') exportPDF();
   else if (format === 'excel') exportExcel();
