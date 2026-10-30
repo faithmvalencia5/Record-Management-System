@@ -210,9 +210,12 @@ async function requestGroqBatch(statsByCard) {
       body: JSON.stringify({
         model: "openai/gpt-oss-20b",
         messages: [
-          { role: "system", content: `${SYSTEM_PROMPT}
+          {
+            role: "system",
+            content: `You are a concise analytics reporting assistant. You will receive statistics for multiple ID Maker analytics cards. Return ONLY one valid JSON object, with no markdown fences or extra text, in exactly this shape: {"insights": {"cardKey": "insight text"}}. The insights object must contain exactly these keys and no others: ${cardKeys.join(", ")}. Every value must be a string.
 
-You receive statistics for multiple analytics cards. Return one JSON object with an "insights" property containing exactly these keys: ${cardKeys.join(", ")}. Each value must be one concise insight string following all rules above. Do not omit or add keys.` },
+For each card, describe only what that card's supplied statistics show. Use only numbers present in that card's input; never calculate, estimate, round, or invent numbers. Do not give recommendations, instructions, predictions, or causes. Do not use these words: should, increase, prioritize, process, will, because, concerning, poor, recommend, recommendation, suggest, predict, prediction, cause, causes, normal, elevated, high, or the phrase due to. Do not judge or evaluate. If a field is null or missing, omit that clause. If hasData is false, use exactly "No data available for this period." Otherwise write no more than 45 words, with the exact expectedLead value wrapped at the beginning in **double asterisks**. Keep each insight to one sentence where possible. Escape JSON string characters correctly. Do not include personal data.`
+          },
           { role: "user", content: JSON.stringify(statsByCard) }
         ],
         temperature: 0,
@@ -248,10 +251,29 @@ You receive statistics for multiple analytics cards. Return one JSON object with
     }
 
     const choice = result.choices?.[0];
-    if (choice?.finish_reason === "length") throw new Error("Groq reached its completion-token limit before finishing the structured response.");
-    const parsed = JSON.parse(choice?.message?.content || "");
-    if (!parsed.insights || typeof parsed.insights !== "object" || Array.isArray(parsed.insights)) throw new Error("Groq returned an invalid insights object.");
-    return parsed.insights;
+    if (choice?.finish_reason === "length") {
+      throw new Error("Groq reached its completion-token limit before finishing the JSON response.");
+    }
+
+    const generatedContent = choice?.message?.content || "";
+    let parsed;
+    try {
+      parsed = JSON.parse(generatedContent);
+    } catch {
+      throw new Error(`Groq returned malformed JSON (finish_reason: ${choice?.finish_reason || "unknown"}; response_preview: ${generatedContent.slice(0, 500)})`);
+    }
+
+    if (!parsed.insights || typeof parsed.insights !== "object" || Array.isArray(parsed.insights)) {
+      throw new Error("Groq returned JSON without a valid insights object.");
+    }
+
+    const unexpectedKeys = Object.keys(parsed.insights).filter((key) => !cardKeys.includes(key));
+    const missingKeys = cardKeys.filter((key) => typeof parsed.insights[key] !== "string");
+    if (unexpectedKeys.length || missingKeys.length) {
+      throw new Error(`Groq JSON keys mismatch (missing/non-string: ${missingKeys.join(", ") || "none"}; unexpected: ${unexpectedKeys.join(", ") || "none"}).`);
+    }
+
+    return Object.fromEntries(cardKeys.map((key) => [key, parsed.insights[key]]));
   } finally {
     clearTimeout(timeout);
   }
