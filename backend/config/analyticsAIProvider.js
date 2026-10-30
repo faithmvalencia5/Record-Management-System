@@ -53,7 +53,7 @@ async function requestProvider(provider, metrics, prompt, expectedKeys, maxToken
   if (!apiKey) throw new Error("API key is not configured.");
 
   const controller = new AbortController();
-  const timeoutMs = provider.id === "openrouter" ? 40000 : 12000;
+  const timeoutMs = provider.id === "openrouter" ? 12000 : 5000;
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(provider.url, {
@@ -78,7 +78,7 @@ async function requestProvider(provider, metrics, prompt, expectedKeys, maxToken
         ],
         temperature: 0.2,
         ...(provider.id === "openrouter"
-          ? { max_tokens: Math.min(maxTokens, 1200) }
+          ? { max_tokens: Math.min(maxTokens, 800) }
           : { max_completion_tokens: maxTokens, response_format: { type: "json_object" } }),
       }),
     });
