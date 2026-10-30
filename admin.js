@@ -2057,43 +2057,30 @@ function renderUserMgmtTable() {
     '';
 
 
-  const filtered =
-    ADMIN_USER_ACCOUNTS.filter(
-      u => {
+  const normalizeAccountRole = value => {
+    const role = String(value || '').trim().toLowerCase();
+    if (role === 'admin' || role === 'administrator') return 'Admin';
+    if (role === 'id maker' || role === 'idmaker' || role === 'osca id maker') return 'ID Maker';
+    if (role === 'staff' || role === 'osca staff') return 'Staff';
+    return String(value || '').trim();
+  };
 
-        const matchQ =
-          !q ||
-          (
-            u.fullName +
-            ' ' +
-            u.username +
-            ' ' +
-            u.role +
-            ' ' +
-            u.designation
-          )
-            .toLowerCase()
-            .includes(q);
+  const normalizeAccountStatus = value => {
+    const status = String(value || '').trim().toLowerCase();
+    return status === 'inactive' || status === 'disabled' ? 'Inactive' : 'Active';
+  };
 
+  const filtered = ADMIN_USER_ACCOUNTS.filter(u => {
+    const searchable = [
+      u.fullName, u.username, u.email, u.role, u.designation, u.status
+    ].join(' ').toLowerCase();
 
-        const matchRole =
-          !roleF ||
-          u.role === roleF;
+    const matchQ = !q || searchable.includes(q);
+    const matchRole = !roleF || normalizeAccountRole(u.role) === normalizeAccountRole(roleF);
+    const matchStatus = !statusF || normalizeAccountStatus(u.status) === normalizeAccountStatus(statusF);
 
-
-        const matchStatus =
-          !statusF ||
-          u.status === statusF;
-
-
-        return (
-          matchQ &&
-          matchRole &&
-          matchStatus
-        );
-
-      }
-    );
+    return matchQ && matchRole && matchStatus;
+  });
 
 
   tbody.innerHTML =
@@ -3581,20 +3568,42 @@ async function resetUserCredentials() {
 
 
 function exportUsers() {
+  if (!Array.isArray(ADMIN_USER_ACCOUNTS) || !ADMIN_USER_ACCOUNTS.length) {
+    showToast('There are no user accounts to export.', 'error');
+    return;
+  }
 
-  showToast(
-    'User list exported with DPA-safe metadata (demo).',
-    'success'
-  );
-
+  const headers = ['Full Name', 'Username', 'Email', 'Role', 'Designation', 'Status'];
+  const csvCell = value => {
+    const safe = String(value ?? '').replace(/"/g, '""');
+    return '"' + safe + '"';
+  };
+  const rows = ADMIN_USER_ACCOUNTS.map(user => [
+    user.fullName,
+    user.username,
+    user.email === '—' ? '' : user.email,
+    user.role,
+    user.designation,
+    user.status
+  ]);
+  const csv = '\uFEFF' + [headers, ...rows].map(row => row.map(csvCell).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const date = new Date().toISOString().slice(0, 10);
+  link.href = url;
+  link.download = 'osca-user-accounts-' + date + '.csv';
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 
   appendAudit(
-    CURRENT_USER?.displayName ||
-      'Admin',
+    CURRENT_USER?.displayName || 'Admin',
     'Exported user accounts list (CSV)',
     'Admin'
   );
-
+  showToast('User accounts CSV downloaded successfully.', 'success');
 }
 
 
