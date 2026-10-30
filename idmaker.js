@@ -85,6 +85,7 @@ const QUEUE_FILTER_STATE = {
   page: 1,
 };
 let QUEUE_FILTER_SIG = '';
+const SELECTED_QUEUE_IDS = new Set();
 
 // Single delay rule used by the banner, KPI badges, row flag and "Delayed" filter.
 // Queued: measured from sent_at. In Production / In Transit: measured from updated_at.
@@ -310,6 +311,195 @@ function getFilteredQueue() {
   });
 }
 
+/* ── Bulk queue selection ── */
+function updateBulkSelectionUI() {
+  const bar = document.getElementById('bulk-update-toolbar');
+  const count = document.getElementById('bulk-selected-count');
+  const selectAll = document.getElementById('queue-select-all');
+  const selectedCount = SELECTED_QUEUE_IDS.size;
+  if (bar) bar.hidden = selectedCount === 0;
+  if (count) count.textContent = selectedCount + ' applicant' + (selectedCount === 1 ? '' : 's') + ' selected';
+
+  if (selectAll) {
+    const eligibleVisible = getFilteredQueue().filter(item => item.linkedToApplication !== false);
+    const selectedVisible = eligibleVisible.filter(item => SELECTED_QUEUE_IDS.has(String(item.id))).length;
+    selectAll.checked = eligibleVisible.length > 0 && selectedVisible === eligibleVisible.length;
+    selectAll.indeterminate = selectedVisible > 0 && selectedVisible < eligibleVisible.length;
+    selectAll.disabled = eligibleVisible.length === 0;
+  }
+}
+
+function toggleQueueSelection(checkbox, appId) {
+  const id = String(appId);
+  if (checkbox.checked) SELECTED_QUEUE_IDS.add(id);
+  else SELECTED_QUEUE_IDS.delete(id);
+  updateBulkSelectionUI();
+}
+
+function toggleSelectAllFiltered(checkbox) {
+  const visible = getFilteredQueue().filter(item => item.linkedToApplication !== false);
+  visible.forEach(item => {
+    const id = String(item.id);
+    if (checkbox.checked) SELECTED_QUEUE_IDS.add(id);
+    else SELECTED_QUEUE_IDS.delete(id);
+  });
+  renderQueueTable();
+}
+
+function clearQueueSelection() {
+  SELECTED_QUEUE_IDS.clear();
+  renderQueueTable();
+}
+
+async function bulkUpdateQueueStatus() {
+  const statusSelect = document.getElementById('bulk-update-status');
+  const newStatus = statusSelect?.value || '';
+  const selectedIds = [...SELECTED_QUEUE_IDS];
+  if (!selectedIds.length) {
+    showToast('Select at least one applicant first.', 'warning');
+    return;
+  }
+  if (!QUEUE_STAGES.includes(newStatus)) {
+    showToast('Choose a valid status for the selected applicants.', 'warning');
+    return;
+  }
+
+  const selectedItems = selectedIds
+    .map(id => ID_MAKER_QUEUE.find(item => String(item.id) === id))
+    .filter(Boolean);
+  const unchanged = selectedItems.filter(item => item.printStatus === newStatus).length;
+  const toUpdate = selectedItems.filter(item => item.printStatus !== newStatus);
+  if (!toUpdate.length) {
+    showToast('All selected applicants already have this status.', 'info');
+    return;
+  }
+
+  const confirmed = window.confirm(
+    'Update ' + toUpdate.length + ' applicant' + (toUpdate.length === 1 ? '' : 's') +
+    ' to "' + newStatus + '"?' +
+    (unchanged ? '\n' + unchanged + ' applicant(s) already have this status and will be skipped.' : '')
+  );
+  if (!confirmed) return;
+
+  const button = document.getElementById('bulk-update-button');
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Updating…';
+  }
+
+  const tbody = document.getElementById('id-maker-queue-tbody');
+  const originalOrder = tbody
+    ? [...tbody.querySelectorAll('tr[data-app-id]')].map(row => row.dataset.appId)
+    : [];
+  const failedIds = [];
+  let succeeded = 0;
+  const applicationStatus = newStatus === 'Completed' ? 'Ready for Release' : 'In Process';
+
+  for (const item of toUpdate) {
+    const id = String(item.id);
+    try {
+      const response = await fetch(ID_MAKER_API + '/' + encodeURIComponent(id), {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ print_status: newStatus })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || result.error || 'Queue status could not be saved.');
+      }
+
+      item.printStatus = newStatus;
+      item.updatedAt = result.queue?.updated_at || new Date().toISOString();
+      if (result.queue?.completed_at) item.completedAt = result.queue.completed_at;
+
+      const analyticsRecord = ID_MAKER_ANALYTICS_DATA?.find(
+        record => String(record.application_id || record.id) === id
+      );
+      if (analyticsRecord) {
+        analyticsRecord.printStatus = newStatus;
+        analyticsRecord.updatedAt = item.updatedAt;
+        analyticsRecord.completedAt = result.queue?.completed_at || analyticsRecord.completedAt || null;
+      }
+
+      if (typeof saveLocalIdMakerQueue === 'function') saveLocalIdMakerQueue(item, false);
+
+      // Keep the application workflow status synchronized with the ID queue.
+      try {
+        const appResponse = await fetch(
+          'https://management-backend-3cij.onrender.com/api/applications/' + encodeURIComponent(id) + '/status',
+          {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ status: applicationStatus })
+          }
+        );
+        const appResult = await appResponse.json().catch(() => ({}));
+        if (appResponse.ok && appResult.success) {
+          if (typeof APP_DB !== 'undefined' && APP_DB[id]) APP_DB[id].status = applicationStatus;
+          if (typeof LIVE_APPLICATIONS !== 'undefined' && Array.isArray(LIVE_APPLICATIONS)) {
+            const live = LIVE_APPLICATIONS.find(record => String(record.application_id || record.id) === id);
+            if (live) live.status = applicationStatus;
+          }
+          if (typeof FULL_APPLICANTS !== 'undefined' && Array.isArray(FULL_APPLICANTS)) {
+            const full = FULL_APPLICANTS.find(record => String(record.id) === id);
+            if (full) full.status = applicationStatus;
+          }
+          if (typeof syncApplicationsTableBadge === 'function') syncApplicationsTableBadge(id, applicationStatus);
+        } else {
+          console.warn('Queue status saved, but application status sync failed for', id, appResult.message || appResponse.status);
+        }
+      } catch (syncError) {
+        console.warn('Queue status saved, but application status sync failed for', id, syncError);
+      }
+
+      appendAudit(
+        CURRENT_USER?.displayName || 'ID Maker',
+        'Bulk status set to: ' + newStatus + ' for ' + (item.name || id),
+        CURRENT_ROLE
+      );
+      SELECTED_QUEUE_IDS.delete(id);
+      succeeded++;
+    } catch (error) {
+      console.error('Bulk status update failed for ' + id + ':', error);
+      failedIds.push(id);
+    }
+  }
+
+  systemAlertDismissed = false;
+  updateIdMakerKPIs();
+  renderQueueTable();
+
+  // Keep rows in their pre-update visual order; filtering still removes rows
+  // that no longer match the active filters.
+  if (tbody && originalOrder.length) {
+    const rowMap = new Map(
+      [...tbody.querySelectorAll('tr[data-app-id]')].map(row => [row.dataset.appId, row])
+    );
+    originalOrder.forEach(id => {
+      const row = rowMap.get(id);
+      if (row) tbody.appendChild(row);
+    });
+  }
+
+  updateBulkSelectionUI();
+  if (button) {
+    button.disabled = false;
+    button.textContent = 'Update Selected';
+  }
+
+  if (failedIds.length) {
+    showToast(
+      succeeded + ' updated; ' + failedIds.length + ' failed. Failed applicants remain selected so you can retry.',
+      'warning'
+    );
+  } else {
+    showToast(
+      succeeded + ' applicant' + (succeeded === 1 ? '' : 's') + ' updated to "' + newStatus + '".',
+      'success'
+    );
+  }
+}
+
 /* ── Main Queue List: sorting ── */
 function queueSortValue(app, key) {
   switch (key) {
@@ -454,8 +644,14 @@ function buildQueueRow(app) {
     ? escapeQueueHtml(controlNo)
     : '<span style="color:var(--text-muted)" title="Control number not assigned">Not assigned</span>';
 
+  const isSelected = SELECTED_QUEUE_IDS.has(String(app.id));
+  const selectionCell = '<td data-label="Select" class="queue-select-cell"><input type="checkbox" class="queue-row-checkbox" aria-label="Select ' +
+    (name ? escapeQueueHtml(name) : id) + '" ' + (isSelected ? 'checked ' : '') + (linked ? '' : 'disabled ') +
+    'onchange="toggleQueueSelection(this,\\'' + id + '\\')"></td>';
+
   return '<tr data-app-id="' + id + '" data-print-status="' + escapeQueueHtml(app.printStatus) +
     '" data-brgy="' + escapeQueueHtml(barangay) + '">' +
+    selectionCell +
     '<td data-label="Applicant"><div class="applicant-cell">' +
       '<span class="applicant-avatar" style="background:' + avatarBg + '">' + escapeQueueHtml(initials) + '</span>' +
       '<div class="applicant-info">' + nameHtml +
@@ -535,6 +731,8 @@ function renderQueueTable() {
         : 'Showing ' + rows.length + ' of ' + total + ' records') +
       (st.delayedOnly ? ' · Delayed only' : '')
     : '0 of ' + total + ' records';
+  updateBulkSelectionUI();
+
   if (pager) pager.innerHTML = filtersActive
     ? '<button type="button" class="btn btn--ghost" style="height:30px;font-size:12px" onclick="resetQueueFilters()">Clear filters</button>'
     : '';
