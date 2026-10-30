@@ -1,6 +1,6 @@
-const MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
 const KEYS = ["applicationFlow", "queueMix", "replacementRequests", "readyForHandoff", "barangayWorkload", "seniorRegistrationsByBarangay", "demographics", "ageDistribution", "issuanceOverTime", "turnaroundTime"];
 
+const { generateAnalyticsInsights } = require("../config/analyticsAIProvider");
 const INSIGHT_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const insightCache = new Map();
 
@@ -66,100 +66,6 @@ function fallback(key, m = {}) {
   return text[key] || "Analytics data is available for this panel.";
 }
 
-async function requestStaffGroq(metrics, prompt) {
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) throw new Error("GROQ_API_KEY is not configured");
-
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30000);
-
-  try {
-    const response = await fetch(
-      "https://api.groq.com/openai/v1/chat/completions",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        signal: controller.signal,
-        body: JSON.stringify({
-          model: MODEL,
-          messages: [
-            {
-              role: "system",
-              content: `${prompt}\n\nReturn only a JSON object with an "insights" property. The "insights" property must contain all ten requested analytics keys, each with a string value.`,
-            },
-            {
-              role: "user",
-              content: JSON.stringify(metrics),
-            },
-          ],
-          temperature: 0.2,
-          max_completion_tokens: 5000,
-          response_format: {
-            type: "json_schema",
-            json_schema: {
-              name: "staff_analytics_insights",
-              strict: true,
-              schema: {
-                type: "object",
-                properties: {
-                  insights: {
-                    type: "object",
-                    properties: Object.fromEntries(
-                      KEYS.map((key) => [key, { type: "string" }])
-                    ),
-                    required: KEYS,
-                    additionalProperties: false,
-                  },
-                },
-                required: ["insights"],
-                additionalProperties: false,
-              },
-            },
-          },
-        }),
-      }
-    );
-
-    const responseText = await response.text();
-
-    let result = {};
-
-    try {
-      result = responseText ? JSON.parse(responseText) : {};
-    } catch {
-      throw new Error("Groq returned an invalid JSON response.");
-    }
-
-    if (!response.ok) {
-      console.error("[Groq] Full API error response:", responseText);
-
-      const errorMessage =
-        result.error?.message ||
-        result.message ||
-        responseText ||
-        "Unknown Groq API error";
-
-      throw new Error(
-        `Groq request failed (${response.status}): ${errorMessage}`
-      );
-    }
-
-    const raw = result.choices?.[0]?.message?.content || "";
-    const parsed = JSON.parse(raw);
-
-    if (!plainObject(parsed.insights)) {
-      throw new Error("Groq returned an invalid insights response.");
-    }
-
-    return parsed.insights;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 async function generateStaffAnalyticsInsights(req, res) {
   try {
     if (!plainObject(req.body?.metrics)) return res.status(400).json({ success: false, message: "Aggregate analytics metrics are required." });
@@ -169,29 +75,13 @@ async function generateStaffAnalyticsInsights(req, res) {
     const cachedInsights = getCachedStaffInsights(cacheKey);
 
     if (cachedInsights) {
-      return res.json({
-        success: true,
-        configured: true,
-        cached: true,
-        model: MODEL,
-        insights: cachedInsights,
-      });
-    }
-    const groqKey = process.env.GROQ_API_KEY;
-
-    if (!groqKey) {
-      const insights = Object.fromEntries(
-        KEYS.map(k => [
-          k,
-          { text: fallback(k, metrics[k]), source: "fallback" }
-        ])
-      );
-      return res.json({ success: true, configured: false, insights });
+      return res.json({ success: true, configured: true, cached: true, insights: cachedInsights });
     }
 
     const prompt = "You are an operational decision-support analyst for an OSCA senior-citizen application dashboard. For each of the ten analytics keys, write a useful insight, not a chart description: identify a supported trend, imbalance, backlog, delay, data-quality issue, or opportunity; explain why it matters operationally; and give one practical staff action. Use a short heading followed by exactly 2 concise sentences, maximum 45 words total per insight. For seniorRegistrationsByBarangay, compare the six leading barangays and recommend a practical workload or outreach action. For demographics, describe the female/male distribution cautiously and flag missing values; never infer needs or eligibility from sex. Use only supplied metrics. Do not invent figures, causes, or personal details. If no issue is evident, give a useful finding and monitoring action. Write clear, plain professional English.";
-    const generated = await requestStaffGroq(metrics, prompt);
-    const provider = "groq";
+    const result = await generateAnalyticsInsights(metrics, prompt, KEYS, 2500);
+    const generated = result.insights;
+    const provider = result.provider;
 
     const insights = {};
     for (const key of KEYS) {
@@ -203,16 +93,16 @@ async function generateStaffAnalyticsInsights(req, res) {
         ? { text: candidate, source: provider }
         : { text: fallback(key, metrics[key]), source: "fallback" };
     }
-    if (Object.values(insights).every((item) => item.source === "gemini" || item.source === "groq")) {
+    if (Object.values(insights).every((item) => ["groq", "cerebras", "openrouter"].includes(item.source))) {
       cacheStaffInsights(cacheKey, insights);
     }
-    return res.json({ success: true, configured: true, model: MODEL, insights });
+    return res.json({ success: true, configured: true, provider, model: result.model, insights });
   } catch (error) {
-    console.warn("[Staff analytics] Groq decision-support insight generation failed:", error.message);
+    console.warn("[Staff analytics] Multi-provider decision-support insight generation failed:", error.message);
     try {
       const metrics = sanitizeMetrics(req.body?.metrics || {});
       const insights = Object.fromEntries(KEYS.map(k => [k, { text: fallback(k, metrics[k]), source: "fallback" }]));
-      return res.json({ success: true, configured: Boolean(process.env.GROQ_API_KEY), insights });
+      return res.json({ success: true, configured: Boolean(process.env.GROQ_API_KEY || process.env.CEREBRAS_API_KEY || process.env.OPENROUTER_API_KEY), insights });
     } catch (_) {
       return res.status(500).json({ success: false, message: "Unable to generate analytics insights." });
     }
