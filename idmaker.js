@@ -144,7 +144,7 @@ async function loadIdMakerQueueFromDatabase(showMessage = false) {
       updateIdMakerAnalytics();
     }
 
-    const response = await fetch(ID_MAKER_API);
+    const response = await fetch(ID_MAKER_API, { cache: 'no-store' });
 
     const result = await response.json();
 
@@ -167,9 +167,6 @@ async function loadIdMakerQueueFromDatabase(showMessage = false) {
         const id = item.id || item.application_id;
         const name = String(item.name || '').trim();
         const linked = item.linkedToApplication !== false;
-
-        // Filter out orphaned / ghost records with no valid applicant data
-        if (!name && !linked) return;
 
         const ctrl = normalizeQueueControlNo(item.controlNo, id);
 

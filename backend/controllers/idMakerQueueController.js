@@ -173,6 +173,12 @@ const addToIdMakerQueue = async (req, res) => {
 // ============================================
 const getIdMakerQueue = async (req, res) => {
   try {
+    // Queue contents change as staff update print statuses. Do not let a
+    // browser or intermediary return an older snapshot on refresh.
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+
     // 1. Queue records
     let queueResult = await supabase
       .from("id_maker_queue")
@@ -218,7 +224,7 @@ const getIdMakerQueue = async (req, res) => {
       )
     );
 
-    if (applicationIds.length === 0) {
+    if (!queueRecords || queueRecords.length === 0) {
       return res.status(200).json({
         success: true,
         queue: [],
@@ -262,20 +268,17 @@ const getIdMakerQueue = async (req, res) => {
       ])
     );
 
-    // Keep the newest record per application (results are newest-first).
-    const queueMap = new Map();
-    for (const item of queueRecords || []) {
-      const key = String(item.application_id || "").trim();
-      if (key && !queueMap.has(key)) queueMap.set(key, item);
-    }
-
-    const queueEntries = applicationIds
-      .map((applicationId) => ({
+    // Preserve one output row for every id_maker_queue record. Some older
+    // records may have duplicate or missing application IDs; do not collapse
+    // them while building the table response.
+    const queueEntries = (queueRecords || []).map((queueItem) => {
+      const applicationId = String(queueItem.application_id || "").trim();
+      return {
         applicationId,
-        queueItem: queueMap.get(applicationId),
+        queueItem,
         application: applicationMap.get(applicationId),
-      }))
-      .filter(({ queueItem }) => Boolean(queueItem));
+      };
+    });
 
     // 4. Build response
     const completeQueue = queueEntries.map(
@@ -297,7 +300,7 @@ const getIdMakerQueue = async (req, res) => {
           .join(" ");
 
         return {
-          id: applicationId,
+          id: applicationId || `queue-${queueItem.id}`,
           application_id: applicationId,
           inPrintQueue: Boolean(queueItem),
 

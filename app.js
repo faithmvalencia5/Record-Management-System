@@ -2333,8 +2333,10 @@ function restoreSession() {
     email:
       parsed.email || '',
 
+    // The backend stores usernames but has no separate display-name field.
+    // Prefer the current account username over stale displayName values saved
+    // by older portal versions.
     displayName:
-      parsed.displayName ||
       parsed.username,
 
     token:
