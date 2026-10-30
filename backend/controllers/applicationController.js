@@ -1662,6 +1662,13 @@ const updateDocumentAuthentication = async (req, res) => {
       savedRecord = data;
     }
 
+    await createAuditLogFromRequest(req, {
+      action: "DOCUMENT_AUTHENTICATION_UPDATED",
+      entityType: "APPLICATION_DOCUMENT",
+      entityId: applicationId,
+      details: `Document "${documentType}" authentication set to "${status}".`,
+    });
+
     return res.status(200).json({
       success: true,
       message: "Document authentication saved successfully.",
@@ -2036,16 +2043,11 @@ const updateMembershipStatus = async (req, res) => {
       details: `Membership status changed to "${updatedApplication.membership_status}".`,
     });
 
-    return await createAuditLogFromRequest(req, {
-      action: "DOCUMENT_AUTHENTICATION_UPDATED",
-      entityType: "APPLICATION_DOCUMENT",
-      entityId: applicationId,
-      details: `Document "${documentType}" authentication set to "${status}".`,
-    });
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: "Membership status updated successfully.",
+      applicationId: updatedApplication.application_id,
+      membership_status: updatedApplication.membership_status,
       applicationId: updatedApplication.application_id,
       membership_status: updatedApplication.membership_status,
     });
