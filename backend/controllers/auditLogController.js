@@ -94,7 +94,7 @@ async function getAuditLogs(req, res) {
     if (userIds.length) {
       const { data: users, error: usersError } = await supabase
         .from("user_accounts")
-        .select("id, full_name, username")
+        .select("id, full_name, username, email")
         .in("id", userIds);
 
       if (usersError) {
@@ -113,6 +113,7 @@ async function getAuditLogs(req, res) {
         ...log,
         username: log.username || account?.username || null,
         full_name: account?.full_name || null,
+        email: account?.email || null,
       };
     });
 
