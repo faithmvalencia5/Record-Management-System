@@ -153,7 +153,7 @@ async function requestGroq(metrics, prompt) {
           { role: "user", content: JSON.stringify(metrics) },
         ],
         temperature: 0.2,
-        max_completion_tokens: 1200,
+        max_completion_tokens: 3000,
         response_format: {
           type: "json_schema",
           json_schema: {
@@ -243,7 +243,7 @@ async function generateIdMakerAnalyticsInsights(req, res) {
     }
     return res.json({ success: true, configured: true, model: MODEL, insights });
   } catch (error) {
-    console.warn(`[ID Maker analytics] Insight generation failed: ${error.message}`);
+    console.warn(`[ID Maker analytics] Groq insight generation failed: ${error.message}`);
     try {
       const metrics = sanitizeCards(req.body?.cards || {});
       const insights = Object.fromEntries(CARD_KEYS.map((key) => [
