@@ -254,6 +254,83 @@ const getIdMakerQueue = async (req, res) => {
       });
     }
 
+    // Reconcile queue records against the latest Staff application status.
+    // This also repairs records that became Ready for Release before this
+    // synchronization code was deployed (without re-triggering SMS).
+    const statusHistoryRows = await fetchByApplicationIds(
+      "application_status_history",
+      "application_id, status, updated_at",
+      applicationIds
+    );
+    statusHistoryRows.sort((left, right) =>
+      new Date(right.updated_at || 0).getTime() - new Date(left.updated_at || 0).getTime()
+    );
+
+    const latestStatusByApplication = new Map();
+    for (const row of statusHistoryRows) {
+      const key = String(row.application_id || "").trim();
+      if (key && !latestStatusByApplication.has(key)) {
+        latestStatusByApplication.set(key, row.status);
+      }
+    }
+
+    const readyQueueIds = applicationIds.filter(
+      (id) => latestStatusByApplication.get(id) === "Ready for Release"
+    );
+
+    if (readyQueueIds.length) {
+      const completedAt = new Date().toISOString();
+      const updates = await Promise.all(readyQueueIds.map(async (id) => {
+        let result = await supabase
+          .from("id_maker_queue")
+          .update({
+            print_status: "Completed",
+            completed_at: completedAt,
+            updated_at: completedAt,
+          })
+          .eq("application_id", id);
+
+        if (result.error && isMissingCompletedAtColumn(result.error)) {
+          result = await supabase
+            .from("id_maker_queue")
+            .update({
+              print_status: "Completed",
+              updated_at: completedAt,
+            })
+            .eq("application_id", id);
+        }
+
+        if (result.error) {
+          console.error(
+            "[ID Maker] Queue reconciliation failed for application:",
+            id,
+            result.error.message
+          );
+        }
+
+        return { id, error: result.error || null };
+      }));
+
+      const failedUpdates = updates.filter((item) => item.error);
+      if (failedUpdates.length) {
+        console.error(
+          "[ID Maker] Queue reconciliation completed with errors:",
+          failedUpdates.map((item) => ({ applicationId: item.id, error: item.error.message }))
+        );
+      }
+
+      // Reflect the synchronized values in this same response, so the portal
+      // immediately displays Completed without requiring another refresh.
+      for (const item of queueRecords) {
+        const id = String(item.application_id || "").trim();
+        if (readyQueueIds.includes(id) && !failedUpdates.some((failed) => failed.id === id)) {
+          item.print_status = "Completed";
+          item.completed_at = item.completed_at || completedAt;
+          item.updated_at = completedAt;
+        }
+      }
+    }
+
     // 2. Application + file records (chunked)
     const applications = await fetchByApplicationIds(
       "applications",
