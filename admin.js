@@ -1290,126 +1290,114 @@ function getAuditDeviceLabel(
 /**
  * Load real audit logs from the backend.
  */
+let auditLoadPromise = null;
+
 async function loadAdminAuditLogs() {
+  if (auditLoadPromise) return auditLoadPromise;
 
-  // Skeleton: shimmer audit tables while loading
-  if (typeof Skeleton !== 'undefined') {
-    Skeleton.setTable('audit-logs-tbody', 6);
-    Skeleton.setTable('audit-summary-tbody', 5);
-  }
+  auditLoadPromise = (async () => {
+    const refreshButton = document.getElementById('refresh-audit-logs-btn');
+    const originalButtonContent = refreshButton?.innerHTML;
 
-  try {
-
-    console.log(
-      '[Admin Audit] Loading audit logs...'
-    );
-
-
-    const response =
-      await fetch(
-        `${ADMIN_AUDIT_API}?limit=500`,
-        {
-          method: 'GET',
-          headers: getAuthHeaders(),
-          cache: 'no-store'
-        }
-      );
-
-
-    console.log(
-      '[Admin Audit] API status:',
-      response.status
-    );
-
-
-    if (!response.ok) {
-
-      throw new Error(
-        'Audit logs API returned HTTP ' +
-        response.status
-      );
-
+    if (refreshButton) {
+      refreshButton.disabled = true;
+      refreshButton.innerHTML = '<i class="fi fi-rr-spinner" aria-hidden="true"></i> Refreshing…';
+      refreshButton.setAttribute('aria-busy', 'true');
     }
 
-
-    const result =
-      await response.json();
-
-
-    if (
-      !result.success ||
-      !Array.isArray(
-        result.logs
-      )
-    ) {
-
-      throw new Error(
-        result.message ||
-        'Invalid audit logs response.'
-      );
-
-    }
-
-
-    AUDIT_LOG_DATA =
-      result.logs.map(
-        normalizeAuditLog
-      );
-
-
-    console.log(
-      '[Admin Audit] Loaded:',
-      AUDIT_LOG_DATA.length,
-      'events'
-    );
-
-
-    renderAuditUserFilter();
-
-    renderAuditTable();
-
-    renderAuditSummaryFromLiveData();
-
-    updateSecurityAlertsKPI();
-
-    // Skeleton: clear once rendered
     if (typeof Skeleton !== 'undefined') {
-      Skeleton.clearBusy('audit-logs-tbody');
-      Skeleton.clearBusy('audit-summary-tbody');
+      Skeleton.setTable('audit-logs-tbody', 6);
+      Skeleton.setTable('audit-summary-tbody', 5);
     }
 
-    return AUDIT_LOG_DATA;
+    try {
+      console.log('[Admin Audit] Loading complete audit history...');
 
-  } catch (error) {
+      const allLogs = [];
+      const pageSize = 1000;
+      let offset = 0;
 
-    console.error(
-      '[Admin Audit] Failed to load audit logs:',
-      error
-    );
+      // Fetch every page. Supabase limits each individual response, not the
+      // complete history; continue until the API returns a short/empty page.
+      while (true) {
+        const response = await fetch(
+          `${ADMIN_AUDIT_API}?limit=${pageSize}&offset=${offset}`,
+          {
+            method: 'GET',
+            headers: getAuthHeaders(),
+            cache: 'no-store'
+          }
+        );
 
+        if (!response.ok) {
+          throw new Error('Audit logs API returned HTTP ' + response.status);
+        }
 
-    /*
-     * Do not show fake audit events when
-     * the database request fails.
-     */
-    AUDIT_LOG_DATA = [];
+        const result = await response.json();
+        if (!result.success || !Array.isArray(result.logs)) {
+          throw new Error(result.message || 'Invalid audit logs response.');
+        }
 
+        allLogs.push(...result.logs);
+        const pagination = result.pagination || {};
+        const hasMore = typeof pagination.hasMore === 'boolean'
+          ? pagination.hasMore
+          : result.logs.length === pageSize;
 
-    renderAuditUserFilter();
+        if (!hasMore || result.logs.length === 0) break;
 
-    renderAuditTable();
+        offset = Number.isFinite(Number(pagination.nextOffset))
+          ? Number(pagination.nextOffset)
+          : offset + result.logs.length;
+      }
 
-    renderAuditSummaryFromLiveData();
+      AUDIT_LOG_DATA = allLogs.map(normalizeAuditLog);
 
-    updateSecurityAlertsKPI();
+      console.log('[Admin Audit] Loaded complete history:', AUDIT_LOG_DATA.length, 'events');
 
+      renderAuditUserFilter();
+      renderAuditTable();
+      renderAuditSummaryFromLiveData();
+      updateSecurityAlertsKPI();
 
-    return [];
+      if (typeof Skeleton !== 'undefined') {
+        Skeleton.clearBusy('audit-logs-tbody');
+        Skeleton.clearBusy('audit-summary-tbody');
+      }
 
-  }
+      return AUDIT_LOG_DATA;
+    } catch (error) {
+      console.error('[Admin Audit] Failed to load audit logs:', error);
+      showToast(error.message || 'Unable to refresh audit logs.', 'error');
 
+      // Keep the last successfully loaded records visible if a refresh fails.
+      renderAuditUserFilter();
+      renderAuditTable();
+      renderAuditSummaryFromLiveData();
+      updateSecurityAlertsKPI();
+
+      if (typeof Skeleton !== 'undefined') {
+        Skeleton.clearBusy('audit-logs-tbody');
+        Skeleton.clearBusy('audit-summary-tbody');
+      }
+
+      return AUDIT_LOG_DATA;
+    } finally {
+      if (refreshButton) {
+        refreshButton.disabled = false;
+        refreshButton.innerHTML = originalButtonContent || '<i class="fi fi-rr-refresh" aria-hidden="true"></i> Refresh';
+        refreshButton.removeAttribute('aria-busy');
+      }
+      auditLoadPromise = null;
+    }
+  })();
+
+  return auditLoadPromise;
 }
 
+async function refreshAuditLogs() {
+  await loadAdminAuditLogs();
+}
 
 /**
  * Security & Audit Alerts KPI.
@@ -3114,9 +3102,7 @@ async function toggleMgmtUserStatus(
                 : 'reactivated'
             } successfully.`,
 
-            newStatus === 'Inactive'
-              ? 'error'
-              : 'success'
+            'success'
           );
 
 
@@ -3925,7 +3911,7 @@ function renderAuditTable() {
   if (label) {
 
     label.textContent =
-      `${filtered.length} of ${AUDIT_LOG_DATA.length} loaded events (latest 500)`;
+      `${filtered.length} of ${AUDIT_LOG_DATA.length} events`;
 
   }
 
