@@ -79,7 +79,7 @@ async function generateStaffAnalyticsInsights(req, res) {
     }
 
     const prompt = "You are an operational decision-support analyst for an OSCA senior-citizen application dashboard. For each of the ten analytics keys, write a useful insight, not a chart description: identify a supported trend, imbalance, backlog, delay, data-quality issue, or opportunity; explain why it matters operationally; and give one practical staff action. Write exactly one concise sentence per insight, maximum 22 words. For seniorRegistrationsByBarangay, compare the six leading barangays and recommend a practical workload or outreach action. For demographics, describe the female/male distribution cautiously and flag missing values; never infer needs or eligibility from sex. Use only supplied metrics. Do not invent figures, causes, or personal details. If no issue is evident, give a useful finding and monitoring action. Write clear, plain professional English.";
-    const result = await generateAnalyticsInsights(metrics, prompt, KEYS, 800);
+    const result = await generateAnalyticsInsights(metrics, prompt, KEYS, 1400);
     const generated = result.insights;
     const provider = result.provider;
 
