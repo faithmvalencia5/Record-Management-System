@@ -3364,7 +3364,7 @@ function updateStatus(newStatus) {
   }
 
   appendAudit(CURRENT_USER?.displayName || 'Staff', `Status set to: ${newStatus}`, CURRENT_ROLE);
-  showToast('Status updated: ' + newStatus, 'success');
+  // updateTableStatus() owns the success/error notification after the database responds.
 }
 
 async function updateTableStatus(
@@ -3677,6 +3677,12 @@ async function updateTableStatus(
       'error'
     );
   }
+}
+
+// Dismiss the urgent-review banner without changing application data.
+function dismissUrgentAlert() {
+  const alert = document.getElementById('urgent-alert');
+  if (alert) alert.style.display = 'none';
 }
 
 /* DIGITAL ISSUANCE FORM (Small Form Modal) */
@@ -6072,7 +6078,6 @@ async function generateIssuanceForm() {
 function rejectCurrent() {
   if (!CURRENT_APP_ID) return;
   updateStatus('Rejected');
-  showToast('Application rejected', 'error');
   addNotifyLog(CURRENT_APP_ID, 'Status Updated: Rejected', 'SMS', 'Sent');
 }
 
