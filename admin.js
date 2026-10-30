@@ -3632,87 +3632,26 @@ function exportUsers() {
    MODULE C — AUDIT LOGS
    ========================================================= */
 
-function determineAuditActionType(
-  action
-) {
-
+function determineAuditActionType(action) {
   const normalizedAction = String(action || '')
     .trim()
     .toUpperCase()
-    .replace(/[\s-]+/g, '_');
+    .replace(/[\\s-]+/g, '_');
 
-  // Keep all authentication outcomes together, but don't classify unrelated
-  // failures (for example PASSWORD_RESET_FAILED) as login attempts.
-  if (/(^|_)(LOGIN|LOGOUT|SIGN_IN|SIGN_OUT|SIGNIN|SIGNOUT)(_|$)/.test(normalizedAction)) {
-    return 'login';
-  }
-
-  const a = normalizedAction.toLowerCase();
-
-
-  if (
-    a.includes('reject')
-  ) {
-
-    return 'reject';
-
-  }
-
-
-  if (
-    a.includes('approve')
-  ) {
-
-    return 'approve';
-
-  }
-
-
-  if (
-    a.includes('status') ||
-    a.includes('print')
-  ) {
-
-    return 'status';
-
-  }
-
-
-  if (
-    a.includes('export')
-  ) {
-
-    return 'export';
-
-  }
-
-
-  if (
-    a.includes('backup') ||
-    a.includes('restor')
-  ) {
-
-    return 'backup';
-
-  }
-
-
-  if (
-    a.includes('user') ||
-    a.includes('role') ||
-    a.includes('password') ||
-    a.includes('two-factor')
-  ) {
-
-    return 'user';
-
-  }
-
+  if (/(^|_)(LOGIN|LOGOUT|SIGN_IN|SIGN_OUT|SIGNIN|SIGNOUT)(_|$)/.test(normalizedAction)) return 'login';
+  if (normalizedAction.includes('REPLACEMENT')) return 'replacement';
+  if (normalizedAction.includes('VALIDATION')) return 'validation';
+  if (normalizedAction.includes('DOCUMENT') || normalizedAction.includes('DOC_')) return 'documents';
+  if (normalizedAction.includes('QUEUE') || normalizedAction.includes('ISSUANCE') || normalizedAction.includes('ID_MAKER')) return 'issuance';
+  if (normalizedAction.includes('REJECT')) return 'reject';
+  if (normalizedAction.includes('APPROVE')) return 'approve';
+  if (normalizedAction.includes('STATUS') || normalizedAction.includes('PRINT')) return 'status';
+  if (normalizedAction.includes('EXPORT')) return 'export';
+  if (normalizedAction.includes('BACKUP') || normalizedAction.includes('RESTOR')) return 'backup';
+  if (normalizedAction.includes('USER') || normalizedAction.includes('ROLE') || normalizedAction.includes('PASSWORD') || normalizedAction.includes('TWO_FACTOR')) return 'user';
 
   return 'other';
-
 }
-
 
 const escHtml =
   s =>
