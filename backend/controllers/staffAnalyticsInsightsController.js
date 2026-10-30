@@ -100,7 +100,7 @@ async function requestStaffGroq(metrics, prompt) {
             },
           ],
           temperature: 0.2,
-          max_completion_tokens: 1000,
+          max_completion_tokens: 1800,
           response_format: {
             type: "json_schema",
             json_schema: {
@@ -194,7 +194,7 @@ async function generateStaffAnalyticsInsights(req, res) {
       return res.json({ success: true, configured: false, insights });
     }
 
-    const prompt = "You write descriptive insights for an OSCA staff dashboard about senior citizen ID applications. Return JSON with an 'insights' object containing a short string for each provided analytics key. Use only supplied aggregate statistics. Do not invent numbers, infer causes, identify individuals, or make eligibility decisions. Use simple professional English, 1-3 sentences and at most 55 words per insight. Explain what the data shows.";
+    const prompt = "You write descriptive insights for an OSCA staff dashboard about senior citizen ID applications. Return JSON with an 'insights' object containing a short string for each provided analytics key. Use only supplied aggregate statistics. Do not invent numbers, infer causes, identify individuals, or make eligibility decisions. Use simple professional English, 1-2 sentences and at most 35 words per insight. Explain only what the data shows.";
     let generated = {};
     let provider = "gemini";
 
