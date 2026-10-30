@@ -5464,6 +5464,10 @@ async function setDocStatus(doc, state, options = {}) {
     return false;
   }
 
+  // Preserve the last saved state so a failed API request does not
+  // leave the interface showing an approval that was never saved.
+  const previousState = DOC_STATUS[doc] || 'pending';
+
   // Optimistically update the UI
   DOC_STATUS[doc] = state;
 
@@ -5607,6 +5611,21 @@ async function setDocStatus(doc, state, options = {}) {
       'Failed to save document authentication:',
       error
     );
+
+    // Roll back the optimistic UI change when the database rejects the update.
+    DOC_STATUS[doc] = previousState;
+    if (el) {
+      el.className =
+        'doc-card__status ' +
+        (previousState === 'ok'
+          ? 'ok'
+          : previousState === 'warn'
+            ? 'warn'
+            : 'pending');
+      el.textContent =
+        labels[previousState] || 'Pending';
+    }
+    updateDocsSummary();
 
     if (!options.silent) {
       showToast(
