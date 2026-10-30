@@ -1812,58 +1812,63 @@ const updateApplicationStatus = async (req, res) => {
       statusRecord = newStatusRecord;
     }
 
-    // Keep the ID Maker queue synchronized when staff marks the application
-    // Ready for Release. This updates an existing queue row only; it does not
-    // create a new queue entry or trigger SMS from the ID Maker workflow.
-    let idMakerSync = { attempted: false, updated: false };
+    // Synchronize the existing ID Maker queue row whenever staff status is
+    // Ready for Release. Keep this independent from SMS notification logic.
+    let idMakerSync = { attempted: false, updated: false, found: false };
     if (status === "Ready for Release") {
       idMakerSync.attempted = true;
       try {
         const { data: queueItem, error: queueLookupError } = await supabase
           .from("id_maker_queue")
-          .select("id, completed_at")
+          .select("id")
           .eq("application_id", applicationId)
+          .limit(1)
           .maybeSingle();
 
-        if (queueLookupError && !(
-          queueLookupError.code === "42703" ||
-          queueLookupError.code === "PGRST204" ||
-          (String(queueLookupError.message || "").toLowerCase().includes("completed_at") &&
-            String(queueLookupError.message || "").toLowerCase().includes("column"))
-        )) {
-          throw queueLookupError;
-        }
+        if (queueLookupError) throw queueLookupError;
 
-        if (queueLookupError) {
-          const { data: fallbackQueueItem, error: fallbackLookupError } = await supabase
-            .from("id_maker_queue")
-            .select("id")
-            .eq("application_id", applicationId)
-            .maybeSingle();
-          if (fallbackLookupError) throw fallbackLookupError;
-          if (fallbackQueueItem) {
-            const { error: queueUpdateError } = await supabase
-              .from("id_maker_queue")
-              .update({ print_status: "Completed", updated_at: now })
-              .eq("application_id", applicationId);
-            if (queueUpdateError) throw queueUpdateError;
-            idMakerSync.updated = true;
-          }
-        } else if (queueItem) {
-          const { error: queueUpdateError } = await supabase
+        if (queueItem) {
+          idMakerSync.found = true;
+          const completedAt = now;
+          let queueUpdate = await supabase
             .from("id_maker_queue")
             .update({
               print_status: "Completed",
-              completed_at: queueItem.completed_at || now,
+              completed_at: completedAt,
               updated_at: now,
             })
-            .eq("application_id", applicationId);
-          if (queueUpdateError) throw queueUpdateError;
-          idMakerSync.updated = true;
+            .eq("application_id", applicationId)
+            .select("id, application_id, print_status, updated_at, completed_at");
+
+          // Older database schemas may not have completed_at. Retry without
+          // that optional column, while still enforcing the status update.
+          if (queueUpdate.error && (
+            queueUpdate.error.code === "42703" ||
+            queueUpdate.error.code === "PGRST204" ||
+            String(queueUpdate.error.message || "").toLowerCase().includes("completed_at")
+          )) {
+            queueUpdate = await supabase
+              .from("id_maker_queue")
+              .update({
+                print_status: "Completed",
+                updated_at: now,
+              })
+              .eq("application_id", applicationId)
+              .select("id, application_id, print_status, updated_at");
+          }
+
+          if (queueUpdate.error) throw queueUpdate.error;
+          idMakerSync.updated = Boolean(queueUpdate.data?.length);
+          idMakerSync.queue = queueUpdate.data?.[0] || null;
+          if (!idMakerSync.updated) {
+            throw new Error("Queue record was found, but the update returned no updated row.");
+          }
+        } else {
+          idMakerSync.message = "No existing ID Maker queue record was found; no queue row was created.";
         }
       } catch (syncError) {
         idMakerSync.error = syncError.message;
-        console.error("[ID Maker] Failed to synchronize Ready for Release status:", syncError.message);
+        console.error("[ID Maker] Failed to synchronize Ready for Release status:", syncError);
       }
     }
 
