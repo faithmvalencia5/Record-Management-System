@@ -3939,6 +3939,60 @@ function formatAuditDetailValue(value) {
   return textValue;
 }
 
+function positionAuditEventDetails(anchorRow) {
+  const modal = document.getElementById('audit-event-detail-modal');
+  const dialog = modal?.querySelector('.audit-detail-modal__dialog');
+  if (!modal || !dialog) return;
+
+  const viewportHeight = window.innerHeight;
+  const edge = 16;
+  const gap = 10;
+  const rowRect = anchorRow?.isConnected ? anchorRow.getBoundingClientRect() : null;
+
+  // Measure the dialog at its natural responsive height before choosing a side.
+  dialog.style.position = 'fixed';
+  dialog.style.left = '50%';
+  dialog.style.right = 'auto';
+  dialog.style.bottom = 'auto';
+  dialog.style.transform = 'translateX(-50%)';
+  dialog.style.top = `${edge}px`;
+  dialog.style.maxHeight = `${Math.max(220, viewportHeight - edge * 2)}px`;
+
+  const desiredHeight = Math.min(
+    dialog.scrollHeight,
+    viewportHeight - edge * 2
+  );
+
+  if (!rowRect) {
+    const centeredTop = Math.max(edge, (viewportHeight - desiredHeight) / 2);
+    dialog.style.top = `${Math.floor(centeredTop)}px`;
+    dialog.style.maxHeight = `${Math.max(220, viewportHeight - edge * 2)}px`;
+    return;
+  }
+
+  const aboveSpace = Math.max(0, rowRect.top - edge - gap);
+  const belowSpace = Math.max(0, viewportHeight - rowRect.bottom - edge - gap);
+  const placeAbove = aboveSpace > belowSpace;
+  const availableSpace = Math.max(aboveSpace, belowSpace);
+
+  // Use the larger side of the clicked row. If neither side fits the full
+  // content, constrain the dialog to that side and let its body scroll.
+  const usableHeight = Math.max(180, Math.min(desiredHeight, availableSpace));
+  dialog.style.maxHeight = `${Math.floor(usableHeight)}px`;
+
+  const measuredHeight = dialog.getBoundingClientRect().height;
+  let top = placeAbove
+    ? rowRect.top - measuredHeight - gap
+    : rowRect.bottom + gap;
+
+  // Clamp only as a safety net for very short viewports or unusually tall rows.
+  top = Math.min(
+    Math.max(edge, top),
+    Math.max(edge, viewportHeight - measuredHeight - edge)
+  );
+  dialog.style.top = `${Math.floor(top)}px`;
+}
+
 function openAuditEventDetails(eventId, anchorRow = null) {
   const event = AUDIT_LOG_DATA.find(log => String(log.id) === String(eventId));
   if (!event) {
@@ -3984,51 +4038,31 @@ function openAuditEventDetails(eventId, anchorRow = null) {
     <div class="audit-detail-meta">Audit event ID: <code>${escHtml(String(event.id))}</code></div>
   `;
 
-  // Anchor the popup to the selected log row. Rows near the bottom open
-  // upward; rows near the top open below, while the dialog stays in view.
-  const dialog = modal.querySelector('.audit-detail-modal__dialog');
-  const detailBody = modal.querySelector('.audit-detail-modal__body');
+  // IMPORTANT: this modal is authored inside the admin module. Some module
+  // wrappers create transformed containing blocks, which trap position:fixed
+  // descendants and make the overlay/dialog appear in the wrong place.
+  // Move the popup to <body> before displaying it so its coordinates use the
+  // actual browser viewport and the entire application is covered.
+  if (modal.parentElement !== document.body) {
+    document.body.appendChild(modal);
+  }
+
   modal.hidden = false;
   modal.setAttribute('aria-hidden', 'false');
   document.body.classList.add('audit-detail-open');
 
-  if (dialog) {
-    const viewportHeight = window.innerHeight;
-    const gap = 10;
-    const edge = 16;
-    const rowRect = anchorRow?.getBoundingClientRect();
-    dialog.style.top = `${edge}px`;
-    dialog.style.maxHeight = `${Math.floor(viewportHeight * 0.72)}px`;
-    dialog.scrollTop = 0;
+  // Capture the clicked row's viewport position before the body is locked.
+  positionAuditEventDetails(anchorRow);
 
-    const desiredHeight = dialog.getBoundingClientRect().height;
-    if (rowRect) {
-      const aboveSpace = Math.max(0, rowRect.top - edge - gap);
-      const belowSpace = Math.max(0, viewportHeight - rowRect.bottom - edge - gap);
-      const preferAbove = rowRect.top > viewportHeight * 0.55;
-      let placeAbove = preferAbove;
-      let available = placeAbove ? aboveSpace : belowSpace;
-      if (available < Math.min(320, desiredHeight)) {
-        placeAbove = aboveSpace >= belowSpace;
-        available = placeAbove ? aboveSpace : belowSpace;
-      }
-
-      const maxHeight = Math.max(220, Math.min(desiredHeight, available));
-      dialog.style.maxHeight = `${Math.floor(maxHeight)}px`;
-      const actualHeight = dialog.getBoundingClientRect().height;
-      const top = placeAbove
-        ? Math.max(edge, rowRect.top - actualHeight - gap)
-        : Math.min(viewportHeight - actualHeight - edge, rowRect.bottom + gap);
-      dialog.style.top = `${Math.floor(top)}px`;
-    } else {
-      const actualHeight = dialog.getBoundingClientRect().height;
-      dialog.style.top = `${Math.max(edge, (viewportHeight - actualHeight) / 2)}px`;
-    }
-  }
+  const detailBody = modal.querySelector('.audit-detail-modal__body');
   if (detailBody) detailBody.scrollTop = 0;
   modal.scrollTop = 0;
 
-  // Focus the close control without moving the page or dialog.
+  // Recalculate after layout has settled, without scrolling the page.
+  requestAnimationFrame(() => {
+    if (!modal.hidden) positionAuditEventDetails(anchorRow);
+  });
+
   document.getElementById('audit-event-detail-close')?.focus({ preventScroll: true });
 }
 
