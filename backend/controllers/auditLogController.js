@@ -63,16 +63,19 @@ async function createAuditLogFromRequest(req, {
 
 async function getAuditLogs(req, res) {
   try {
-    const limit = Math.min(
-      Math.max(parseInt(req.query.limit, 10) || 100, 1),
-      500
-    );
+    // Supabase applies a maximum row count per request, so the UI retrieves
+    // the full history through consecutive pages instead of truncating at 500.
+    const requestedLimit = Number.parseInt(req.query.limit, 10);
+    const limit = Math.min(Math.max(Number.isFinite(requestedLimit) ? requestedLimit : 1000, 1), 1000);
+    const requestedOffset = Number.parseInt(req.query.offset, 10);
+    const offset = Math.max(Number.isFinite(requestedOffset) ? requestedOffset : 0, 0);
 
     const { data, error } = await supabase
       .from("audit_logs")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(limit);
+      .order("id", { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.error("Get audit logs error:", error);
@@ -82,7 +85,8 @@ async function getAuditLogs(req, res) {
       });
     }
 
-    const userIds = [...new Set((data || [])
+    const page = data || [];
+    const userIds = [...new Set(page
       .map((log) => log.user_id)
       .filter((id) => id !== null && id !== undefined))];
 
@@ -100,7 +104,7 @@ async function getAuditLogs(req, res) {
       }
     }
 
-    const logs = (data || []).map((log) => {
+    const logs = page.map((log) => {
       const account = log.user_id == null
         ? null
         : usersById.get(String(log.user_id));
@@ -112,7 +116,16 @@ async function getAuditLogs(req, res) {
       };
     });
 
-    return res.json({ success: true, logs });
+    return res.json({
+      success: true,
+      logs,
+      pagination: {
+        limit,
+        offset,
+        nextOffset: offset + logs.length,
+        hasMore: logs.length === limit,
+      },
+    });
   } catch (error) {
     console.error("Audit logs error:", error);
     return res.status(500).json({
