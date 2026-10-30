@@ -76,30 +76,13 @@ The queue previously had no reliable first-completion timestamp. Migration `back
 
 Run that migration in Supabase SQL Editor to enable Monthly ID Output. The queue endpoint can still load and update records before the migration: it falls back to the existing columns, so Production Queue Status, Queue by Barangay, and Queue Aging / SLA remain available. Monthly ID Output clearly reports that the migration is needed until completion timestamps can be recorded. Historical Completed rows without timestamps remain excluded rather than assigned guessed dates.
 
-## Gemini component
+## Multi-provider AI analytics
 
-- **Provider/model:** Google Gemini API, default model `gemini-3.8-flash`. `GEMINI_MODEL` can override the model name.
-- **Configuration:** Set `GEMINI_API_KEY` in `backend/.env` for local use and in the deployed backend’s secret environment settings. `GOOGLE_API_KEY` is accepted as an alternative. Do not place the key in browser code or commit it. Use a key restricted to the Gemini API.
-- **Data flow:** The browser posts the four precomputed aggregate objects to `POST /api/id-maker-queue/analytics-insights`. The backend makes one Gemini call per card, concurrently. It sends no queue rows or applicant personal fields. Gemini’s JSON response mode requests an object with one `insight` string.
-- **Temperature/timeout:** Temperature is 0; each call has an 8-second server timeout and the browser request has a 10-second timeout.
-- **Refresh frequency:** One call per card with complete data for each successful refresh snapshot. Cards with no/incomplete data use the fixed no-data message and do not call Gemini.
-
-### System prompt
-
-```text
-You write short descriptive insights for the Queue Analytics page of the ID Maker Portal (Senior Citizens Bureau). You receive a JSON object of pre-computed statistics for one card. Describe only what the data shows: totals, percentages, rankings, distributions, and comparison with the previous period. Rules: Use only numbers that appear in the JSON. Never calculate, estimate, round differently, or invent a figure. Do not give recommendations, instructions, predictions, or causes. Do not use 'should', 'increase', 'prioritize', 'process', 'will', 'because', or 'due to'. Do not judge or evaluate; the status label is set by the system. If a field is null or missing, leave that clause out. If the JSON has no data, output exactly: 'No data available for this period.' Format: one sentence with the lead statistic wrapped in **double asterisks**, then one or two short supporting sentences, 45 words maximum. Output only the insight text.
-```
-
-### Validation and fallback
-
-Before display, backend validation checks the 45-word limit, exact bold lead against the code-computed lead, every number against a number in the card JSON, and the prohibited terms/causal phrase. Structured JSON output is parsed before validation. Gemini errors, malformed JSON, timeouts, validation failures, missing keys, and incomplete data produce the card’s fixed fallback or the exact no-data text. AI text is never displayed before validation. Each Gemini failure or rejected response is logged with its card and failure reason; logs contain no applicant-level records. The UI labels accepted summaries “AI-generated from live data” and fallbacks “Generated from live data.”
-
-The fixed fallback templates are constructed directly from the same JSON values:
-
-- **Production:** `**[X%] of total applications ([queued] of [total]) are currently queued.** [in production] are in production, [printed] printed, [in transit] in transit, and [completed] completed.`
-- **Barangay:** `**[Top barangay] has the highest workload with [n] applications ([X%] of total applications).** It is followed by [2nd] ([n2]) and [3rd] ([n3]). The top three barangays account for [Y%].` Missing ranking clauses are omitted.
-- **Aging:** `**[overdue] of [active] active applications ([X%]) have waited over 48 hours.** [mid] ([Y%]) have waited 24 to 48 hours and [fresh] ([Z%]) within 24 hours. The oldest record has waited [age].`
-- **Monthly:** `**[n] IDs were completed in [latest month], [up / down / unchanged] from [prev] in [prev month].** [total] IDs were completed over the last [months] months, averaging [avg] per month.`
+- **Provider order:** Groq is primary, followed by Cerebras and OpenRouter. If all configured providers fail or reach their limits, the dashboard displays its existing live-data fallback summaries.
+- **Configuration:** Set `GROQ_API_KEY`, `CEREBRAS_API_KEY`, and `OPENROUTER_API_KEY` in the backend environment. Optional model overrides are `GROQ_MODEL`, `CEREBRAS_MODEL`, and `OPENROUTER_MODEL`. Defaults are `openai/gpt-oss-20b`, `gpt-oss-120b`, and `openrouter/free`, respectively. Never place API keys in browser code or commit them.
+- **Data flow:** The browser posts precomputed aggregate analytics to the backend. The backend removes or rejects personal applicant fields as appropriate, then sends only the sanitized aggregate metrics to the first available AI provider. The providers return JSON insights which are validated before display.
+- **Fallback behavior:** Provider failures, rate limits, timeouts, invalid JSON, and missing keys trigger the next provider in order. If no provider succeeds, the fixed live-data summaries remain visible.
+- **Caching:** Successfully validated insights are cached for six hours per analytics snapshot in the running backend process.
 
 ## PDF report
 
