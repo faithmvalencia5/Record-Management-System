@@ -1,5 +1,6 @@
 
 const supabase = require("../config/supabase");
+const { createAuditLogFromRequest } = require("./auditLogController");
 
 // GET ALL ID REQUESTS
 // Includes every reason: Lost, Damaged, and others.
@@ -200,6 +201,13 @@ const decideReplacementRequest = async (req, res) => {
     if (!data || data.success !== true || !data.request) {
       throw new Error("The database did not confirm the status update.");
     }
+
+    await createAuditLogFromRequest(req, {
+      action: "REPLACEMENT_STATUS_UPDATED",
+      entityType: "ID_REQUEST",
+      entityId: requestId,
+      details: `Replacement request status changed to ${status}.`,
+    });
 
     return res.status(200).json({
       success: true,
