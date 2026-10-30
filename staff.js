@@ -3200,8 +3200,10 @@ async function loadApplicationsFromDatabase() {
     }
     document.querySelectorAll('.data-table-card, .content-card').forEach(el => el.removeAttribute('aria-busy'));
     document.querySelectorAll('.admin-kpi-strip, .cards-grid, .analytics-hero__stats, .stat-card, .analytics-kpi, .chart-card, .donut-card').forEach(el => el.classList.remove('is-loading'));
-    clearBusy('recent-apps-tbody');
-    clearBusy('recent-submissions-tbody');
+    if (typeof Skeleton !== 'undefined' && typeof Skeleton.clearBusy === 'function') {
+      Skeleton.clearBusy('recent-apps-tbody');
+      Skeleton.clearBusy('recent-submissions-tbody');
+    }
 
   }
 
