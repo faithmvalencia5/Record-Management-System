@@ -76,20 +76,45 @@ async function getAuditLogs(req, res) {
 
     if (error) {
       console.error("Get audit logs error:", error);
-
       return res.status(500).json({
         success: false,
         message: "Unable to load audit logs.",
       });
     }
 
-    return res.json({
-      success: true,
-      logs: data || [],
+    const userIds = [...new Set((data || [])
+      .map((log) => log.user_id)
+      .filter((id) => id !== null && id !== undefined))];
+
+    let usersById = new Map();
+    if (userIds.length) {
+      const { data: users, error: usersError } = await supabase
+        .from("user_accounts")
+        .select("id, full_name, username")
+        .in("id", userIds);
+
+      if (usersError) {
+        console.warn("Unable to enrich audit logs with account names:", usersError);
+      } else {
+        usersById = new Map((users || []).map((user) => [String(user.id), user]));
+      }
+    }
+
+    const logs = (data || []).map((log) => {
+      const account = log.user_id == null
+        ? null
+        : usersById.get(String(log.user_id));
+
+      return {
+        ...log,
+        username: log.username || account?.username || null,
+        full_name: account?.full_name || null,
+      };
     });
+
+    return res.json({ success: true, logs });
   } catch (error) {
     console.error("Audit logs error:", error);
-
     return res.status(500).json({
       success: false,
       message: "Something went wrong while loading audit logs.",
