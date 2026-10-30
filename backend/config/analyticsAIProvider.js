@@ -48,7 +48,7 @@ async function requestProvider(provider, metrics, prompt, expectedKeys, maxToken
   if (!apiKey) throw new Error("API key is not configured.");
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20000);
+  const timer = setTimeout(() => controller.abort(), 15000);
   try {
     const response = await fetch(provider.url, {
       method: "POST",
