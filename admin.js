@@ -2283,16 +2283,7 @@ function renderUserMgmtTable() {
             </button>
 
 
-            <button
-              class="icon-btn"
-              title="Reset Password"
-              aria-label="Reset Password"
-              onclick="openUserActions('${escHtml(u.key)}')"
-            >
 
-              <i class="fi fi-rr-rotate-left"></i>
-
-            </button>
 
 
             <button
@@ -2409,6 +2400,12 @@ function openUserModal(
         ? 'Update OSCA personnel account'
         : 'Register OSCA personnel';
 
+  }
+
+  // Initial passwords are set only when creating a new account.
+  const passwordGroup = document.getElementById('um-password-group');
+  if (passwordGroup) {
+    passwordGroup.style.display = editingUserKey ? 'none' : '';
   }
 
 
@@ -2764,11 +2761,6 @@ async function saveUser() {
       'um-email'
     ).value.trim();
 
-  const password =
-    document.getElementById(
-      'um-password'
-    )?.value || '';
-
   const role =
     document.getElementById(
       'um-role'
@@ -2811,28 +2803,6 @@ async function saveUser() {
 
   }
 
-
-  if (
-    password &&
-    !isStrongPassword(
-      password
-    )
-  ) {
-
-    showToast(
-      'Password must be at least 8 characters and include a capital letter, a number, and a special character.',
-      'error'
-    );
-
-    document
-      .getElementById(
-        'um-password'
-      )
-      ?.focus();
-
-    return;
-
-  }
 
 
   try {
@@ -2878,14 +2848,6 @@ async function saveUser() {
           status
 
       };
-
-
-      if (password) {
-
-        body.password =
-          password;
-
-      }
 
 
       response =
