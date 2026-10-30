@@ -4,6 +4,20 @@ const KEYS = ["applicationFlow", "queueMix", "replacementRequests", "readyForHan
 const INSIGHT_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const insightCache = new Map();
 
+function getCachedStaffInsights(key) {
+  const entry = insightCache.get(key);
+  if (!entry) return null;
+  if (Date.now() >= entry.expiresAt) {
+    insightCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function cacheStaffInsights(key, value) {
+  insightCache.set(key, { value, expiresAt: Date.now() + INSIGHT_CACHE_TTL_MS });
+}
+
 function plainObject(v) {
   return v !== null && typeof v === "object" && !Array.isArray(v);
 }
@@ -192,7 +206,7 @@ async function generateStaffAnalyticsInsights(req, res) {
     }
     return res.json({ success: true, configured: true, model: MODEL, insights });
   } catch (error) {
-    console.warn("[Staff analytics] Gemini insight generation failed:", error.message);
+    console.warn("[Staff analytics] Groq insight generation failed:", error.message);
     try {
       const metrics = sanitizeMetrics(req.body?.metrics || {});
       const insights = Object.fromEntries(KEYS.map(k => [k, { text: fallback(k, metrics[k]), source: "fallback" }]));
