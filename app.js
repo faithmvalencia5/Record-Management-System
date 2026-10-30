@@ -364,19 +364,44 @@ function initRadar() {
 const AUTH_API_BASE = 'https://management-backend-3cij.onrender.com/api/auth';
 
 function getAuthToken() {
+  // Prefer the token restored into the active account, then inspect both
+  // storage locations independently. Do not let an older empty session in
+  // sessionStorage hide a valid token saved in localStorage (or vice versa).
+  const candidates = [];
+
+  if (typeof CURRENT_USER !== 'undefined' && CURRENT_USER?.token) {
+    candidates.push(CURRENT_USER.token);
+  }
+
   try {
-    const direct = window.localStorage.getItem('authToken');
-    if (direct) return direct;
+    const sessionRaw = window.sessionStorage.getItem('senioridAuth');
+    if (sessionRaw) {
+      const session = JSON.parse(sessionRaw);
+      if (session?.token) candidates.push(session.token);
+    }
   } catch (_err) { }
 
   try {
-    const raw = readAuthSession();
-    if (!raw) return null;
-    const session = JSON.parse(raw);
-    return session.token || null;
-  } catch (_err) {
-    return null;
-  }
+    const localRaw = window.localStorage.getItem('senioridAuth');
+    if (localRaw) {
+      const session = JSON.parse(localRaw);
+      if (session?.token) candidates.push(session.token);
+    }
+  } catch (_err) { }
+
+  try {
+    const legacyToken = window.localStorage.getItem('authToken');
+    if (legacyToken) candidates.push(legacyToken);
+  } catch (_err) { }
+
+  const token = candidates.find(value =>
+    typeof value === 'string' &&
+    value.trim() &&
+    value.trim() !== 'null' &&
+    value.trim() !== 'undefined'
+  );
+
+  return token ? token.trim() : null;
 }
 
 function getAuthHeaders() {
