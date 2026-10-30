@@ -4,60 +4,6 @@ const KEYS = ["applicationFlow", "queueMix", "replacementRequests", "readyForHan
 const INSIGHT_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const insightCache = new Map();
 
-let geminiQuotaUntil = 0;
-let geminiQuotaWarningLogged = false;
-
-function getGeminiQuotaCooldownMs(message = "") {
-  const retry = message.match(/Please retry in\s+(?:(\d+)h)?(?:(\d+)m)?(?:(\d+(?:\.\d+)?)s)?/i);
-  if (retry) {
-    const ms = (Number(retry[1] || 0) * 3600 + Number(retry[2] || 0) * 60 + Number(retry[3] || 0)) * 1000;
-    if (ms > 0) return ms + 30000;
-  }
-  return 60 * 60 * 1000;
-}
-
-function noteGeminiQuotaFailure(error) {
-  const message = String(error?.message || error || "");
-  const quotaFailure = /429|quota|rate.?limit|free.?tier.*requests/i.test(message);
-  if (!quotaFailure) return { coolingDown: false, newlyLimited: false };
-
-  if (Date.now() < geminiQuotaUntil) return { coolingDown: true, newlyLimited: false };
-  geminiQuotaUntil = Date.now() + getGeminiQuotaCooldownMs(message);
-  const newlyLimited = !geminiQuotaWarningLogged;
-  geminiQuotaWarningLogged = true;
-  return { coolingDown: true, newlyLimited };
-}
-
-function geminiQuotaIsCoolingDown() {
-  if (Date.now() >= geminiQuotaUntil) {
-    geminiQuotaUntil = 0;
-    geminiQuotaWarningLogged = false;
-    return false;
-  }
-  return true;
-}
-
-
-function getCachedStaffInsights(key) {
-  const entry = insightCache.get(key);
-
-  if (!entry) return null;
-
-  if (Date.now() >= entry.expiresAt) {
-    insightCache.delete(key);
-    return null;
-  }
-
-  return entry.value;
-}
-
-function cacheStaffInsights(key, value) {
-  insightCache.set(key, {
-    value,
-    expiresAt: Date.now() + INSIGHT_CACHE_TTL_MS,
-  });
-}
-
 function plainObject(v) {
   return v !== null && typeof v === "object" && !Array.isArray(v);
 }
