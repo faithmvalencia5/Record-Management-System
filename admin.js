@@ -1582,6 +1582,20 @@ document.addEventListener(
   'DOMContentLoaded',
   () => {
 
+    // Close the date-range popover whenever the user clicks anywhere
+    // outside the filter control, matching the behavior of other popovers.
+    const auditDateRange = document.getElementById('audit-date-range');
+    if (auditDateRange) {
+      document.addEventListener('click', event => {
+        if (
+          auditDateRange.open &&
+          !auditDateRange.contains(event.target)
+        ) {
+          auditDateRange.open = false;
+        }
+      });
+    }
+
     if (requireAdminSession()) {
       loadAdminDashboardData();
       loadAdminUsers();
