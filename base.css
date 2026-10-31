@@ -7642,3 +7642,14 @@ body.portal-mode #toast-container {
     padding: 14px 16px;
   }
 }
+
+
+/* Login page input cleanup: native dropdown indicators must not appear on text inputs. */
+#login-page input.auth-input {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: none;
+}
+#login-page input.auth-input::-ms-expand {
+  display: none;
+}
