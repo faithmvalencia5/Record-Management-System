@@ -1258,9 +1258,7 @@ function showLogoutPage() {
     showScreen('login-page');
     return;
   }
-  location.href = reason === 'inactivity'
-      ? 'login.html?loggedout=1&reason=inactivity'
-      : 'login.html?loggedout=1';
+  location.href = 'login.html?loggedout=1';
 }
 
 /* Flash a one-time toast/message on the standalone Login page. The message is
@@ -2455,8 +2453,11 @@ function restoreSession() {
       showLoginPage();
 
       if (loggedOut) {
+        const reason = new URLSearchParams(location.search).get('reason');
         applyLoginFlash(
-          'Session ended for data privacy protection',
+          reason === 'inactivity'
+            ? 'You were automatically signed out after 5 minutes of inactivity.'
+            : 'Session ended for data privacy protection',
           'info'
         );
       }
@@ -7468,7 +7469,9 @@ async function logout(reason = 'manual') {
     showLoginPage();
     showToast('Signed out successfully.', 'info');
   } else {
-    location.href = 'login.html?loggedout=1';
+    location.href = reason === 'inactivity'
+      ? 'login.html?loggedout=1&reason=inactivity'
+      : 'login.html?loggedout=1';
   }
 }
 
