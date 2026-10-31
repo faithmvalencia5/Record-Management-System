@@ -1598,6 +1598,7 @@ document.addEventListener(
 
     if (requireAdminSession()) {
       loadAdminDashboardData();
+      loadSystemBackups();
       loadAdminUsers();
       loadAdminAuditLogs();
       checkAdminSystemHealth();
@@ -4865,7 +4866,7 @@ function renderBackupHistory() {
       '<td data-label="File Size"><span class="cell-text">' + escHtml(formatBackupBytes(backup.archiveBytes)) + '</span></td>' +
       '<td data-label="Status"><span class="badge badge-approved">' + escHtml(backup.status || "Saved") + '</span></td>' +
       '<td data-label="Contents"><span class="cell-text">' + rows + ' rows · ' + files + ' files</span></td>' +
-      '<td style="text-align:right"><button class="row-action always-visible" onclick="restoreFromHistory(\\'' + safeId + '\\')">Recover</button></td>' +
+      '<td style="text-align:right"><button class="row-action always-visible" onclick="restoreFromHistory(&quot;' + safeId + '&quot;)">Recover</button></td>' +
       '</tr>';
   }).join("");
 }
