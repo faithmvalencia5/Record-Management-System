@@ -136,8 +136,54 @@ async function getAuditLogs(req, res) {
   }
 }
 
+
+async function recordExportAudit(req, res) {
+  try {
+    const report = String(req.body?.report || "").trim().slice(0, 120);
+    const format = String(req.body?.format || "").trim().toUpperCase().slice(0, 12);
+    const recordCount = Number(req.body?.recordCount);
+
+    if (!report || !["CSV", "JSON", "PDF", "XLSX"].includes(format) ||
+        !Number.isInteger(recordCount) || recordCount < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid report name, export format, and record count are required.",
+      });
+    }
+
+    const saved = await createAuditLogFromRequest(req, {
+      action: "DATA_EXPORTED",
+      entityType: "export",
+      details: JSON.stringify({
+        report,
+        format,
+        recordCount,
+      }),
+    });
+
+    if (!saved) {
+      return res.status(500).json({
+        success: false,
+        message: "The export was created, but its audit event could not be saved.",
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: "Export activity recorded.",
+    });
+  } catch (error) {
+    console.error("Record export audit error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Unable to record export activity.",
+    });
+  }
+}
+
 module.exports = {
   createAuditLog,
   createAuditLogFromRequest,
+  recordExportAudit,
   getAuditLogs,
 };
