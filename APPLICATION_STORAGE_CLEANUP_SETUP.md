@@ -22,7 +22,7 @@ Set the function secret (use a newly generated random value; do not commit it):
 supabase secrets set STORAGE_CLEANUP_WEBHOOK_SECRET=YOUR_RANDOM_WEBHOOK_SECRET
 ```
 
-The Edge Function uses the Supabase-provided `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` environment variables. Never put the service-role key in frontend code.
+Set the Edge Function's `SUPABASE_SECRET_KEY` using the same project secret key already used by your backend. The function also accepts the legacy `SUPABASE_SERVICE_ROLE_KEY` variable. Never put either secret key in frontend code.
 
 ## 3. Configure the Database Webhook
 
