@@ -353,6 +353,43 @@ async function loadBackupMetadata(storage, backupId) {
 }
 
 async function createSystemBackup(req, res) {
+  if (currentBackupProgress.active) {
+    return res.status(409).json({
+      success: false,
+      message: "A system backup is already running.",
+      progress: currentBackupProgress,
+    });
+  }
+
+  backupCancelRequested = false;
+  setBackupProgress(1, "Starting encrypted backup in the background", {
+    active: true,
+    status: "running",
+    error: null,
+  });
+
+  // Do not keep the HTTP request open for the entire backup operation.
+  // The admin page follows progress through GET /api/backups/progress.
+  setImmediate(() => {
+    runSystemBackupJob(req).catch((error) => {
+      console.error("[Backups] Unhandled background backup error:", error);
+      setBackupProgress(currentBackupProgress.percent, "Backup failed: " + (error.message || "Unknown error"), {
+        active: false,
+        status: "failed",
+        error: error.message || "Unable to create system backup.",
+      });
+      backupCancelRequested = false;
+    });
+  });
+
+  return res.status(202).json({
+    success: true,
+    accepted: true,
+    message: "Backup started. Follow the progress indicator until it completes.",
+  });
+}
+
+async function runSystemBackupJob(req) {
   let archiveParts = [];
   try {
     backupCancelRequested = false;
@@ -589,11 +626,11 @@ async function createSystemBackup(req, res) {
       details: "Encrypted " + backupType + " backup created with " + totalRows + " database rows and " + fileManifest.length + " newly included files.",
     });
 
-    return res.status(201).json({
+    return {
       success: true,
       message: "Encrypted " + backupType + " system backup created and verified.",
       backup: metadata,
-    });
+    };
   } catch (error) {
     console.error("Create system backup error:", error);
     if (archiveParts.length) {
@@ -605,7 +642,7 @@ async function createSystemBackup(req, res) {
       active: false, status: cancelled ? "cancelled" : "failed", error: error.message || "Unable to create system backup."
     });
     backupCancelRequested = false;
-    return res.status(cancelled ? 409 : (error.status || 500)).json({ success: false, cancelled, message: error.message || "Unable to create system backup." });
+    return { success: false, cancelled, message: error.message || "Unable to create system backup." };
   }
 }
 
