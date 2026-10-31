@@ -7,6 +7,24 @@ const BACKUP_BUCKET = "system-backups";
 const SOURCE_BUCKET = "documents";
 const BACKUP_VERSION = 1;
 const PAGE_SIZE = 1000;
+let currentBackupProgress = { active: false, status: "idle", percent: 0, stage: "Waiting to start", updatedAt: null };
+
+function setBackupProgress(percent, stage, extra = {}) {
+  currentBackupProgress = {
+    ...currentBackupProgress,
+    ...extra,
+    active: extra.active !== undefined ? extra.active : true,
+    status: extra.status || "running",
+    percent: Math.max(0, Math.min(100, Math.round(percent))),
+    stage,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function getSystemBackupProgress(req, res) {
+  return res.json({ success: true, progress: currentBackupProgress });
+}
+
 const TABLES = [
   { name: "applications", conflict: "application_id" },
   { name: "user_accounts", conflict: "id" },
@@ -128,8 +146,10 @@ async function listStorageFiles(bucket, folder = "") {
 
 async function createSystemBackup(req, res) {
   try {
+    setBackupProgress(1, "Preparing secure backup storage", { active: true, status: "running", error: null });
     encryptionKey();
     await ensureBucket(BACKUP_BUCKET, false);
+    setBackupProgress(5, "Secure backup storage is ready");
 
     const zip = new AdmZip();
     const createdAt = new Date().toISOString();
@@ -137,18 +157,28 @@ async function createSystemBackup(req, res) {
     const tableCounts = {};
     let totalRows = 0;
 
-    for (const table of TABLES) {
+    for (let index = 0; index < TABLES.length; index++) {
+      const table = TABLES[index];
       const rows = await fetchAllTableRows(table.name);
       tableCounts[table.name] = rows.length;
       totalRows += rows.length;
       zip.addFile("database/" + table.name + ".json", Buffer.from(JSON.stringify(rows), "utf8"));
+      const percent = 8 + ((index + 1) / TABLES.length) * 32;
+      setBackupProgress(percent, "Exporting database tables (" + (index + 1) + " of " + TABLES.length + "): " + table.name, {
+        completedTables: index + 1, totalTables: TABLES.length, totalRows
+      });
     }
 
+    setBackupProgress(43, "Finding uploaded applicant files");
     const sourceFiles = await listStorageFiles(SOURCE_BUCKET);
     const fileManifest = [];
     let fileBytes = 0;
+    setBackupProgress(47, sourceFiles.length
+      ? "Collecting uploaded applicant files (0 of " + sourceFiles.length + ")"
+      : "No uploaded applicant files found", { completedFiles: 0, totalFiles: sourceFiles.length });
 
-    for (const file of sourceFiles) {
+    for (let fileIndex = 0; fileIndex < sourceFiles.length; fileIndex++) {
+      const file = sourceFiles[fileIndex];
       const { data, error } = await supabase.storage.from(SOURCE_BUCKET).download(file.path);
       if (error || !data) throw new Error("Unable to download uploaded file " + file.path + ": " + (error?.message || "No file data returned."));
       const bytes = Buffer.from(await data.arrayBuffer());
@@ -159,6 +189,10 @@ async function createSystemBackup(req, res) {
         path: file.path,
         size: bytes.length,
         contentType: file.metadata?.mimetype || file.metadata?.contentType || "application/octet-stream",
+      });
+      const percent = 47 + ((fileIndex + 1) / Math.max(sourceFiles.length, 1)) * 23;
+      setBackupProgress(percent, "Collecting uploaded applicant files (" + (fileIndex + 1) + " of " + sourceFiles.length + ")", {
+        completedFiles: fileIndex + 1, totalFiles: sourceFiles.length, fileBytes
       });
     }
 
@@ -172,14 +206,17 @@ async function createSystemBackup(req, res) {
     };
     zip.addFile("manifest.json", Buffer.from(JSON.stringify(manifest, null, 2), "utf8"));
 
-    const encrypted = encryptArchive(zip.toBuffer());
+    setBackupProgress(73, "Compressing and encrypting backup archive");
+    const archiveBuffer = zip.toBuffer();
+    setBackupProgress(77, "Encrypting backup archive");
+    const encrypted = encryptArchive(archiveBuffer);
 
-    // Keep each Storage object comfortably below the common 50 MB object
-    // limit on Supabase plans. The encrypted archive is reconstructed during
-    // restore, so this does not change the backup's contents or encryption.
+    // Keep each Storage object comfortably below the configured 4 MB bucket limit.
     const ARCHIVE_PART_SIZE = 3 * 1024 * 1024;
     const archiveParts = [];
     const storage = supabase.storage.from(BACKUP_BUCKET);
+    const totalParts = Math.ceil(encrypted.length / ARCHIVE_PART_SIZE);
+    setBackupProgress(82, "Uploading encrypted archive (0 of " + totalParts + " parts)", { totalParts, completedParts: 0 });
 
     for (let offset = 0, partNumber = 1; offset < encrypted.length; offset += ARCHIVE_PART_SIZE, partNumber++) {
       const partPath = backupId + ".part-" + String(partNumber).padStart(4, "0");
@@ -193,8 +230,13 @@ async function createSystemBackup(req, res) {
         throw new Error("Unable to upload backup archive part " + partNumber + ": " + partError.message);
       }
       archiveParts.push(partPath);
+      const percent = 82 + (partNumber / totalParts) * 15;
+      setBackupProgress(percent, "Uploading encrypted archive (" + partNumber + " of " + totalParts + " parts)", {
+        completedParts: partNumber, totalParts
+      });
     }
 
+    setBackupProgress(98, "Saving backup manifest and finalizing");
     const metadata = {
       version: BACKUP_VERSION,
       backupId,
@@ -218,6 +260,10 @@ async function createSystemBackup(req, res) {
       throw metadataError;
     }
 
+    setBackupProgress(100, "Backup completed successfully", {
+      active: false, status: "completed", backupId, totalRows, fileCount: fileManifest.length
+    });
+
     await createAuditLogFromRequest(req, {
       action: "SYSTEM_BACKUP_CREATED",
       entityType: "SYSTEM_BACKUP",
@@ -228,6 +274,9 @@ async function createSystemBackup(req, res) {
     return res.status(201).json({ success: true, message: "Encrypted system backup created and verified.", backup: metadata });
   } catch (error) {
     console.error("Create system backup error:", error);
+    setBackupProgress(currentBackupProgress.percent, "Backup failed: " + (error.message || "Unknown error"), {
+      active: false, status: "failed", error: error.message || "Unable to create system backup."
+    });
     return res.status(error.status || 500).json({ success: false, message: error.message || "Unable to create system backup." });
   }
 }
@@ -452,6 +501,7 @@ async function restoreSystemBackup(req, res) {
 
 module.exports = {
   createSystemBackup,
+  getSystemBackupProgress,
   listSystemBackups,
   restoreSystemBackup,
 };
