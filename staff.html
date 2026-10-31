@@ -585,7 +585,7 @@
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                   <circle cx="12" cy="10" r="3" />
                 </svg>
-                <select class="filter-select" onchange="filterApplicantsByBarangay(this.value)"
+                <select class="filter-select" multiple size="4" title="Select multiple values. Hold Ctrl while clicking to select more than one." onchange="filterApplicantsByBarangay(this)"
                   aria-label="Filter applicants by barangay">
                   <option value="">Barangay: All</option>
                   <option value="Alagao">Alagao</option>
@@ -630,7 +630,7 @@
                   <option value="Sinala">Sinala</option>
                 </select>
               </div>
-              <select class="filter-select" onchange="filterApplicantsByStatus(this.value)"
+              <select class="filter-select" multiple size="4" title="Select multiple values. Hold Ctrl while clicking to select more than one." onchange="filterApplicantsByStatus(this)"
                 aria-label="Filter applicants by status">
                 <option value="">All Statuses</option>
                 <option value="Registered">Registered</option>
@@ -858,9 +858,9 @@
 
               <!-- Stage / Status Filter -->
               <div class="filter-select-wrap relative shrink-0">
-                <select id="filter-application-stage"
+                <select id="filter-application-stage" multiple size="4" title="Select multiple values. Hold Ctrl while clicking to select more than one."
                   class="filter-select app-filter-control appearance-none shrink-0 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 pr-7 text-xs font-medium text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/15"
-                  onchange="filterApplicationsByStage(this.value)" aria-label="Filter applications by stage">
+                  onchange="filterApplicationsByStage(this)" aria-label="Filter applications by stage">
                   <option value="all">Stage: All</option>
                   <option value="Pending">Pending</option>
                   <option value="Under Review">Under Review</option>
@@ -885,8 +885,8 @@
                   <circle cx="12" cy="10" r="3" />
                 </svg>
                 <select
-                  class="filter-select appearance-none shrink-0 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 pl-7 pr-7 text-xs font-medium text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/15"
-                  onchange="filterApplicationsByBarangay(this.value)" aria-label="Filter applications by barangay">
+                  class="filter-select appearance-none shrink-0 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 pl-7 pr-7 text-xs font-medium text-slate-800 transition focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/15" multiple size="4" title="Select multiple values. Hold Ctrl while clicking to select more than one."
+                  onchange="filterApplicationsByBarangay(this)" aria-label="Filter applications by barangay">
                   <option value="">Barangay: All</option>
                   <option value="Alagao">Alagao</option>
                   <option value="Aplaya">Aplaya</option>
