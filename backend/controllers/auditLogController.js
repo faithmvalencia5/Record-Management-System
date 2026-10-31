@@ -154,11 +154,7 @@ async function recordExportAudit(req, res) {
     const saved = await createAuditLogFromRequest(req, {
       action: "DATA_EXPORTED",
       entityType: "export",
-      details: JSON.stringify({
-        report,
-        format,
-        recordCount,
-      }),
+      details: `Exported ${report} as ${format} (${recordCount.toLocaleString()} records).`,
     });
 
     if (!saved) {
