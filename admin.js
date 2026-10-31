@@ -5136,13 +5136,8 @@ function updateRestoreProgressUI(progress = {}) {
   const terminal = ["completed", "completed_with_issues", "cancelled", "failed", "interrupted"].includes(progress.status);
   if (cancelButton) {
     cancelButton.disabled = terminal || progress.status === "cancelling";
-    cancelButton.textContent = progress.status === "cancelling" ? "Cancelling…" : progress.status === "cancelled" ? "Cancelled" : "Cancel Recovery";
-    cancelButton.hidden = terminal;
-  }
-  if (note) note.textContent = progress.status === "completed" || progress.status === "completed_with_issues"
-    ? "Recovery process finished. You may close this window."
-    : progress.status === "cancelled"
-      ? "Recovery stopped. Any records or files already restored were kept; no existing data was overwritten."
+    cancelButton.textContent = progress.status === "cancelling" ? "Cancelling…" : progress.status === "cancelled"
+      ? "Recovery cancelled. All records and files added by this recovery attempt were rolled back; pre-existing data was preserved."
       : progress.status === "failed" || progress.status === "interrupted"
         ? (progress.error || "Recovery failed. Check the backend logs.")
         : progress.status === "cancelling"
