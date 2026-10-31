@@ -3508,14 +3508,18 @@ function buildApplicantProfiles(applications) {
     const idRecord = profile.applications.find(a => a.application_id || a.id || a.osca_id_number || a.senior_citizen_id || a.id_number);
     profile.seniorId = idRecord && (idRecord.application_id || idRecord.id || idRecord.osca_id_number || idRecord.senior_citizen_id || idRecord.id_number) || '';
     profile.completedApplications = profile.applications.filter(a => normalizeApplicationStatus(a.status) === 'completed');
+    profile.ongoingApplications = profile.applications.filter(a =>
+      !['completed', 'rejected'].includes(normalizeApplicationStatus(a.status)));
     profile.isRegistered = profile.completedApplications.length > 0;
     const registeredDates = profile.completedApplications.map(a => new Date(a.status_updated_at || a.updated_at || a.created_at || 0))
       .filter(date => !Number.isNaN(date.getTime()) && date.getTime() > 0).sort((a, b) => a - b);
     profile.registeredAt = registeredDates[0] || null;
-    profile.isActive = profile.applications.some(a =>
-      ['pending', 'review', 'approved', 'process', 'ready', 'issued'].includes(normalizeApplicationStatus(a.status)));
+    profile.isActive = profile.ongoingApplications.length > 0;
+    // Show the newest ongoing request in the list, even if the same citizen has older completed history.
+    if (profile.isActive) profile.latestApplication = profile.ongoingApplications[0];
     profile.hasDuplicateFlag = profile.applications.some(isProfileDuplicateFlagged);
-    profile.status = profile.isRegistered ? 'Registered' : (profile.latestApplication.status || 'Pending');
+    profile.status = profile.isActive ? (profile.latestApplication.status || 'Pending') :
+      (profile.isRegistered ? 'Registered' : 'Rejected');
     return profile;
   });
 }
@@ -3532,10 +3536,15 @@ function getProfileStatusClass(status) {
 function renderLiveApplicants(applications) {
   const tbody = document.getElementById('applicants-tbody');
   if (!tbody) return;
-  STAFF_APPLICANT_PROFILES = buildApplicantProfiles(applications);
+  // The Applicants module is an ongoing-work queue, not a list of completed registrations.
+  STAFF_APPLICANT_PROFILES = buildApplicantProfiles(applications).filter(profile => profile.isActive);
   const profiles = STAFF_APPLICANT_PROFILES;
   const badge = document.getElementById('applicants-total-badge');
-  if (badge) badge.textContent = profiles.length.toLocaleString() + ' Profiles';
+  if (badge) badge.textContent = profiles.length.toLocaleString() + ' Ongoing Profiles';
+  const sidebarBadge = document.getElementById('applicants-sidebar-count');
+  const ongoingApplicationCount = applications.filter(application =>
+    !['completed', 'rejected'].includes(normalizeApplicationStatus(application.status))).length;
+  if (sidebarBadge) sidebarBadge.textContent = ongoingApplicationCount.toLocaleString();
   if (!profiles.length) {
     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">No applicant profiles found.</td></tr>';
     if (typeof Skeleton !== 'undefined') Skeleton.clearBusy('applicants-tbody');
@@ -4135,7 +4144,11 @@ function handleApplicationsSort(val) {
 window.handleApplicationsSort = handleApplicationsSort;
 
 function updateApplicantSummaryCards(applications) {
+  if (!Array.isArray(applications)) return;
   const profiles = buildApplicantProfiles(applications);
+  const ongoingProfiles = profiles.filter(profile => profile.isActive);
+  const ongoingApplicationCount = applications.filter(application =>
+    !['completed', 'rejected'].includes(normalizeApplicationStatus(application.status))).length;
   const now = new Date();
   const identityCounts = new Map();
   profiles.forEach(profile => {
@@ -4145,12 +4158,19 @@ function updateApplicantSummaryCards(applications) {
   const duplicateProfiles = profiles.filter(profile => profile.hasDuplicateFlag ||
     (profile.nameDobKey && !profile.nameDobKey.startsWith('|') && identityCounts.get(profile.nameDobKey) > 1)).length;
   const counts = {
-    'applicants-total-count': profiles.filter(p => p.isRegistered).length,
-    'applicants-verified-count': profiles.filter(p => p.isActive).length,
-    'applicants-unverified-count': profiles.filter(p => p.registeredAt && p.registeredAt.getFullYear() === now.getFullYear() && p.registeredAt.getMonth() === now.getMonth()).length,
-    'applicants-issued-count': duplicateProfiles
+    'applicants-total-count': profiles.filter(profile => profile.isRegistered).length,
+    'applicants-verified-count': ongoingProfiles.length,
+    'applicants-unverified-count': profiles.filter(profile => profile.registeredAt &&
+      profile.registeredAt.getFullYear() === now.getFullYear() &&
+      profile.registeredAt.getMonth() === now.getMonth()).length,
+    'applicants-issued-count': duplicateProfiles,
+    'applicants-sidebar-count': ongoingApplicationCount,
+    'applicants-total-badge': ongoingProfiles.length.toLocaleString() + ' Ongoing Profiles'
   };
-  Object.entries(counts).forEach(([id, value]) => { const el = document.getElementById(id); if (el) el.textContent = value.toLocaleString(); });
+  Object.entries(counts).forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = typeof value === 'number' ? value.toLocaleString() : value;
+  });
 }
 
 function updateApplicationSummaryCards(applications) {
