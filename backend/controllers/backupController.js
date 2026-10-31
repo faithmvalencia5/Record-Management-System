@@ -202,29 +202,62 @@ async function createSystemBackup(req, res) {
 
 async function listSystemBackups(req, res) {
   try {
-    await ensureBucket(BACKUP_BUCKET, false);
+    // Listing an empty backup history must not require encryption setup or
+    // attempt to create a bucket as a side effect. The private bucket is
+    // created when the first backup is requested.
     const { data, error } = await supabase.storage.from(BACKUP_BUCKET).list("", {
       limit: 1000,
       sortBy: { column: "name", order: "desc" },
     });
-    if (error) throw error;
-    const metadataFiles = (data || []).filter(item => item.name.endsWith(".json"));
+
+    if (error) {
+      // A missing bucket means that no backup has been created yet.
+      // Return an empty history instead of failing the whole admin page.
+      if (/bucket not found|not found/i.test(error.message || "")) {
+        return res.json({ success: true, backups: [] });
+      }
+      throw error;
+    }
+
+    const metadataFiles = (data || []).filter(item =>
+      item && typeof item.name === "string" && item.name.endsWith(".json")
+    );
     const backups = [];
+
     for (const item of metadataFiles) {
-      const { data: file, error: downloadError } = await supabase.storage.from(BACKUP_BUCKET).download(item.name);
-      if (downloadError || !file) continue;
+      const { data: file, error: downloadError } =
+        await supabase.storage.from(BACKUP_BUCKET).download(item.name);
+
+      if (downloadError || !file) {
+        console.warn("[Backups] Skipping unreadable backup metadata:", item.name, downloadError?.message);
+        continue;
+      }
+
       try {
         const metadata = JSON.parse(await file.text());
-        backups.push(metadata);
-      } catch (_error) {
-        // Ignore malformed metadata entries; the archive is not exposed as a valid restore point.
+        // Only list metadata entries that point to a plausible archive.
+        if (
+          metadata &&
+          typeof metadata.backupId === "string" &&
+          typeof metadata.createdAt === "string" &&
+          typeof metadata.archivePath === "string"
+        ) {
+          backups.push(metadata);
+        }
+      } catch (parseError) {
+        console.warn("[Backups] Skipping invalid metadata file:", item.name, parseError.message);
       }
     }
+
     backups.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     return res.json({ success: true, backups });
   } catch (error) {
     console.error("List system backups error:", error);
-    return res.status(500).json({ success: false, message: "Unable to load backup history.", error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "Unable to load backup history from Supabase Storage.",
+      error: error.message || "Unknown storage error.",
+    });
   }
 }
 
