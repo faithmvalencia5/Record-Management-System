@@ -17,9 +17,11 @@ function setBackupProgress(percent, stage, extra = {}) {
     ...currentBackupProgress,
     ...extra,
     active: extra.active !== undefined ? extra.active : true,
-    status: extra.status || "running",
+    status: extra.status || (backupCancelRequested ? "cancelling" : "running"),
     percent: Math.max(0, Math.min(100, Math.round(percent))),
-    stage,
+    stage: backupCancelRequested && !["completed", "failed", "cancelled"].includes(extra.status)
+      ? "Cancellation requested; stopping safely…"
+      : stage,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -142,17 +144,36 @@ async function fetchAllTableRows(tableName) {
   return all;
 }
 
+let activeStorageListRequests = 0;
+const storageListWaiters = [];
+
+async function withStorageListLimit(operation) {
+  if (activeStorageListRequests >= 5) {
+    await new Promise(resolve => storageListWaiters.push(resolve));
+  }
+  activeStorageListRequests += 1;
+  try {
+    return await operation();
+  } finally {
+    activeStorageListRequests -= 1;
+    const next = storageListWaiters.shift();
+    if (next) next();
+  }
+}
+
 async function listStorageFiles(bucket, folder = "") {
   checkBackupCancelled();
   const files = [];
   const childFolders = [];
   for (let offset = 0; ; offset += PAGE_SIZE) {
     checkBackupCancelled();
-    const { data, error } = await supabase.storage.from(bucket).list(folder, {
-      limit: PAGE_SIZE,
-      offset,
-      sortBy: { column: "name", order: "asc" },
-    });
+    const { data, error } = await withStorageListLimit(() =>
+      supabase.storage.from(bucket).list(folder, {
+        limit: PAGE_SIZE,
+        offset,
+        sortBy: { column: "name", order: "asc" },
+      })
+    );
     checkBackupCancelled();
     if (error) throw new Error("Unable to list uploaded files in " + bucket + ": " + error.message);
     const entries = data || [];
