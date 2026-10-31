@@ -1,10 +1,10 @@
+# Dependencies
 node_modules/
+
+# Environment variables
 .env
-
-# Local Supabase CLI state (project-specific metadata)
-supabase/.temp/
-
-# Local dependencies and environment files
-node_modules/
 .env.*
 !.env.example
+
+# Local Supabase CLI state
+supabase/.temp/
