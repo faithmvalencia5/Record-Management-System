@@ -4,11 +4,13 @@ const router = express.Router();
 const { authenticateToken, requireAdmin } = require("../middleware/authMiddleware");
 const {
   createSystemBackup,
+  getSystemBackupProgress,
   listSystemBackups,
   restoreSystemBackup,
 } = require("../controllers/backupController");
 
 router.use(authenticateToken, requireAdmin);
+router.get("/progress", getSystemBackupProgress);
 router.get("/", listSystemBackups);
 router.post("/", createSystemBackup);
 router.post("/:backupId/restore", restoreSystemBackup);
