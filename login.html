@@ -541,6 +541,23 @@
 
   <script>
     const REGISTRATION_API_BASE = "https://management-backend-3cij.onrender.com";
+    async function loadRegistrationAvailability() {
+      const trigger = document.getElementById("login-register-trigger");
+      if (!trigger) return;
+      try {
+        const response = await fetch(`${REGISTRATION_API_BASE}/api/system-settings/public`, { cache: "no-store" });
+        const result = await response.json();
+        if (response.ok && result.success && result.allow_public_registration === false) {
+          trigger.hidden = true;
+          const prompt = trigger.closest(".auth-register-prompt");
+          if (prompt) prompt.hidden = true;
+        }
+      } catch (error) {
+        console.warn("Could not load registration availability:", error.message);
+      }
+    }
+    loadRegistrationAvailability();
+
     const registrationModal = document.getElementById("registration-modal");
     const registrationForm = document.getElementById("registration-form");
     const registrationStatus = document.getElementById("registration-status");
