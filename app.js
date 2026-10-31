@@ -902,10 +902,14 @@ function enhanceMultiSelectDropdowns(root = document) {
     caret.setAttribute('aria-hidden', 'true');
     trigger.append(label, caret);
 
+    // Render menus under <body> with fixed positioning so table/card overflow
+    // and viewport edges cannot crop the available options.
     const menu = document.createElement('div');
     menu.className = 'multi-select-dropdown__menu';
     menu.hidden = true;
-    menu.style.cssText = 'position:absolute;top:calc(100% + 6px);left:0;z-index:1000;min-width:100%;width:max-content;max-width:min(280px,80vw);max-height:280px;overflow:auto;padding:6px;border:1px solid var(--border-color,#dbe3ef);border-radius:10px;background:var(--surface,#fff);box-shadow:0 12px 28px rgba(15,23,42,.16);';
+    menu.style.cssText = 'position:fixed;z-index:20000;min-width:180px;width:max-content;max-width:min(300px,calc(100vw - 24px));max-height:min(320px,calc(100vh - 24px));overflow:auto;padding:6px;border:1px solid var(--border-color,#dbe3ef);border-radius:10px;background:var(--surface,#fff);box-shadow:0 12px 28px rgba(15,23,42,.18);';
+    menu._multiSelectTrigger = trigger;
+    document.body.appendChild(menu);
 
     function refreshLabel() {
       const selected = Array.from(select.selectedOptions).filter(option => option.value && option.value !== 'all');
@@ -916,16 +920,36 @@ function enhanceMultiSelectDropdowns(root = document) {
       trigger.title = selected.map(option => option.textContent.trim()).join(', ') || label.textContent;
     }
 
+    function positionMenu() {
+      const rect = trigger.getBoundingClientRect();
+      const margin = 12;
+      const width = Math.min(Math.max(rect.width, 180), window.innerWidth - margin * 2);
+      menu.style.width = 'max-content';
+      menu.style.minWidth = Math.min(rect.width, window.innerWidth - margin * 2) + 'px';
+      menu.style.maxWidth = (window.innerWidth - margin * 2) + 'px';
+      menu.style.left = Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin)) + 'px';
+      menu.style.right = 'auto';
+      menu.style.top = 'auto';
+      menu.style.bottom = 'auto';
+      const menuHeight = Math.min(menu.scrollHeight || 280, window.innerHeight - margin * 2, 320);
+      const spaceBelow = window.innerHeight - rect.bottom - margin;
+      const spaceAbove = rect.top - margin;
+      if (spaceBelow >= Math.min(menuHeight, 180) || spaceBelow >= spaceAbove) {
+        menu.style.top = Math.min(rect.bottom + 6, window.innerHeight - menuHeight - margin) + 'px';
+      } else {
+        menu.style.top = Math.max(margin, rect.top - menuHeight - 6) + 'px';
+      }
+    }
+
     function renderOptions() {
       menu.replaceChildren();
+      const hasSelection = Array.from(select.selectedOptions).some(option => option.value && option.value !== 'all');
       Array.from(select.options).forEach(option => {
         const row = document.createElement('label');
         row.style.cssText = 'display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:7px;font-size:13px;cursor:pointer;white-space:nowrap;';
-        row.addEventListener('mouseenter', () => { row.style.background = 'var(--surface-hover,#f1f5f9)'; });
-        row.addEventListener('mouseleave', () => { row.style.background = 'transparent'; });
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.checked = option.selected && option.value !== '' && option.value !== 'all';
+        checkbox.checked = option.value && option.value !== 'all' ? option.selected : !hasSelection;
         checkbox.style.cssText = 'accent-color:var(--primary,#2563eb);';
         const textNode = document.createElement('span');
         textNode.textContent = option.textContent.trim();
@@ -941,6 +965,7 @@ function enhanceMultiSelectDropdowns(root = document) {
           refreshLabel();
           select.dispatchEvent(new Event('change', { bubbles: true }));
           renderOptions();
+          positionMenu();
         });
         menu.appendChild(row);
       });
@@ -950,20 +975,23 @@ function enhanceMultiSelectDropdowns(root = document) {
     trigger.addEventListener('click', event => {
       event.stopPropagation();
       const opening = menu.hidden;
-      refreshLabel();
       document.querySelectorAll('.multi-select-dropdown__menu').forEach(other => {
         if (other !== menu) {
           other.hidden = true;
-          const otherTrigger = other.parentElement?.querySelector('.multi-select-dropdown__trigger');
-          if (otherTrigger) otherTrigger.setAttribute('aria-expanded', 'false');
+          if (other._multiSelectTrigger) other._multiSelectTrigger.setAttribute('aria-expanded', 'false');
         }
       });
-      renderOptions();
-      menu.hidden = !opening;
+      if (opening) {
+        renderOptions();
+        menu.hidden = false;
+        positionMenu();
+      } else {
+        menu.hidden = true;
+      }
       trigger.setAttribute('aria-expanded', String(opening));
     });
 
-    wrapper.append(trigger, menu);
+    wrapper.appendChild(trigger);
     select.addEventListener('change', refreshLabel);
     refreshLabel();
   });
@@ -974,13 +1002,30 @@ function initMultiSelectDropdowns() {
   if (window.__multiSelectDropdownObserver) return;
   window.__multiSelectDropdownObserver = new MutationObserver(() => enhanceMultiSelectDropdowns(document));
   window.__multiSelectDropdownObserver.observe(document.body, { childList: true, subtree: true });
-  document.addEventListener('click', () => {
+  document.addEventListener('click', event => {
     document.querySelectorAll('.multi-select-dropdown__menu').forEach(menu => {
-      menu.hidden = true;
-      const trigger = menu.parentElement?.querySelector('.multi-select-dropdown__trigger');
-      if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      const trigger = menu._multiSelectTrigger;
+      if (!menu.contains(event.target) && !trigger?.contains(event.target)) {
+        menu.hidden = true;
+        if (trigger) trigger.setAttribute('aria-expanded', 'false');
+      }
     });
   });
+  window.addEventListener('resize', () => {
+    document.querySelectorAll('.multi-select-dropdown__menu:not([hidden])').forEach(menu => {
+      const trigger = menu._multiSelectTrigger;
+      if (trigger) {
+        const rect = trigger.getBoundingClientRect();
+        menu.style.left = Math.max(12, Math.min(rect.left, window.innerWidth - menu.offsetWidth - 12)) + 'px';
+      }
+    });
+  });
+  window.addEventListener('scroll', () => {
+    document.querySelectorAll('.multi-select-dropdown__menu:not([hidden])').forEach(menu => {
+      menu.hidden = true;
+      if (menu._multiSelectTrigger) menu._multiSelectTrigger.setAttribute('aria-expanded', 'false');
+    });
+  }, true);
 }
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initMultiSelectDropdowns, { once: true });
