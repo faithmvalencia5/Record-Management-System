@@ -4810,12 +4810,18 @@ function renderBackupHistory() {
     const safeId = String(backup.backupId || "").replace(/[^a-zA-Z0-9_-]/g, "");
     const rows = Number(backup.totalRows || 0).toLocaleString();
     const files = Number(backup.fileCount || 0).toLocaleString();
+    const trackedFiles = Number(backup.totalTrackedFileCount || backup.fileCount || 0).toLocaleString();
+    const isIncremental = backup.backupType === "incremental";
+    const backupLabel = isIncremental ? "Encrypted incremental backup" : "Encrypted full backup";
+    const fileSummary = isIncremental
+      ? files + " new files · " + trackedFiles + " tracked"
+      : files + " files";
     return '<tr>' +
       '<td data-label="Date &amp; Time"><span class="cell-text">' + escHtml(formatBackupDate(backup.createdAt)) + '</span></td>' +
-      '<td data-label="Type"><span class="badge badge-active">Encrypted full backup</span></td>' +
+      '<td data-label="Type"><span class="badge badge-active">' + backupLabel + '</span></td>' +
       '<td data-label="File Size"><span class="cell-text">' + escHtml(formatBackupBytes(backup.archiveBytes)) + '</span></td>' +
       '<td data-label="Status"><span class="badge badge-approved">' + escHtml(backup.status || "Saved") + '</span></td>' +
-      '<td data-label="Contents"><span class="cell-text">' + rows + ' rows · ' + files + ' files</span></td>' +
+      '<td data-label="Contents"><span class="cell-text">' + rows + ' rows · ' + fileSummary + '</span></td>' +
       '<td style="text-align:right"><button class="row-action always-visible" onclick="restoreFromHistory(&quot;' + safeId + '&quot;)">Recover</button></td>' +
       '</tr>';
   }).join("");
