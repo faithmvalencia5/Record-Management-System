@@ -143,14 +143,19 @@ async function fetchAllTableRows(tableName) {
 async function listStorageFiles(bucket, folder = "") {
   const files = [];
   for (let offset = 0; ; offset += PAGE_SIZE) {
+    // Check before and after every Storage listing request so cancellation
+    // does not have to wait for the entire bucket tree to be scanned.
+    checkBackupCancelled();
     const { data, error } = await supabase.storage.from(bucket).list(folder, {
       limit: PAGE_SIZE,
       offset,
       sortBy: { column: "name", order: "asc" },
     });
+    checkBackupCancelled();
     if (error) throw new Error("Unable to list uploaded files in " + bucket + ": " + error.message);
     const entries = data || [];
     for (const entry of entries) {
+      checkBackupCancelled();
       if (entry.id === null) {
         const child = folder ? folder + "/" + entry.name : entry.name;
         files.push(...await listStorageFiles(bucket, child));
