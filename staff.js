@@ -3543,8 +3543,8 @@ function renderLiveApplicants(applications) {
   if (badge) badge.textContent = profiles.length.toLocaleString() + ' Registered Profiles';
   // The sidebar badge remains the count of ongoing applications (all except Completed and Rejected).
   const sidebarBadge = document.getElementById('applicants-sidebar-count');
-  const ongoingApplicationCount = (Array.isArray(applications) ? applications : []).reduce((count, application) =>
-    count + (!['completed', 'rejected'].includes(normalizeApplicationStatus(application.status)) ? 1 : 0), 0);
+  const ongoingApplicationCount = allProfiles.reduce((count, profile) =>
+    count + profile.ongoingApplications.length, 0);
   if (sidebarBadge) sidebarBadge.textContent = ongoingApplicationCount.toLocaleString();
   if (!profiles.length) {
     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">No registered senior citizens found.</td></tr>';
