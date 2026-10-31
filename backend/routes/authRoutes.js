@@ -61,7 +61,7 @@ router.post("/login", async (req, res) => {
     const { data: user, error } = await supabase
       .from("user_accounts")
       .select(
-        "id, username, password_hash, role, email, account_status"
+        "id, username, full_name, password_hash, role, email, account_status"
       )
       .eq("username", username.trim())
       .maybeSingle();
@@ -160,6 +160,7 @@ router.post("/login", async (req, res) => {
       {
         id: user.id,
         username: user.username,
+        full_name: user.full_name || user.username,
         role: user.role,
         email: user.email,
       },
@@ -195,6 +196,7 @@ router.post("/login", async (req, res) => {
       user: {
         id: user.id,
         username: user.username,
+        full_name: user.full_name || user.username,
         role: user.role,
         email: user.email,
         account_status: user.account_status || "Active",
@@ -252,6 +254,7 @@ function createSessionToken(user) {
     {
       id: user.id,
       username: user.username,
+      full_name: user.full_name || user.username,
       role: user.role,
       email: user.email,
     },
@@ -307,6 +310,7 @@ router.get(
         user: {
           id: user.id,
           username: user.username,
+          full_name: user.full_name || user.username,
           email: user.email || "",
           role: user.role || "Staff",
           account_status:
@@ -339,9 +343,29 @@ router.put(
   authenticateToken,
   async (req, res) => {
     try {
-      const { username, email } = req.body;
+      const { full_name, username, email } = req.body;
 
       const updateData = {};
+
+      if (full_name !== undefined) {
+        const cleanFullName = String(full_name || "").trim();
+
+        if (!cleanFullName) {
+          return res.status(400).json({
+            success: false,
+            message: "Full name cannot be empty.",
+          });
+        }
+
+        if (cleanFullName.length > 150) {
+          return res.status(400).json({
+            success: false,
+            message: "Full name must be 150 characters or fewer.",
+          });
+        }
+
+        updateData.full_name = cleanFullName;
+      }
 
       if (username !== undefined) {
         const cleanUsername = String(
@@ -427,7 +451,7 @@ router.put(
         .update(updateData)
         .eq("id", req.user.id)
         .select(
-          "id, username, email, role, account_status"
+          "id, username, full_name, email, role, account_status"
         )
         .single();
 
@@ -443,36 +467,22 @@ router.put(
         });
       }
 
+      // Record exactly one audit event for this profile update.
       await createAuditLog({
         userId: req.user.id,
-        username: req.user.username,
-        role: req.user.role,
+        username: updatedUser.username,
+        role: updatedUser.role,
         action: "PROFILE_UPDATED",
         entityType: "USER",
         entityId: String(updatedUser.id),
-        details:
-          `Updated own profile: ${updatedUser.username}`,
+        details: "Updated own profile information.",
         ipAddress: req.ip,
         userAgent: req.get("user-agent"),
       });
 
       /* Issue a fresh token so the session claims stay in sync. */
 
-      const token = createSessionToken(
-        updatedUser
-      );
-
-      await createAuditLog({
-        userId: req.user.id,
-        username: req.user.username,
-        role: req.user.role,
-        action: "PROFILE_UPDATED",
-        entityType: "USER",
-        entityId: String(req.user.id),
-        details: "Updated account profile information.",
-        ipAddress: req.ip,
-        userAgent: req.get("user-agent"),
-      });
+      const token = createSessionToken(updatedUser);
 
       return res.json({
         success: true,
@@ -480,6 +490,7 @@ router.put(
         user: {
           id: updatedUser.id,
           username: updatedUser.username,
+          full_name: updatedUser.full_name || updatedUser.username,
           email: updatedUser.email || "",
           role: updatedUser.role || "Staff",
           account_status:
