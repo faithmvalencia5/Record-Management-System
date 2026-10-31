@@ -371,6 +371,9 @@ async function loadBackupMetadata(storage, backupId) {
 }
 
 async function createSystemBackup(req, res) {
+  if (currentRestoreProgress.active) {
+    return res.status(409).json({ success: false, message: "A recovery operation is currently running." });
+  }
   if (currentBackupProgress.active) {
     return res.status(409).json({
       success: false,
@@ -728,6 +731,9 @@ async function listSystemBackups(req, res) {
 }
 
 async function restoreSystemBackup(req, res) {
+  if (currentBackupProgress.active) {
+    return res.status(409).json({ success: false, message: "A backup operation is currently running. Wait for it to finish before starting recovery." });
+  }
   if (currentRestoreProgress.active) {
     return res.status(409).json({ success: false, message: "A recovery operation is already running.", progress: currentRestoreProgress });
   }
@@ -832,11 +838,15 @@ async function runSystemRestoreJob(req, backupId) {
     for (const { file, zip: fileZip } of filesToProcess) {
       if (file.bucket !== SOURCE_BUCKET || !file.path || file.path.startsWith("/") || file.path.split("/").includes("..")) {
         failed.push({ item: file.path || "unknown file", reason: "Unsafe or unsupported file path." });
+        filesProcessed++;
+        setRestoreProgress(57 + Math.round((filesProcessed / Math.max(filesToProcess.length, 1)) * 38), "Checking uploaded files", { completedFiles: filesProcessed, totalFiles: filesToProcess.length, filesRestored, filesSkipped });
         continue;
       }
       const archiveEntry = fileZip.getEntry("storage/" + SOURCE_BUCKET + "/" + file.path);
       if (!archiveEntry) {
         failed.push({ item: file.path, reason: "Uploaded file is missing from the archive." });
+        filesProcessed++;
+        setRestoreProgress(57 + Math.round((filesProcessed / Math.max(filesToProcess.length, 1)) * 38), "Checking uploaded files", { completedFiles: filesProcessed, totalFiles: filesToProcess.length, filesRestored, filesSkipped });
         continue;
       }
 
