@@ -923,10 +923,10 @@ function enhanceMultiSelectDropdowns(root = document) {
     function positionMenu() {
       const rect = trigger.getBoundingClientRect();
       const margin = 12;
-      const width = Math.min(Math.max(rect.width, 180), window.innerWidth - margin * 2);
       menu.style.width = 'max-content';
-      menu.style.minWidth = Math.min(rect.width, window.innerWidth - margin * 2) + 'px';
+      menu.style.minWidth = Math.min(Math.max(rect.width, 180), window.innerWidth - margin * 2) + 'px';
       menu.style.maxWidth = (window.innerWidth - margin * 2) + 'px';
+      const width = Math.min(menu.offsetWidth || rect.width, window.innerWidth - margin * 2);
       menu.style.left = Math.max(margin, Math.min(rect.left, window.innerWidth - width - margin)) + 'px';
       menu.style.right = 'auto';
       menu.style.top = 'auto';
