@@ -28,6 +28,28 @@
   <link rel="stylesheet" href="staff.css?v=22" />
   <script src="skeleton.js?v=3"></script>
 
+  <style>
+    .auth-register-prompt{width:min(100%,390px);display:flex;justify-content:center;gap:5px;flex-wrap:wrap;font-size:12.5px;color:#64748b;margin-top:2px}
+    .auth-register-link{padding:0;background:none;border:0;color:#2563eb;font:inherit;font-weight:700;cursor:pointer}
+    .auth-register-link:hover{text-decoration:underline}
+    .auth-modal{display:none;position:fixed;inset:0;z-index:10000;padding:20px;background:rgba(15,23,42,.56);backdrop-filter:blur(4px);align-items:center;justify-content:center;overflow-y:auto}
+    .auth-modal.is-open{display:flex}
+    .auth-modal-card{width:min(100%,480px);max-height:min(90vh,820px);overflow:auto;background:#fff;border-radius:22px;padding:28px;box-shadow:0 25px 60px rgba(15,23,42,.24);border-top:5px solid #2b76f6}
+    .auth-modal-heading{display:flex;justify-content:space-between;gap:16px;margin-bottom:20px}
+    .auth-modal-heading h2{font:800 22px 'Plus Jakarta Sans',sans-serif;color:#172334;margin:0 0 5px}
+    .auth-modal-heading p{font:13px 'DM Sans',sans-serif;color:#64748b;margin:0}
+    .auth-modal-close{width:32px;height:32px;border-radius:50%;background:#f1f5f9;color:#64748b;font-size:24px;line-height:1;flex:0 0 auto}
+    .auth-modal-form{display:flex;flex-direction:column;gap:13px}
+    .auth-modal-form label{display:flex;flex-direction:column;gap:6px;text-align:left;color:#475569;font:700 12px 'DM Sans',sans-serif}
+    .auth-modal-form input{height:46px;width:100%;border:1px solid #dbe3ee;border-radius:12px;padding:0 14px;color:#172334;background:#fff;font:500 14px 'DM Sans',sans-serif;outline:none}
+    .auth-modal-form input:focus{border-color:#2b76f6;box-shadow:0 0 0 3px rgba(43,118,246,.12)}
+    .auth-modal-hint{color:#64748b;font:12px 'DM Sans',sans-serif;margin-top:-8px}
+    .auth-modal-status{min-height:0;margin:0;text-align:center;color:#475569;font:13px 'DM Sans',sans-serif;line-height:1.5}
+    .auth-modal-status.error{color:#dc2626}.auth-modal-status.success{color:#047857}
+    @media(max-width:520px){.auth-modal-card{padding:22px 18px;border-radius:18px}}
+  </style>
+
+
 </head>
 
 <body>
@@ -107,6 +129,11 @@
               <span class="auth-submit-spinner" aria-hidden="true"></span>
             </button>
 
+            <div class="auth-register-prompt">
+              <span>Don't have an account?</span>
+              <button type="button" class="auth-register-link" onclick="openRegistration()">Create an account</button>
+            </div>
+
             <p class="auth-security-notice">
               <i class="fi fi-rr-shield-check" aria-hidden="true"></i>
               Protected by Office of the Senior Citizen Affairs Bauan
@@ -121,6 +148,39 @@
 
   <div class="toast-container" id="toast-container"></div>
 
+
+  <!-- Account Registration Modal -->
+  <div id="registration-modal" class="auth-modal" aria-hidden="true">
+    <div class="auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="registration-title">
+      <div class="auth-modal-heading">
+        <div>
+          <h2 id="registration-title">Create your account</h2>
+          <p>Submit your details for administrator approval.</p>
+        </div>
+        <button type="button" class="auth-modal-close" onclick="closeRegistration()" aria-label="Close">×</button>
+      </div>
+      <form id="registration-form" class="auth-modal-form">
+        <label>Full name
+          <input id="register-full-name" type="text" maxlength="150" autocomplete="name" required placeholder="Enter your full name">
+        </label>
+        <label>Username
+          <input id="register-username" type="text" minlength="3" maxlength="40" pattern="[A-Za-z0-9._-]+" autocomplete="username" required placeholder="Choose a username">
+        </label>
+        <label>Email address
+          <input id="register-email" type="email" autocomplete="email" required placeholder="Enter your email address">
+        </label>
+        <label>Password
+          <input id="register-password" type="password" minlength="8" autocomplete="new-password" required placeholder="Create a strong password">
+        </label>
+        <small class="auth-modal-hint">At least 8 characters, including an uppercase letter, a number, and a special character.</small>
+        <label>Confirm password
+          <input id="register-confirm-password" type="password" minlength="8" autocomplete="new-password" required placeholder="Re-enter your password">
+        </label>
+        <p id="registration-status" class="auth-modal-status" role="status" aria-live="polite"></p>
+        <button type="submit" id="registration-submit" class="auth-submit">Submit Registration</button>
+      </form>
+    </div>
+  </div>
 
   <!-- Forgot Password Modal -->
   <style>
@@ -466,6 +526,76 @@
 
 
   <script>
+    const REGISTRATION_API_BASE = "https://management-backend-3cij.onrender.com";
+    const registrationModal = document.getElementById("registration-modal");
+    const registrationForm = document.getElementById("registration-form");
+    const registrationStatus = document.getElementById("registration-status");
+
+    function openRegistration() {
+      registrationStatus.textContent = "";
+      registrationStatus.className = "auth-modal-status";
+      registrationModal.classList.add("is-open");
+      registrationModal.setAttribute("aria-hidden", "false");
+      document.getElementById("register-full-name").focus();
+    }
+
+    function closeRegistration() {
+      registrationModal.classList.remove("is-open");
+      registrationModal.setAttribute("aria-hidden", "true");
+      registrationForm.reset();
+      registrationStatus.textContent = "";
+      registrationStatus.className = "auth-modal-status";
+    }
+
+    registrationModal.addEventListener("click", event => {
+      if (event.target === registrationModal) closeRegistration();
+    });
+
+    registrationForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      const full_name = document.getElementById("register-full-name").value.trim();
+      const username = document.getElementById("register-username").value.trim();
+      const email = document.getElementById("register-email").value.trim();
+      const password = document.getElementById("register-password").value;
+      const confirmPassword = document.getElementById("register-confirm-password").value;
+      const submit = document.getElementById("registration-submit");
+
+      if (password !== confirmPassword) {
+        registrationStatus.textContent = "The passwords do not match.";
+        registrationStatus.className = "auth-modal-status error";
+        return;
+      }
+      if (password.length < 8 || !/[A-Z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) {
+        registrationStatus.textContent = "Use at least 8 characters with an uppercase letter, a number, and a special character.";
+        registrationStatus.className = "auth-modal-status error";
+        return;
+      }
+
+      submit.disabled = true;
+      submit.textContent = "Submitting...";
+      registrationStatus.textContent = "Submitting your registration securely...";
+      registrationStatus.className = "auth-modal-status";
+
+      try {
+        const response = await fetch(`${REGISTRATION_API_BASE}/api/auth/register`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ full_name, username, email, password })
+        });
+        const data = await response.json();
+        if (!response.ok || !data.success) throw new Error(data.message || "Unable to submit your registration.");
+        registrationStatus.textContent = data.message || "Registration submitted. Wait for administrator approval before signing in.";
+        registrationStatus.className = "auth-modal-status success";
+        registrationForm.reset();
+      } catch (error) {
+        registrationStatus.textContent = error.message || "Unable to connect to the registration server.";
+        registrationStatus.className = "auth-modal-status error";
+      } finally {
+        submit.disabled = false;
+        submit.textContent = "Submit Registration";
+      }
+    });
+
     const RESET_API_BASE = "https://management-backend-3cij.onrender.com";
 
     const resetModal = document.getElementById("forgot-password-modal");
