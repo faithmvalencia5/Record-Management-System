@@ -259,14 +259,23 @@ function changeCalendarMonth(delta) {
   renderCalendar(newDate);
 }
 let selectedDate = null;
+window.getDashboardSelectedDate = function() {
+  return selectedDate
+    ? new Date(selectedDate.year, selectedDate.month, selectedDate.day)
+    : new Date();
+};
 function selectCalendarDay(day, month, year) {
   selectedDate = { day, month, year };
   const date = new Date(year, month, day);
   const label = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  document.getElementById('dashboard-date-label').textContent = label;
+  const dateLabel = document.getElementById('dashboard-date-label');
+  if (dateLabel) dateLabel.textContent = label;
   renderCalendar(date);
   closeDateFilter();
-  showToast('Calendar filtered: ' + label, 'success');
+  if (typeof window.applyDashboardDateFilter === 'function') {
+    window.applyDashboardDateFilter(date);
+  }
+  showToast('Dashboard metrics filtered for ' + label, 'success');
 }
 function initBarangay(stacked = false) {
   const ctx = mkCanvas('chart-barangay'); if (!ctx) return;
