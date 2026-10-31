@@ -8,6 +8,7 @@ const idMakerQueueRoutes = require("./routes/idMakerQueueRoutes");
 const auditLogRoutes = require("./routes/auditLogRoutes");
 const replacementRoutes = require("./routes/replacementRoutes");
 const staffAnalyticsInsightsRoutes = require("./routes/staffAnalyticsInsightsRoutes");
+const backupRoutes = require("./routes/backupRoutes");
 
 const app = express();
 
@@ -36,6 +37,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/audit-logs", auditLogRoutes);
 app.use("/api/replacements", replacementRoutes);
 app.use("/api/analytics-insights", staffAnalyticsInsightsRoutes);
+app.use("/api/backups", backupRoutes);
 
 app.get("/", (req, res) => {
   res.json({
