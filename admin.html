@@ -811,6 +811,31 @@
     </div>
   </div>
 
+  <!-- BACKUP PROGRESS MODAL -->
+  <div class="backup-progress-modal" id="backup-progress-modal" hidden>
+    <div class="backup-progress-modal__backdrop"></div>
+    <section class="backup-progress-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="backup-progress-title" aria-describedby="backup-progress-stage">
+      <div class="backup-progress-modal__icon" aria-hidden="true">
+        <i class="fi fi-rr-database"></i>
+      </div>
+      <div class="backup-progress-modal__eyebrow">BACKUP &amp; RECOVERY</div>
+      <h2 id="backup-progress-title">Creating encrypted backup</h2>
+      <div class="backup-progress-modal__status-row">
+        <span id="backup-progress-status" class="backup-progress-status">In progress</span>
+        <strong id="backup-progress-percent">0%</strong>
+      </div>
+      <div class="backup-progress-track" role="progressbar" aria-label="Backup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="backup-progress-track__bar" id="backup-progress-bar"></div>
+      </div>
+      <p class="backup-progress-modal__stage" id="backup-progress-stage">Preparing secure backup…</p>
+      <p class="backup-progress-modal__detail" id="backup-progress-detail">Preparing backup tasks</p>
+      <div class="backup-progress-modal__footer">
+        <span id="backup-progress-note">Please keep this page open while the backup is running.</span>
+        <button type="button" class="btn btn--danger" id="backup-cancel-button" onclick="cancelBackupNow()">Cancel Backup</button>
+      </div>
+    </section>
+  </div>
+
   <!-- USER ACCOUNT MODAL (Add / Edit) -->
   <div class="modal-backdrop" id="user-modal">
     <div class="modal user-account-modal" role="dialog" aria-modal="true" aria-labelledby="user-modal-title">
