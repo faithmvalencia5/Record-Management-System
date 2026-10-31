@@ -301,18 +301,18 @@
           <div class="admin-metrics-panel__head">
             <div>
               <div class="admin-metrics-panel__title">System Activity &amp; Throughput</div>
-              <div class="admin-metrics-panel__sub">Total applications received, exports, and audit activity today</div>
+              <div class="admin-metrics-panel__sub">Applications received, exports, and audit activity on the selected date</div>
             </div>
             <span class="small-pill small-pill--success">Live</span>
           </div>
           <div class="admin-metrics-grid">
             <div class="admin-metric-box">
-              <div class="admin-metric-box__label">Total Applications Received</div>
+              <div class="admin-metric-box__label">Applications Received on Selected Date</div>
               <div class="admin-metric-box__value" id="metric-received">0</div>
               <div class="admin-metric-box__sub"></div>
             </div>
             <div class="admin-metric-box">
-              <div class="admin-metric-box__label">Successful Exports</div>
+              <div class="admin-metric-box__label">Successful Exports on Selected Date</div>
               <div class="admin-metric-box__value" id="metric-printed">0</div>
               <div class="admin-metric-box__sub"></div>
             </div>
@@ -472,13 +472,13 @@
               <path d="M11 11l3 3" />
             </svg><input type="search" id="user-search" placeholder="Search by username, name or role..."
               oninput="filterUsers(this.value)" /></label>
-          <select class="filter-select" id="user-role-filter" onchange="filterUsers()">
+          <select class="filter-select" id="user-role-filter" multiple size="3" title="Select multiple roles with Ctrl-click" onchange="filterUsers()">
             <option value="">All Roles</option>
             <option value="Admin">Admin</option>
             <option value="Staff">Staff</option>
             <option value="ID Maker">ID Maker</option>
           </select>
-          <select class="filter-select" id="user-status-filter" onchange="filterUsers()">
+          <select class="filter-select" id="user-status-filter" multiple size="2" title="Select multiple statuses with Ctrl-click" onchange="filterUsers()">
             <option value="">All Status</option>
             <option value="Active">Active</option>
             <option value="Inactive">Inactive</option>
