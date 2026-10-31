@@ -1246,14 +1246,27 @@ function queueBadgeClass(status){
   return map[status] || 'badge-review';
 }
 
-function selectQueueFilter(btn,status){
-  document.querySelectorAll('.queue-filter-option').forEach(o=>o.classList.remove('active'));
-  btn.classList.add('active');
+function selectQueueFilter(btn, status) {
+  const value = status || 'all';
+  if (value === 'all') {
+    QUEUE_FILTER_STATE.status = [];
+    document.querySelectorAll('.queue-filter-option').forEach(option => option.classList.remove('active'));
+    btn.classList.add('active');
+  } else {
+    QUEUE_FILTER_STATE.status = QUEUE_FILTER_STATE.status.filter(item => item !== value);
+    if (btn.classList.contains('active')) btn.classList.remove('active');
+    else {
+      QUEUE_FILTER_STATE.status.push(value);
+      btn.classList.add('active');
+    }
+    const allOption = document.querySelector('.queue-filter-option[data-filter="all"]');
+    if (allOption) allOption.classList.toggle('active', QUEUE_FILTER_STATE.status.length === 0);
+  }
   const label = document.getElementById('queue-filter-label');
-  if(label) label.textContent = 'Status: ' + btn.querySelector('.qfo-label').textContent;
-  QUEUE_FILTER_STATE.status = status || 'all';
+  if (label) label.textContent = QUEUE_FILTER_STATE.status.length
+    ? 'Status: ' + QUEUE_FILTER_STATE.status.join(', ')
+    : 'Status: All';
   applyQueueFilters();
-  closeQueueFilter();
 }
 
 function selectRowStatus(opt, appId, newStatus){
