@@ -6,6 +6,7 @@ const {
   createSystemBackup,
   getSystemBackupProgress,
   getSystemRestoreProgress,
+  cancelSystemRestore,
   cancelSystemBackup,
   listSystemBackups,
   restoreSystemBackup,
@@ -14,6 +15,7 @@ const {
 router.use(authenticateToken, requireAdmin);
 router.get("/progress", getSystemBackupProgress);
 router.get("/restore-progress", getSystemRestoreProgress);
+router.post("/restore-cancel", cancelSystemRestore);
 router.post("/cancel", cancelSystemBackup);
 router.get("/", listSystemBackups);
 router.post("/", createSystemBackup);
