@@ -58,7 +58,7 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    const { data: user, error } = await supabase
+    let { data: user, error } = await supabase
       .from("user_accounts")
       .select(
         "id, username, full_name, password_hash, role, email, account_status, approval_status"
@@ -66,12 +66,31 @@ router.post("/login", async (req, res) => {
       .eq("username", username.trim())
       .maybeSingle();
 
+    // Compatibility fallback while the approval migration has not yet
+    // been applied to the production Supabase database. Existing accounts
+    // can still log in; public registration requires migration 003.
+    const approvalColumnMissing = error && (
+      error.code === "42703" ||
+      error.code === "PGRST204" ||
+      /approval_status.*(column|schema cache)|column.*approval_status/i.test(error.message || "")
+    );
+
+    if (approvalColumnMissing) {
+      console.warn("approval_status column is missing; using legacy login lookup until migration 003 is applied.");
+      const fallback = await supabase
+        .from("user_accounts")
+        .select("id, username, full_name, password_hash, role, email, account_status")
+        .eq("username", username.trim())
+        .maybeSingle();
+      user = fallback.data;
+      error = fallback.error;
+    }
+
     if (error) {
       console.error("Supabase login error:", error);
-
       return res.status(500).json({
         success: false,
-        message: "Unable to process login.",
+        message: "Unable to process login. Please check the account database migration and backend logs.",
       });
     }
 
