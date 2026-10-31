@@ -4788,539 +4788,206 @@ function exportAuditReport() {
 }
 
 /* =========================================================
-   MODULE D — BACKUP & RECOVERY
+   MODULE D — LIVE BACKUP & NON-DESTRUCTIVE RECOVERY
    ========================================================= */
 
-let backupIsRunning =
-  false;
+const ADMIN_BACKUPS_API = "https://management-backend-3cij.onrender.com/api/backups";
+let backupIsRunning = false;
+let BACKUP_HISTORY = [];
 
+function formatBackupBytes(bytes) {
+  const value = Number(bytes) || 0;
+  if (value < 1024) return value + " B";
+  if (value < 1024 * 1024) return (value / 1024).toFixed(1) + " KB";
+  if (value < 1024 * 1024 * 1024) return (value / (1024 * 1024)).toFixed(1) + " MB";
+  return (value / (1024 * 1024 * 1024)).toFixed(2) + " GB";
+}
 
-const BACKUP_HISTORY = [];
+function formatBackupDate(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Unknown date" : date.toLocaleString();
+}
 
+async function loadSystemBackups() {
+  const tbody = document.getElementById("backup-history-tbody");
+  if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Loading saved backups…</td></tr>';
+  try {
+    const response = await fetch(ADMIN_BACKUPS_API, {
+      method: "GET",
+      headers: { Accept: "application/json", ...getAuthHeaders() },
+      cache: "no-store"
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) throw new Error(result.message || "Unable to load backup history.");
+    BACKUP_HISTORY = Array.isArray(result.backups) ? result.backups : [];
+    renderBackupHistory();
+    renderRestorePoints();
+    updateBackupSummary();
+    return BACKUP_HISTORY;
+  } catch (error) {
+    console.error("[Backups] Unable to load history:", error);
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="table-empty">Unable to load backup history. Check your administrator session and backend configuration.</td></tr>';
+    showToast(error.message || "Unable to load backup history.", "error");
+    return [];
+  }
+}
+
+function updateBackupSummary() {
+  const latest = BACKUP_HISTORY[0] || null;
+  const health = document.getElementById("bk-health");
+  const storage = document.getElementById("bk-storage");
+  const next = document.getElementById("bk-next");
+  const restore = document.getElementById("bk-restore");
+  const title = document.getElementById("bk-last-title");
+  if (health) health.textContent = BACKUP_HISTORY.length.toLocaleString();
+  if (storage) storage.textContent = Number(latest?.totalRows || 0).toLocaleString();
+  if (next) next.textContent = Number(latest?.fileCount || 0).toLocaleString();
+  if (restore) restore.textContent = latest ? "Ready" : "None";
+  if (title) title.textContent = latest
+    ? "Latest successful backup: " + formatBackupDate(latest.createdAt)
+    : "No successful backup has been created yet.";
+}
 
 function renderBackupHistory() {
-
-  const tbody =
-    document.getElementById(
-      'backup-history-tbody'
-    );
-
-
-  if (!tbody) {
-
+  const tbody = document.getElementById("backup-history-tbody");
+  if (!tbody) return;
+  if (!BACKUP_HISTORY.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="table-empty">No saved backups yet. Create an encrypted backup to establish a recovery point.</td></tr>';
     return;
-
   }
-
-
-  if (
-    !BACKUP_HISTORY.length
-  ) {
-
-    tbody.innerHTML =
-      '<tr>' +
-      '<td colspan="6" class="table-empty">' +
-      '<i class="fi fi-rr-database"></i> ' +
-      'No backups yet. Run a backup or check back once connected to the live system.' +
-      '</td>' +
+  tbody.innerHTML = BACKUP_HISTORY.map(backup => {
+    const safeId = String(backup.backupId || "").replace(/[^a-zA-Z0-9_-]/g, "");
+    const rows = Number(backup.totalRows || 0).toLocaleString();
+    const files = Number(backup.fileCount || 0).toLocaleString();
+    return '<tr>' +
+      '<td data-label="Date &amp; Time"><span class="cell-text">' + escHtml(formatBackupDate(backup.createdAt)) + '</span></td>' +
+      '<td data-label="Type"><span class="badge badge-active">Encrypted full backup</span></td>' +
+      '<td data-label="File Size"><span class="cell-text">' + escHtml(formatBackupBytes(backup.archiveBytes)) + '</span></td>' +
+      '<td data-label="Status"><span class="badge badge-approved">' + escHtml(backup.status || "Saved") + '</span></td>' +
+      '<td data-label="Contents"><span class="cell-text">' + rows + ' rows · ' + files + ' files</span></td>' +
+      '<td style="text-align:right"><button class="row-action always-visible" onclick="restoreFromHistory(\\'' + safeId + '\\')">Recover</button></td>' +
       '</tr>';
-
-
-    return;
-
-  }
-
-
-  tbody.innerHTML =
-    BACKUP_HISTORY
-      .map(
-        b => {
-
-          const typeBadge =
-            b.type.includes(
-              'Manual'
-            )
-              ? 'badge-review'
-              : b.type.includes(
-                  'Weekly'
-                )
-                ? 'badge-issued'
-                : 'badge-active';
-
-
-          return `
-
-            <tr>
-
-              <td data-label="Timestamp">
-
-                <span class="cell-text">
-                  ${escHtml(b.ts)}
-                </span>
-
-              </td>
-
-
-              <td data-label="Type">
-
-                <span class="badge ${typeBadge}">
-                  ${escHtml(b.type)}
-                </span>
-
-              </td>
-
-
-              <td data-label="Size">
-
-                <span
-                  class="cell-text"
-                  style="font-family:var(--font-data)"
-                >
-                  ${escHtml(b.size)}
-                </span>
-
-              </td>
-
-
-              <td data-label="Status">
-
-                <span class="badge badge-approved">
-                  ${escHtml(b.status)}
-                </span>
-
-              </td>
-
-
-              <td data-label="Location">
-
-                <span
-                  class="cell-text"
-                  style="font-family:var(--font-data)"
-                >
-                  ${escHtml(b.loc)}
-                </span>
-
-              </td>
-
-
-              <td style="text-align:right">
-
-                <button
-                  class="row-action always-visible"
-                  onclick="restoreFromHistory('${escHtml(b.ts)}')"
-                >
-                  Restore
-                </button>
-
-              </td>
-
-            </tr>
-
-          `;
-
-        }
-      )
-      .join('');
-
+  }).join("");
 }
-
 
 function renderRestorePoints() {
-
-  const sel =
-    document.getElementById(
-      'restore-point-select'
-    );
-
-
-  if (!sel) {
-
+  const select = document.getElementById("restore-point-select");
+  if (!select) return;
+  const current = select.value;
+  if (!BACKUP_HISTORY.length) {
+    select.innerHTML = '<option value="">No restore points available</option>';
     return;
-
   }
-
-
-  if (
-    !BACKUP_HISTORY.length
-  ) {
-
-    sel.innerHTML =
-      '<option value="">No restore points available</option>';
-
-
-    return;
-
-  }
-
-
-  const current =
-    sel.value;
-
-
-  sel.innerHTML =
-    BACKUP_HISTORY
-      .map(
-        b =>
-          `<option value="${escHtml(b.ts)}">${escHtml(b.type)} — ${escHtml(b.ts)}</option>`
-      )
-      .join('');
-
-
-  if (
-    BACKUP_HISTORY.some(
-      b =>
-        b.ts ===
-        current
-    )
-  ) {
-
-    sel.value =
-      current;
-
-  }
-
+  select.innerHTML = BACKUP_HISTORY.map(backup =>
+    '<option value="' + escHtml(backup.backupId) + '">' +
+    escHtml(formatBackupDate(backup.createdAt)) + ' — ' +
+    escHtml(formatBackupBytes(backup.archiveBytes)) + '</option>'
+  ).join("");
+  if (BACKUP_HISTORY.some(backup => backup.backupId === current)) select.value = current;
 }
-
 
 function executeBackup() {
-
-  if (
-    backupIsRunning
-  ) {
-
-    return;
-
-  }
-
-
+  if (backupIsRunning) return;
   openConfirmModal({
-
-    title:
-      'Run manual backup now?',
-
-
-    desc:
-      'Creates an encrypted point-in-time snapshot of the OSCA database.',
-
-
-    alertTitle:
-      'A new snapshot will be added to backup history',
-
-
-    alertDesc:
-      'Existing snapshots are kept. The backup button shows progress while the snapshot is created.',
-
-
-    confirmLabel:
-      'Run Backup',
-
-
-    danger:
-      false,
-
-
-    onConfirm:
-      runBackupNow
-
+    title: "Create a new encrypted system backup?",
+    desc: "The system will export supported database records and every uploaded file in the private documents bucket.",
+    alertTitle: "Existing data will not be changed",
+    alertDesc: "The backup is encrypted before it is saved. The process may take a few minutes depending on the number and size of uploaded files.",
+    confirmLabel: "Create Backup",
+    danger: false,
+    onConfirm: runBackupNow
   });
-
 }
 
+async function runBackupNow() {
+  if (backupIsRunning) return;
+  backupIsRunning = true;
+  const button = document.getElementById("btn-execute-backup");
+  if (button) {
+    button.disabled = true;
+    button.textContent = "Creating encrypted backup…";
+  }
+  showToast("Creating encrypted backup of database records and uploaded files…", "info");
+  try {
+    const response = await fetch(ADMIN_BACKUPS_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({})
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) throw new Error(result.message || "Backup could not be created.");
+    showToast("Backup created successfully. Database records and uploaded files were included.", "success");
+    await loadSystemBackups();
+  } catch (error) {
+    console.error("[Backups] Create failed:", error);
+    showToast(error.message || "Backup failed. Check the backend configuration.", "error");
+  } finally {
+    backupIsRunning = false;
+    if (button) {
+      button.disabled = false;
+      button.textContent = "Execute Immediate Database Backup";
+    }
+  }
+}
 
-function runBackupNow() {
-
-  if (
-    backupIsRunning
-  ) {
-
+function restoreFromHistory(backupId) {
+  const backup = BACKUP_HISTORY.find(item => item.backupId === backupId);
+  if (!backup) {
+    showToast("The selected backup is no longer in the list. Refresh and try again.", "error");
     return;
-
   }
-
-
-  backupIsRunning =
-    true;
-
-
-  const btn =
-    document.getElementById(
-      'btn-execute-backup'
-    );
-
-
-  if (btn) {
-
-    btn.disabled =
-      true;
-
-
-    btn.style.opacity =
-      '.6';
-
-  }
-
-
-  if (btn) {
-
-    btn.innerHTML =
-      '<i class="fi fi-rr-loader" style="margin-right:8px"></i> Creating point-in-time snapshot…';
-
-  }
-
-
-  showToast(
-    'Manual encrypted backup started. You can keep working while it runs.',
-    'info'
-  );
-
-
-  setTimeout(
-    () => {
-
-      const now =
-        new Date().toLocaleString(
-          'en-US',
-          {
-            month:
-              'short',
-
-            day:
-              '2-digit',
-
-            year:
-              'numeric',
-
-            hour:
-              '2-digit',
-
-            minute:
-              '2-digit'
-
-          }
-        );
-
-
-      BACKUP_HISTORY.unshift({
-
-        ts:
-          now,
-
-        type:
-          'Manual · Snapshot',
-
-        size:
-          '1.6 GB',
-
-        status:
-          'Success',
-
-        loc:
-          'gs://osca-backups/manual/latest'
-
-      });
-
-
-      renderBackupHistory();
-
-
-      renderRestorePoints();
-
-
-      const title =
-        document.getElementById(
-          'bk-last-title'
-        );
-
-
-      if (title) {
-
-        title.textContent =
-          `Last backup: ${now}`;
-
-      }
-
-
-      const kpi =
-        document.getElementById(
-          'kpi-backup'
-        );
-
-
-      if (kpi) {
-
-        kpi.textContent =
-          'Just now';
-
-      }
-
-
-      appendAudit(
-        CURRENT_USER?.displayName ||
-          'Admin',
-        'Executed immediate database backup',
-        'Admin'
-      );
-
-
-      showToast(
-        'Backup completed successfully. Restore point verified.',
-        'success'
-      );
-
-
-      if (btn) {
-
-        btn.disabled =
-          false;
-
-
-        btn.style.opacity =
-          '';
-
-
-        btn.textContent =
-          'Execute Immediate Database Backup';
-
-      }
-
-
-      backupIsRunning =
-        false;
-
-    },
-    1500
-  );
-
-}
-
-
-function restoreFromHistory(
-  ts
-) {
-
   openConfirmModal({
-
-    title:
-      'Restore database from this snapshot?',
-
-
-    desc:
-      `Snapshot: ${ts}`,
-
-
-    alertTitle:
-      'Caution: Restore will overwrite current database',
-
-
-    alertDesc:
-      'This operation is irreversible. A verification snapshot is taken before restoring.',
-
-
-    confirmLabel:
-      'Restore Database',
-
-
-    danger:
-      true,
-
-
-    onConfirm:
-      () =>
-        runRestore(
-          `snapshot: ${ts}`
-        )
-
+    title: "Recover missing records and uploaded files?",
+    desc: "Selected backup: " + formatBackupDate(backup.createdAt),
+    alertTitle: "Non-destructive recovery",
+    alertDesc: "Only missing records and files will be restored. Existing database records and uploaded files will be preserved and will not be overwritten.",
+    confirmLabel: "Recover Missing Data",
+    danger: false,
+    onConfirm: () => runRestore(backupId)
   });
-
 }
-
 
 function initiateRestore() {
-
-  const sel =
-    document.getElementById(
-      'restore-point-select'
-    );
-
-
-  const point =
-    (
-      sel &&
-      sel.value
-    ) ||
-    'Latest restore point';
-
-
-  openConfirmModal({
-
-    title:
-      'Restore database from this point?',
-
-
-    desc:
-      `Selected restore point: ${point}`,
-
-
-    alertTitle:
-      'Caution: Restore will overwrite current database',
-
-
-    alertDesc:
-      'This operation is irreversible. A verification snapshot is taken before restoring.',
-
-
-    confirmLabel:
-      'Restore Database',
-
-
-    danger:
-      true,
-
-
-    onConfirm:
-      () =>
-        runRestore(
-          point
-        )
-
-  });
-
+  const select = document.getElementById("restore-point-select");
+  const backupId = select?.value;
+  if (!backupId) {
+    showToast("Select a saved backup first.", "warning");
+    return;
+  }
+  restoreFromHistory(backupId);
 }
 
-
-function runRestore(
-  point
-) {
-
-  showToast(
-    `Restoration from "${point}" started. Database will restart shortly (demo).`,
-    'info'
-  );
-
-
-  appendAudit(
-    CURRENT_USER?.displayName ||
-      'Admin',
-    `Initiated database restoration from ${point}`,
-    'Admin'
-  );
-
+async function runRestore(backupId) {
+  showToast("Recovery started. Checking the backup and restoring missing data…", "info");
+  try {
+    const response = await fetch(ADMIN_BACKUPS_API + "/" + encodeURIComponent(backupId) + "/restore", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({})
+    });
+    const result = await response.json();
+    if (!response.ok || !result.summary) throw new Error(result.message || "Recovery could not be completed.");
+    const summary = result.summary;
+    const restoredRows = Object.values(summary.tables || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+    const skippedRows = Object.values(summary.skippedExistingRows || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+    const details = "Restored " + restoredRows.toLocaleString() + " database rows and " +
+      Number(summary.filesRestored || 0).toLocaleString() + " files. Preserved " +
+      skippedRows.toLocaleString() + " existing rows and " +
+      Number(summary.filesSkipped || 0).toLocaleString() + " existing files.";
+    if (result.success) {
+      showToast("Recovery completed. " + details, "success");
+    } else {
+      const issueCount = Array.isArray(summary.failures) ? summary.failures.length : 0;
+      showToast("Recovery finished with " + issueCount + " issue(s). " + details + " Review the backend logs for details.", "warning");
+      console.warn("[Backups] Recovery issues:", summary.failures);
+    }
+    await loadSystemBackups();
+  } catch (error) {
+    console.error("[Backups] Recovery failed:", error);
+    showToast(error.message || "Recovery failed. Existing data has not been intentionally overwritten.", "error");
+  }
 }
-
 
 function verifyRestorePoint() {
-
-  showToast(
-    'Restore point verified. Integrity check passed.',
-    'success'
-  );
-
-
-  appendAudit(
-    CURRENT_USER?.displayName ||
-      'Admin',
-    'Verified database restore point',
-    'Admin'
-  );
-
+  loadSystemBackups();
 }
