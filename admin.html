@@ -301,13 +301,13 @@
           <div class="admin-metrics-panel__head">
             <div>
               <div class="admin-metrics-panel__title">System Activity &amp; Throughput</div>
-              <div class="admin-metrics-panel__sub">Applications received, exports, and audit activity today</div>
+              <div class="admin-metrics-panel__sub">Total applications received, exports, and audit activity today</div>
             </div>
             <span class="small-pill small-pill--success">Live</span>
           </div>
           <div class="admin-metrics-grid">
             <div class="admin-metric-box">
-              <div class="admin-metric-box__label">Applications Received</div>
+              <div class="admin-metric-box__label">Total Applications Received</div>
               <div class="admin-metric-box__value" id="metric-received">0</div>
               <div class="admin-metric-box__sub"></div>
             </div>
@@ -538,10 +538,10 @@
               <path d="M11 11l3 3" />
             </svg><input type="search" id="audit-search" placeholder="Search events, users, or actions…"
               oninput="filterAuditLogs()" /></label>
-          <select class="filter-select" id="audit-user-filter" onchange="filterAuditLogs()">
+          <select class="filter-select" multiple size="4" title="Select multiple values. Hold Ctrl while clicking to select more than one." id="audit-user-filter" onchange="filterAuditLogs()">
             <option value="">All Users</option>
           </select>
-          <select class="filter-select" id="audit-action-filter" onchange="filterAuditLogs()">
+          <select class="filter-select" multiple size="4" title="Select multiple values. Hold Ctrl while clicking to select more than one." id="audit-action-filter" onchange="filterAuditLogs()">
             <option value="">All Actions</option>
             <option value="approve">Approvals</option>
             <option value="reject">Rejections</option>
