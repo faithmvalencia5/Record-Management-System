@@ -274,8 +274,10 @@ function selectCalendarDay(day, month, year) {
   closeDateFilter();
   if (typeof window.applyDashboardDateFilter === 'function') {
     window.applyDashboardDateFilter(date);
+    showToast('Dashboard metrics filtered for ' + label, 'success');
+  } else {
+    showToast('Dashboard date selected: ' + label, 'info');
   }
-  showToast('Dashboard metrics filtered for ' + label, 'success');
 }
 function initBarangay(stacked = false) {
   const ctx = mkCanvas('chart-barangay'); if (!ctx) return;
