@@ -50,10 +50,33 @@ async function loadSystemSettings() {
     if (status) status.textContent = ADMIN_SYSTEM_SETTINGS.updated_at
       ? "Last saved: " + new Date(ADMIN_SYSTEM_SETTINGS.updated_at).toLocaleString()
       : "Default settings are currently in use.";
+    return true;
   } catch (error) {
     console.error("[Admin Settings] Load failed:", error);
     if (status) status.textContent = error.message;
     showToast(error.message || "Unable to load system settings.", "error");
+    return false;
+  }
+}
+
+async function refreshSystemSettings() {
+  const button = document.getElementById("refresh-system-settings-btn");
+  if (button?.disabled) return;
+  const originalContent = button?.innerHTML;
+  if (button) {
+    button.disabled = true;
+    button.setAttribute("aria-busy", "true");
+    button.innerHTML = '<i class="fi fi-rr-spinner" aria-hidden="true"></i> Refreshing…';
+  }
+  try {
+    const loaded = await loadSystemSettings();
+    if (loaded) showToast("System settings refreshed successfully.", "success");
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.removeAttribute("aria-busy");
+      button.innerHTML = originalContent || '<i class="fi fi-rr-refresh" aria-hidden="true"></i> Refresh';
+    }
   }
 }
 
