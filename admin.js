@@ -4911,6 +4911,8 @@ function updateBackupProgressUI(progress = {}) {
     }
     if (progress.totalFiles) parts.push((progress.completedFiles || 0) + "/" + progress.totalFiles + " uploaded files");
     if (progress.totalParts) parts.push((progress.completedParts || 0) + "/" + progress.totalParts + " archive parts");
+    if (Number.isFinite(Number(progress.discoveredFiles))) parts.push(progress.discoveredFiles + " files found");
+    if (Number.isFinite(Number(progress.scannedFolders))) parts.push(progress.scannedFolders + " folders scanned");
     detail.textContent = parts.join(" · ") || "Preparing backup tasks";
   }
 }
