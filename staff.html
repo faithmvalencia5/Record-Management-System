@@ -359,7 +359,7 @@
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                   <circle cx="12" cy="10" r="3" />
                 </svg>
-                <select class="filter-select" id="recent-barangay-filter" onchange="filterRecentSubmissions()"
+                <select class="filter-select" id="recent-barangay-filter" multiple size="4" title="Select multiple barangays with Ctrl-click" onchange="filterRecentSubmissions()"
                   aria-label="Filter recent submissions by barangay">
                   <option value="">Barangay: All</option>
                   <option value="Alagao">Alagao</option>
@@ -1014,6 +1014,7 @@
 
             <select
               id="replacement-status-filter"
+              multiple size="3" title="Select multiple request statuses with Ctrl-click"
               onchange="filterReplacementRequests()"
               style="min-width:150px;padding:11px 14px;border:1px solid var(--border-color,#dbe3ef);border-radius:10px;background:var(--surface,#fff);color:var(--text-primary,#172033)"
             >
