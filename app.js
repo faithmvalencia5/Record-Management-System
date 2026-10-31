@@ -6379,7 +6379,22 @@ function staffExportCsvCell(value) {
   return '"' + String(value ?? '').replace(/"/g, '""') + '"';
 }
 
-function downloadStaffExport() {
+async function recordStaffDataActivity(action, report, format, recordCount) {
+  const endpoint = 'https://management-backend-3cij.onrender.com/api/audit-logs/' +
+    (action === 'DATA_IMPORTED' ? 'imports' : 'exports');
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ report, format, recordCount })
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok || !result.success) {
+    throw new Error(result.message || 'Unable to save this activity to the audit log.');
+  }
+  return result;
+}
+
+async function downloadStaffExport() {
   const type = document.getElementById('staff-export-type')?.value || 'barangay';
   const barangayFilter = document.getElementById('staff-export-barangay')?.value || '';
   const statusFilter = document.getElementById('staff-export-status')?.value || '';
@@ -6448,6 +6463,23 @@ function downloadStaffExport() {
     }
     header = keys.map(key => STAFF_EXPORT_FIELDS.records.find(field => field.key === key).label);
     rows = filtered.map(application => keys.map(key => staffExportValue(application, key)));
+  }
+
+  try {
+    await recordStaffDataActivity(
+      'DATA_EXPORTED',
+      type === 'barangay' ? 'Staff barangay summary' : 'Staff applicant records',
+      'CSV',
+      type === 'barangay' ? rows.length - 1 : filtered.length
+    );
+  } catch (auditError) {
+    console.error('[Staff Export] Audit logging failed:', auditError);
+    if (errorEl) {
+      errorEl.textContent = 'Export was not started because the audit log could not be saved. Please try again.';
+      errorEl.style.display = 'block';
+    }
+    showToast('Unable to record export activity. Please try again.', 'error');
+    return;
   }
 
   const csv = '\uFEFF' + [header, ...rows].map(row => row.map(staffExportCsvCell).join(',')).join('\r\n');
