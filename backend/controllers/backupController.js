@@ -9,6 +9,8 @@ const BACKUP_VERSION = 1;
 const PAGE_SIZE = 1000;
 let currentBackupProgress = { active: false, status: "idle", percent: 0, stage: "Waiting to start", updatedAt: null };
 let backupCancelRequested = false;
+let listingFoldersScanned = 0;
+let listingFilesFound = 0;
 
 function setBackupProgress(percent, stage, extra = {}) {
   currentBackupProgress = {
@@ -141,10 +143,10 @@ async function fetchAllTableRows(tableName) {
 }
 
 async function listStorageFiles(bucket, folder = "") {
+  checkBackupCancelled();
   const files = [];
+  const childFolders = [];
   for (let offset = 0; ; offset += PAGE_SIZE) {
-    // Check before and after every Storage listing request so cancellation
-    // does not have to wait for the entire bucket tree to be scanned.
     checkBackupCancelled();
     const { data, error } = await supabase.storage.from(bucket).list(folder, {
       limit: PAGE_SIZE,
@@ -156,17 +158,37 @@ async function listStorageFiles(bucket, folder = "") {
     const entries = data || [];
     for (const entry of entries) {
       checkBackupCancelled();
-      if (entry.id === null) {
-        const child = folder ? folder + "/" + entry.name : entry.name;
-        files.push(...await listStorageFiles(bucket, child));
-      } else {
+      if (entry.id === null) childFolders.push(folder ? folder + "/" + entry.name : entry.name);
+      else {
         const path = folder ? folder + "/" + entry.name : entry.name;
         files.push({ path, name: entry.name, metadata: entry.metadata || {} });
       }
     }
     if (entries.length < PAGE_SIZE) break;
   }
+  listingFoldersScanned += 1;
+  listingFilesFound += files.length;
+  setBackupProgress(43, "Scanning uploaded applicant files (" + listingFilesFound + " files found)", {
+    discoveredFiles: listingFilesFound, scannedFolders: listingFoldersScanned
+  });
+  const childResults = await mapWithConcurrency(childFolders, 5, child => listStorageFiles(bucket, child));
+  for (const childFiles of childResults) files.push(...childFiles);
   return files;
+}
+
+async function mapWithConcurrency(items, concurrency, worker) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  const workerCount = Math.min(Math.max(1, concurrency), items.length);
+  await Promise.all(Array.from({ length: workerCount }, async () => {
+    while (true) {
+      checkBackupCancelled();
+      const index = nextIndex++;
+      if (index >= items.length) return;
+      results[index] = await worker(items[index], index);
+    }
+  }));
+  return results;
 }
 
 async function createSystemBackup(req, res) {
@@ -199,7 +221,9 @@ async function createSystemBackup(req, res) {
       });
     }
 
-    setBackupProgress(43, "Finding uploaded applicant files");
+    listingFoldersScanned = 0;
+    listingFilesFound = 0;
+    setBackupProgress(43, "Scanning uploaded applicant file folders", { discoveredFiles: 0, scannedFolders: 0 });
     checkBackupCancelled();
     const sourceFiles = await listStorageFiles(SOURCE_BUCKET);
     checkBackupCancelled();
@@ -209,26 +233,46 @@ async function createSystemBackup(req, res) {
       ? "Collecting uploaded applicant files (0 of " + sourceFiles.length + ")"
       : "No uploaded applicant files found", { completedFiles: 0, totalFiles: sourceFiles.length });
 
-    for (let fileIndex = 0; fileIndex < sourceFiles.length; fileIndex++) {
-      checkBackupCancelled();
-      const file = sourceFiles[fileIndex];
-      const { data, error } = await supabase.storage.from(SOURCE_BUCKET).download(file.path);
-      checkBackupCancelled();
-      if (error || !data) throw new Error("Unable to download uploaded file " + file.path + ": " + (error?.message || "No file data returned."));
-      const bytes = Buffer.from(await data.arrayBuffer());
-      zip.addFile("storage/" + SOURCE_BUCKET + "/" + file.path, bytes);
-      fileBytes += bytes.length;
-      fileManifest.push({
-        bucket: SOURCE_BUCKET,
-        path: file.path,
-        size: bytes.length,
-        contentType: file.metadata?.mimetype || file.metadata?.contentType || "application/octet-stream",
-      });
-      const percent = 47 + ((fileIndex + 1) / Math.max(sourceFiles.length, 1)) * 23;
-      setBackupProgress(percent, "Collecting uploaded applicant files (" + (fileIndex + 1) + " of " + sourceFiles.length + ")", {
-        completedFiles: fileIndex + 1, totalFiles: sourceFiles.length, fileBytes
-      });
-    }
+    let nextFileIndex = 0;
+    let completedFiles = 0;
+    let stopDownloads = false;
+    const downloadWorker = async () => {
+      while (!stopDownloads) {
+        checkBackupCancelled();
+        const fileIndex = nextFileIndex++;
+        if (fileIndex >= sourceFiles.length) return;
+        const file = sourceFiles[fileIndex];
+        try {
+          const { data, error } = await supabase.storage.from(SOURCE_BUCKET).download(file.path);
+          checkBackupCancelled();
+          if (error || !data) throw new Error("Unable to download uploaded file " + file.path + ": " + (error?.message || "No file data returned."));
+          const bytes = Buffer.from(await data.arrayBuffer());
+          checkBackupCancelled();
+          zip.addFile("storage/" + SOURCE_BUCKET + "/" + file.path, bytes);
+          fileBytes += bytes.length;
+          fileManifest[fileIndex] = {
+            bucket: SOURCE_BUCKET,
+            path: file.path,
+            size: bytes.length,
+            contentType: file.metadata?.mimetype || file.metadata?.contentType || "application/octet-stream",
+          };
+          completedFiles += 1;
+          const percent = 47 + (completedFiles / Math.max(sourceFiles.length, 1)) * 23;
+          setBackupProgress(percent, "Collecting uploaded applicant files (" + completedFiles + " of " + sourceFiles.length + ")", {
+            completedFiles, totalFiles: sourceFiles.length, fileBytes
+          });
+        } catch (error) {
+          stopDownloads = true;
+          throw error;
+        }
+      }
+    };
+    const workerResults = await Promise.allSettled(
+      Array.from({ length: Math.min(4, sourceFiles.length) }, () => downloadWorker())
+    );
+    const workerFailure = workerResults.find(result => result.status === "rejected");
+    if (workerFailure) throw workerFailure.reason;
+    checkBackupCancelled();
 
     const manifest = {
       version: BACKUP_VERSION,
