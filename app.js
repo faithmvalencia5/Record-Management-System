@@ -946,9 +946,11 @@ function enhanceMultiSelectDropdowns(root = document) {
       });
     }
 
+    menu.addEventListener('click', event => event.stopPropagation());
     trigger.addEventListener('click', event => {
       event.stopPropagation();
       const opening = menu.hidden;
+      refreshLabel();
       document.querySelectorAll('.multi-select-dropdown__menu').forEach(other => {
         if (other !== menu) {
           other.hidden = true;
