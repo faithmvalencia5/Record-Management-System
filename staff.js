@@ -3429,7 +3429,7 @@ document.addEventListener(
 
 // Registry view helpers: group request rows into one profile per senior.
 var STAFF_APPLICANT_PROFILES = [];
-var APPLICATIONS_FILTER_STATE = { search: '', barangay: '', type: 'all', status: 'all' };
+var APPLICATIONS_FILTER_STATE = { search: '', barangay: [], type: 'all', status: [] };
 
 function getApplicationName(application) {
   return [application.first_name, application.middle_name, application.surname]
@@ -4028,20 +4028,9 @@ function renderLiveApplications(applications) {
 
 function applyApplicationsModuleFilters(statusKey) {
   if (statusKey) {
-    APPLICATIONS_FILTER_STATE.status = statusKey;
+    APPLICATIONS_FILTER_STATE.status = statusKey === 'all' ? [] : [statusKey];
     const stageSel = document.getElementById('filter-application-stage');
-    if (stageSel) {
-      const normKey = normalizeApplicationStatus(statusKey);
-      for (const opt of stageSel.options) {
-        if (opt.value === 'all' && (normKey === 'all' || !normKey)) {
-          stageSel.value = opt.value;
-          break;
-        } else if (normalizeApplicationStatus(opt.value) === normKey) {
-          stageSel.value = opt.value;
-          break;
-        }
-      }
-    }
+    if (stageSel) Array.from(stageSel.options).forEach(opt => { opt.selected = statusKey === 'all' ? opt.value === 'all' : opt.value === statusKey; });
   }
 
   const rows = document.querySelectorAll('#applications-tbody tr[data-app-id]');
@@ -4064,12 +4053,11 @@ function applyApplicationsModuleFilters(statusKey) {
     rejected: 'rejected'
   };
 
-  const rawExpectedStatus = String(APPLICATIONS_FILTER_STATE.status || 'all').trim().toLowerCase();
-  const normalizedExpectedStatus = statusMap[rawExpectedStatus] || (rawExpectedStatus === 'all' ? 'all' : normalizeApplicationStatus(rawExpectedStatus));
-
+  const selectedStatuses = Array.isArray(APPLICATIONS_FILTER_STATE.status) ? APPLICATIONS_FILTER_STATE.status : [];
+  const normalizedExpectedStatuses = selectedStatuses.map(value => statusMap[String(value).trim().toLowerCase()] || normalizeApplicationStatus(value));
   const rawExpectedType = String(APPLICATIONS_FILTER_STATE.type || 'all').trim().toLowerCase();
   const searchVal = String(APPLICATIONS_FILTER_STATE.search || '').trim().toLowerCase();
-  const barangayVal = String(APPLICATIONS_FILTER_STATE.barangay || '').trim().toLowerCase();
+  const barangayValues = Array.isArray(APPLICATIONS_FILTER_STATE.barangay) ? APPLICATIONS_FILTER_STATE.barangay.map(value => String(value).trim().toLowerCase()) : [];
 
   let visible = 0;
   rows.forEach(row => {
@@ -4078,7 +4066,7 @@ function applyApplicationsModuleFilters(statusKey) {
 
     // 2. Barangay match
     const rowBarangay = String(row.dataset.barangay || '').trim().toLowerCase();
-    const barangayMatch = !barangayVal || rowBarangay === barangayVal;
+    const barangayMatch = !barangayValues.length || barangayValues.includes(rowBarangay);
 
     // 3. Request Type match
     const rowType = String(row.dataset.type || row.querySelector('td[data-label="Req. Type"]')?.textContent || '').trim().toLowerCase();
@@ -4086,14 +4074,9 @@ function applyApplicationsModuleFilters(statusKey) {
 
     // 4. Stage / Status match
     const rowStatus = normalizeApplicationStatus(row.dataset.status);
-    let statusMatch = true;
-    if (normalizedExpectedStatus !== 'all') {
-      if (normalizedExpectedStatus === 'completed') {
-        statusMatch = (rowStatus === 'completed' || rowStatus === 'issued');
-      } else {
-        statusMatch = (rowStatus === normalizedExpectedStatus);
-      }
-    }
+    const statusMatch = !normalizedExpectedStatuses.length || normalizedExpectedStatuses.some(expected =>
+      expected === 'completed' ? (rowStatus === 'completed' || rowStatus === 'issued') : rowStatus === expected
+    );
 
     const matchesAll = searchMatch && barangayMatch && typeMatch && statusMatch;
     row.style.display = matchesAll ? '' : 'none';
@@ -4115,15 +4098,19 @@ function filterApplicationsByType(type) {
 }
 window.filterApplicationsByType = filterApplicationsByType;
 
-function filterApplicationsByStage(stage) {
-  APPLICATIONS_FILTER_STATE.status = stage || 'all';
+function filterApplicationsByStage(control) {
+  APPLICATIONS_FILTER_STATE.status = control instanceof HTMLSelectElement
+    ? Array.from(control.selectedOptions).map(option => option.value).filter(value => value && value !== 'all')
+    : (control ? [control] : []);
   applyApplicationsModuleFilters();
 }
 window.filterApplicationsByStage = filterApplicationsByStage;
 
-function filterApplicationsByBarangay(barangay) { 
-  APPLICATIONS_FILTER_STATE.barangay = barangay || ''; 
-  applyApplicationsModuleFilters(); 
+function filterApplicationsByBarangay(control) {
+  APPLICATIONS_FILTER_STATE.barangay = control instanceof HTMLSelectElement
+    ? Array.from(control.selectedOptions).map(option => option.value).filter(value => value && value !== 'all')
+    : (control ? [control] : []);
+  applyApplicationsModuleFilters();
 }
 
 function handleApplicationsSort(val) {
