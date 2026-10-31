@@ -265,6 +265,51 @@ async function readBackupState(storage) {
   }
 }
 
+async function bootstrapBackupState(storage) {
+  const metadataFiles = [];
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const { data, error } = await storage.list("", {
+      limit: PAGE_SIZE,
+      offset,
+      sortBy: { column: "name", order: "desc" },
+    });
+    if (error) throw new Error("Unable to inspect existing backup history: " + error.message);
+    const entries = data || [];
+    metadataFiles.push(...entries.filter(item =>
+      item?.name && item.name.endsWith(".json") && item.name !== BACKUP_STATE_PATH
+    ));
+    if (entries.length < PAGE_SIZE) break;
+  }
+
+  const candidates = [];
+  for (const item of metadataFiles) {
+    const { data, error } = await storage.download(item.name);
+    if (error || !data) continue;
+    try {
+      const metadata = JSON.parse(await data.text());
+      if (metadata?.backupId && (metadata.archivePath || (Array.isArray(metadata.archiveParts) && metadata.archiveParts.length))) {
+        candidates.push(metadata);
+      }
+    } catch (_) {
+      // Ignore unrelated or malformed JSON objects in the private bucket.
+    }
+  }
+  candidates.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const latestFull = candidates.find(item => item.backupType !== "incremental");
+  if (!latestFull) return null;
+
+  const { manifest } = await downloadAndOpenBackupArchive(storage, latestFull.backupId, latestFull);
+  const trackedFilePaths = Array.from(new Set(
+    (manifest.storage?.files || []).map(file => file?.path).filter(Boolean)
+  ));
+  return {
+    latestBackupId: latestFull.backupId,
+    latestFullCreatedAt: latestFull.createdAt,
+    baseBackupId: latestFull.backupId,
+    trackedFilePaths,
+  };
+}
+
 async function downloadAndOpenBackupArchive(storage, backupId, metadata) {
   let encryptedArchive;
   if (Array.isArray(metadata.archiveParts) && metadata.archiveParts.length > 0) {
@@ -340,7 +385,14 @@ async function createSystemBackup(req, res) {
     }
 
     const backupStorage = supabase.storage.from(BACKUP_BUCKET);
-    const previousState = await readBackupState(backupStorage);
+    let previousState = await readBackupState(backupStorage);
+    if (!previousState) {
+      try {
+        previousState = await bootstrapBackupState(backupStorage);
+      } catch (bootstrapError) {
+        console.warn("[Backups] Could not rebuild the incremental index; a safe full backup will be created:", bootstrapError.message);
+      }
+    }
     let backupType = "full";
     let parentBackupId = null;
     let baseBackupId = backupId;
