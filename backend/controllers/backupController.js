@@ -775,7 +775,46 @@ async function restoreSystemBackup(req, res) {
   return res.status(202).json({ success: true, accepted: true, message: "Recovery started. Follow the progress indicator until it completes." });
 }
 
+async function rollbackRestoreChanges(insertedRowsByTable, restoredStoragePaths) {
+  const rollbackFailures = [];
+  let rowsRemoved = 0;
+  let filesRemoved = 0;
+
+  // Remove child records first, then parent records, so foreign-key dependencies remain safe.
+  for (const table of TABLES.slice().reverse()) {
+    const keys = insertedRowsByTable[table.name] || [];
+    if (!keys.length) continue;
+    for (let offset = 0; offset < keys.length; offset += 100) {
+      const batch = keys.slice(offset, offset + 100);
+      const { data, error } = await supabase
+        .from(table.name)
+        .delete()
+        .in(table.conflict, batch)
+        .select(table.conflict);
+      if (error) {
+        rollbackFailures.push({ item: table.name, reason: error.message });
+      } else {
+        rowsRemoved += (data || []).length;
+      }
+    }
+  }
+
+  for (let offset = 0; offset < restoredStoragePaths.length; offset += 100) {
+    const batch = restoredStoragePaths.slice(offset, offset + 100);
+    const { data, error } = await supabase.storage.from(SOURCE_BUCKET).remove(batch);
+    if (error) {
+      rollbackFailures.push({ item: SOURCE_BUCKET, reason: error.message });
+    } else {
+      filesRemoved += (data || []).length;
+    }
+  }
+
+  return { rowsRemoved, filesRemoved, failures: rollbackFailures };
+}
+
 async function runSystemRestoreJob(req, backupId) {
+  const insertedRowsByTable = Object.fromEntries(TABLES.map(table => [table.name, []]));
+  const restoredStoragePaths = [];
   try {
     encryptionKey();
     setRestoreProgress(4, "Checking backup archive and recovery chain");
@@ -840,8 +879,10 @@ async function runSystemRestoreJob(req, backupId) {
           failed.push({ item: table.name, reason: error.message });
           break;
         }
-        inserted += (data || []).length;
-        ignored += batch.length - (data || []).length;
+        const insertedBatch = data || [];
+        inserted += insertedBatch.length;
+        ignored += batch.length - insertedBatch.length;
+        insertedRowsByTable[table.name].push(...insertedBatch.map(row => row[table.conflict]).filter(value => value !== undefined && value !== null));
       }
       restored[table.name] = inserted;
       skipped[table.name] = ignored;
@@ -906,6 +947,7 @@ async function runSystemRestoreJob(req, backupId) {
         else failed.push({ item: file.path, reason: uploadError.message });
       } else {
         filesRestored++;
+        restoredStoragePaths.push(file.path);
       }
       filesProcessed++;
       setRestoreProgress(57 + Math.round((filesProcessed / Math.max(filesToProcess.length, 1)) * 38), "Restoring missing uploaded files", { completedFiles: filesProcessed, totalFiles: filesToProcess.length, filesRestored, filesSkipped });
@@ -938,8 +980,21 @@ async function runSystemRestoreJob(req, backupId) {
     return result;
   } catch (error) {
     if (error.code === "RESTORE_CANCELLED") {
-      setRestoreProgress(currentRestoreProgress.percent, "Recovery cancelled. Completed changes were kept safely.", {
-        active: false, status: "cancelled", error: null
+      setRestoreProgress(currentRestoreProgress.percent, "Recovery cancelled. Rolling back records and files restored by this attempt…", {
+        active: true, status: "cancelling",
+        stage: "Rolling back changes from this recovery attempt",
+        rollback: { active: true }
+      });
+      const rollback = await rollbackRestoreChanges(insertedRowsByTable, restoredStoragePaths);
+      const rollbackComplete = rollback.failures.length === 0;
+      const rollbackMessage = rollbackComplete
+        ? "Recovery cancelled. All changes made by this recovery attempt were rolled back."
+        : "Recovery was cancelled, but some rollback operations failed. Check the recovery details and backend logs.";
+      setRestoreProgress(currentRestoreProgress.percent, rollbackMessage, {
+        active: false,
+        status: rollbackComplete ? "cancelled" : "failed",
+        error: rollbackComplete ? null : rollbackMessage,
+        rollback: { active: false, rowsRemoved: rollback.rowsRemoved, filesRemoved: rollback.filesRemoved, failures: rollback.failures }
       });
       return;
     }
