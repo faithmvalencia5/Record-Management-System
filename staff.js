@@ -4501,9 +4501,9 @@ function renderReplacementRequests() {
     document.getElementById('replacement-search')?.value || ''
   ).trim().toLowerCase();
 
-  const statusFilter = (
-    document.getElementById('replacement-status-filter')?.value || ''
-  ).toLowerCase();
+  const statusFilters = Array.from(
+    document.getElementById('replacement-status-filter')?.selectedOptions || []
+  ).map(option => String(option.value || '').trim().toLowerCase()).filter(Boolean);
 
   const filtered = replacementRequests.filter(request => {
     const text = [
@@ -4514,9 +4514,8 @@ function renderReplacementRequests() {
       request.request_status
     ].join(' ').toLowerCase();
 
-    return text.includes(search) &&
-      (!statusFilter ||
-        String(request.request_status || '').toLowerCase() === statusFilter);
+    const requestStatus = String(request.request_status || '').toLowerCase();
+    return text.includes(search) && (!statusFilters.length || statusFilters.includes(requestStatus));
   });
 
   const total = document.getElementById('replacement-total');
