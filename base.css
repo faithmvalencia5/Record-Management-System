@@ -1096,6 +1096,25 @@ table {
   box-shadow: 0 5px 18px rgba(26, 79, 186, .38)
 }
 
+.btn.is-sending,
+.btn.is-sending:hover {
+  cursor: wait;
+  opacity: .88;
+  transform: none;
+  box-shadow: 0 2px 10px rgba(26, 79, 186, .2);
+}
+
+.btn__spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: auth-spin .7s linear infinite;
+}
+
 .btn--secondary {
   background: var(--primary-glass);
   border: 1.5px solid var(--primary-border);

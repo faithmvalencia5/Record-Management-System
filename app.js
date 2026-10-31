@@ -2672,6 +2672,8 @@ function restoreSession() {
 const FULL_APPLICANTS = [];
 const APP_DB = {};
 const ID_MAKER_QUEUE = [];
+let ID_MAKER_QUEUE_APPLICATION_IDS = new Set();
+let ID_MAKER_QUEUE_APPLICATION_IDS_PROMISE = null;
 const ID_MAKER_LOCAL_QUEUE_KEY = 'seniorid_id_maker_local_queue';
 
 function getLocalIdMakerQueue() {
@@ -6933,12 +6935,50 @@ function updateIssuancePreview(app) {
   }
 }
 
-function initSmallFormIssuance() {
+async function refreshIdMakerQueueApplicationIds() {
+  if (ID_MAKER_QUEUE_APPLICATION_IDS_PROMISE) {
+    return ID_MAKER_QUEUE_APPLICATION_IDS_PROMISE;
+  }
+
+  ID_MAKER_QUEUE_APPLICATION_IDS_PROMISE = (async () => {
+    const response = await fetch(
+      'https://management-backend-3cij.onrender.com/api/id-maker-queue',
+      { cache: 'no-store' }
+    );
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.success || !Array.isArray(result.queue)) {
+      throw new Error(result.message || 'Could not verify previous ID Maker submissions.');
+    }
+
+    ID_MAKER_QUEUE_APPLICATION_IDS = new Set(
+      result.queue
+        .map(item => String(item.application_id || item.id || '').trim())
+        .filter(Boolean)
+    );
+    return ID_MAKER_QUEUE_APPLICATION_IDS;
+  })().finally(() => {
+    ID_MAKER_QUEUE_APPLICATION_IDS_PROMISE = null;
+  });
+
+  return ID_MAKER_QUEUE_APPLICATION_IDS_PROMISE;
+}
+
+async function initSmallFormIssuance() {
   const select = document.getElementById('id-applicant');
   if (!select) return;
 
   // Prevent duplicate event listeners
   select.onchange = null;
+
+  select.innerHTML = '<option value="">Checking ID Maker queue...</option>';
+  let serverSentApplicationIds;
+  try {
+    serverSentApplicationIds = await refreshIdMakerQueueApplicationIds();
+  } catch (error) {
+    console.error('Could not verify ID Maker queue before loading issuance applicants:', error);
+    select.innerHTML = '<option value="">Unable to verify ID Maker queue. Reopen this section to retry.</option>';
+    return;
+  }
 
   // Include applicants already In Process, plus Under Review applicants
   // whose eligibility validation passed and all six required documents
@@ -6946,6 +6986,20 @@ function initSmallFormIssuance() {
   select.innerHTML = '<option value="">Select applicant</option>';
 
   const localQueue = getLocalIdMakerQueue();
+  // Include replacement applicants whose linked request is in production,
+  // even when their original application is already completed.
+  const inProcessReplacementIds = new Set();
+  const linkedReplacementRequests = Array.isArray(window.LIVE_REPLACEMENT_REQUESTS)
+    ? window.LIVE_REPLACEMENT_REQUESTS
+    : [];
+  linkedReplacementRequests.forEach(request => {
+    const replacementApp = request.application || null;
+    const id = String(request.application_id || replacementApp?.application_id || '');
+    if (!id || String(request.request_status || '').trim().toLowerCase() !== 'in process') return;
+    inProcessReplacementIds.add(id);
+    if (!APP_DB[id] && replacementApp) syncApplicationsToAppDB([replacementApp]);
+  });
+
   const requiredDocumentTypes = [
     'valid_id',
     'valid_id_back',
@@ -6958,13 +7012,13 @@ function initSmallFormIssuance() {
   Object.keys(APP_DB).forEach((id) => {
     const app = APP_DB[id];
     if (!app) return;
+    const isInProcessReplacement = inProcessReplacementIds.has(String(id));
 
-    // Exclude applicants already sent or already present in either queue.
-    if (app.sentToIdMaker) return;
-
+    // Never offer an applicant already submitted to ID Maker, including
+    // replacements whose earlier queue item has since been completed.
+    if (app.sentToIdMaker || serverSentApplicationIds.has(String(id))) return;
     const inMem = ID_MAKER_QUEUE.some(q => String(q.id || q.application_id) === String(id));
     if (inMem) return;
-
     const inLocal = localQueue.some(q => String(q.id || q.application_id) === String(id));
     if (inLocal) return;
 
@@ -6990,11 +7044,16 @@ function initSmallFormIssuance() {
       validationPassed &&
       allDocumentsApproved;
 
-    if (!isInProcess && !isQualifiedUnderReview) return;
+    if (!isInProcess && !isQualifiedUnderReview && !isInProcessReplacement) return;
 
     const opt = document.createElement('option');
     opt.value = id;
-    opt.textContent = `${app.name || 'Unnamed Applicant'} (${id})${isQualifiedUnderReview ? ' — Ready for ID Issuance' : ''}`;
+    const queueLabel = isInProcessReplacement
+      ? ' — Replacement'
+      : isQualifiedUnderReview
+        ? ' — Ready for ID Issuance'
+        : '';
+    opt.textContent = `${app.name || 'Unnamed Applicant'} (${id})${queueLabel}`;
 
     select.appendChild(opt);
   });
@@ -7115,6 +7174,15 @@ async function sendFromIssuanceToIdMaker() {
   }
 
   var appId = app.id;
+  const linkedReplacementRequest = (Array.isArray(window.LIVE_REPLACEMENT_REQUESTS)
+    ? window.LIVE_REPLACEMENT_REQUESTS
+    : []).find(request =>
+      String(request.application_id || request.application?.application_id || '') === String(appId)
+    );
+  const requestType = linkedReplacementRequest || /replace/i.test(String(
+    app.requestType || app.applicationType || app.application_type || app.request_type || ''
+  )) ? 'Replacement' : 'New';
+  app.requestType = requestType;
   var dateIssued = document.getElementById('id-date-issued')?.value || '';
   var controlNo = document.getElementById('id-control-no')?.value?.trim() || '';
 
@@ -7136,7 +7204,9 @@ async function sendFromIssuanceToIdMaker() {
   const originalHtml = sendBtn?.innerHTML || '';
   if (sendBtn) {
     sendBtn.disabled = true;
-    sendBtn.innerHTML = '<i class="fi fi-rr-spinner" style="display:inline-block;animation:spin 1s linear infinite;margin-right:6px"></i>Sending...';
+    sendBtn.classList.add('is-sending');
+    sendBtn.setAttribute('aria-busy', 'true');
+    sendBtn.innerHTML = '<span class="btn__spinner" aria-hidden="true"></span><span>Sending to ID Maker...</span>';
   }
   const apiBase = 'https://management-backend-3cij.onrender.com/api';
   const fetchWithTimeout = (url, options = {}) => {
@@ -7164,6 +7234,7 @@ async function sendFromIssuanceToIdMaker() {
       headers: getAuthHeaders(),
       body: JSON.stringify({
         application_id: appId,
+        request_type: requestType,
         control_no: controlNo,
         date_issued: dateIssued,
         print_status: 'Queued'
@@ -7173,6 +7244,7 @@ async function sendFromIssuanceToIdMaker() {
     if (!queueResponse.ok || queueResult.success === false) {
       throw new Error(queueResult.message || `ID Maker rejected the request (${queueResponse.status}).`);
     }
+    ID_MAKER_QUEUE_APPLICATION_IDS.add(String(appId));
 
     const statusResponse = await fetchWithTimeout(`${apiBase}/applications/${encodeURIComponent(appId)}/status`, {
       method: 'PUT',
@@ -7237,6 +7309,7 @@ async function sendFromIssuanceToIdMaker() {
       firstName: app.firstName || '', middleName: app.middleName || '', surname: app.surname || app.name || '',
       address: app.address || '—', barangay: app.barangay || '—', dob: app.dob || '', gender: app.gender || '',
       photo: app.photo || '', signature: app.signature || '', controlNo, dateIssued,
+      requestType,
       printStatus: 'Queued', regDate: app.regDate || new Date().toISOString(), sentAt: new Date().toISOString()
     };
     const existingIdx = ID_MAKER_QUEUE.findIndex(q => String(q.id || q.application_id) === String(appId));
@@ -7283,6 +7356,8 @@ async function sendFromIssuanceToIdMaker() {
   } finally {
     if (sendBtn) {
       sendBtn.disabled = false;
+      sendBtn.classList.remove('is-sending');
+      sendBtn.removeAttribute('aria-busy');
       sendBtn.innerHTML = originalHtml;
     }
   }

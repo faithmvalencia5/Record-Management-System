@@ -22,8 +22,8 @@
   <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-solid-rounded/css/uicons-solid-rounded.css" />
   <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-bold-rounded/css/uicons-bold-rounded.css" />
 
-  <link rel="stylesheet" href="base.css?v=40" />
-  <link rel="stylesheet" href="staff.css?v=30" />
+  <link rel="stylesheet" href="base.css?v=41" />
+  <link rel="stylesheet" href="staff.css?v=36" />
   <script src="skeleton.js?v=3"></script>
 </head>
 
@@ -342,7 +342,7 @@
           <div class="table-header">
             <div>
               <div class="table-header__title">Recent Submissions</div>
-              <div class="table-header__desc">Latest applicants awaiting review</div>
+              <div class="table-header__desc">Latest applicants across all statuses</div>
             </div>
             <div class="table-header__actions">
               <label class="table-search">
@@ -633,6 +633,7 @@
               <select class="filter-select" multiple size="4" title="Select multiple values. Hold Ctrl while clicking to select more than one." onchange="filterApplicantsByStatus(this)"
                 aria-label="Filter applicants by status">
                 <option value="">All Statuses</option>
+                <option value="Completed">Completed</option>
                 <option value="Pending">Pending</option>
                 <option value="Under Review">Under Review</option>
                 <option value="In Process">In Process</option>
@@ -1018,20 +1019,20 @@
             >
               <option value="">All statuses</option>
               <option value="Pending">Pending</option>
-              <option value="Accepted">Accepted</option>
+              <option value="Under Review">Under Review</option>
+              <option value="In Process">In Process</option>
+              <option value="Ready for Release">Ready for Release</option>
+              <option value="Completed">Completed</option>
               <option value="Rejected">Rejected</option>
             </select>
-
-            <button
-              type="button"
-              class="btn btn--secondary"
-              onclick="loadReplacementRequests()">
+            <button type="button" class="replacement-refresh" onclick="loadReplacementRequests()">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"></path><path d="M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2"></path></svg>
               Refresh
             </button>
           </div>
 
           <div class="table-responsive">
-            <table class="data-table">
+            <table class="data-table replacement-table">
               <thead>
                 <tr>
                   <th>Applicant</th>
@@ -1042,9 +1043,46 @@
                   <th>Action</th>
                 </tr>
               </thead>
-              <tbody id="replacement-requests-tbody">
-                <tr>
-                  <td colspan="6">Loading requests...</td>
+              <tbody id="replacement-requests-tbody" aria-busy="true">
+                <tr class="sk-row" aria-hidden="true">
+                  <td><span class="skeleton sk-cell" style="width:62%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:88%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:45%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:74%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:56%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:92%"></span></td>
+                </tr>
+                <tr class="sk-row" aria-hidden="true">
+                  <td><span class="skeleton sk-cell" style="width:88%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:45%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:74%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:56%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:92%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:40%"></span></td>
+                </tr>
+                <tr class="sk-row" aria-hidden="true">
+                  <td><span class="skeleton sk-cell" style="width:45%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:74%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:56%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:92%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:40%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:68%"></span></td>
+                </tr>
+                <tr class="sk-row" aria-hidden="true">
+                  <td><span class="skeleton sk-cell" style="width:74%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:56%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:92%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:40%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:68%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:80%"></span></td>
+                </tr>
+                <tr class="sk-row" aria-hidden="true">
+                  <td><span class="skeleton sk-cell" style="width:56%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:92%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:40%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:68%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:80%"></span></td>
+                  <td><span class="skeleton sk-cell" style="width:50%"></span></td>
                 </tr>
               </tbody>
             </table>

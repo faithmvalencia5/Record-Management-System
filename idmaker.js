@@ -80,7 +80,8 @@ const QUEUE_FILTER_STATE = {
   status: [],
   barangay: [],
   delayedOnly: false,
-  sortKey: 'updatedAt',
+  // Keep newly sent applicants at the top even when older rows are updated.
+  sortKey: 'sentAt',
   sortDir: 'desc',
   page: 1,
 };
@@ -147,11 +148,11 @@ async function loadIdMakerQueueFromDatabase(showMessage = false) {
     const tbody = document.getElementById('id-maker-queue-tbody');
 
     if (tbody && typeof Skeleton !== 'undefined') {
-      Skeleton.setTable(tbody, 5);
+      Skeleton.setTable(tbody, 7);
     } else if (tbody) {
       tbody.innerHTML =
         '<tr>' +
-        '<td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">' +
+        '<td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">' +
         '<i class="fi fi-rr-spinner"></i> ' +
         'Loading print queue...' +
         '</td>' +
@@ -250,7 +251,7 @@ async function loadIdMakerQueueFromDatabase(showMessage = false) {
     initIdMakerQueue();
     const queueBody = document.getElementById('id-maker-queue-tbody');
     if (queueBody) {
-      queueBody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">Unable to load the queue from the server. Refresh to try again.</td></tr>';
+      queueBody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">Unable to load the queue from the server. Refresh to try again.</td></tr>';
     }
     updateIdMakerKPIs();
 
@@ -488,6 +489,10 @@ function queueSortValue(app, key) {
     case 'controlNo': return String(app.controlNo || '').trim().toLowerCase();
     case 'barangay': return String(app.barangay || '').trim().toLowerCase();
     case 'status': return QUEUE_STAGES.indexOf(app.printStatus);
+    case 'sentAt': {
+      const t = new Date(app.sentAt || app.updatedAt || 0).getTime();
+      return Number.isFinite(t) ? t : 0;
+    }
     default: {
       const t = new Date(app.updatedAt || 0).getTime();
       return Number.isFinite(t) ? t : 0;
@@ -597,6 +602,8 @@ function buildQueueRow(app) {
   const name = String(app.name || '').trim();
   const barangay = normalizeQueueBarangay(app.barangay);
   const controlNo = normalizeQueueControlNo(app.controlNo, app.id);
+  const requestType = app.requestType === 'Replacement' ? 'Replacement' : 'New';
+  const requestTypeClass = requestType === 'Replacement' ? 'request-type-pill--replacement' : 'request-type-pill--new';
 
   const missingTip = escapeQueueHtml(
     linked ? 'Missing in application record' : 'No matching application record for this queue ID'
@@ -648,6 +655,7 @@ function buildQueueRow(app) {
       '<div class="applicant-info">' + nameHtml +
         '<span class="applicant-id">' + id + '</span>' +
       '</div></div></td>' +
+    '<td data-label="Request Type"><span class="request-type-pill ' + requestTypeClass + '">' + escapeQueueHtml(requestType) + '</span></td>' +
     '<td data-label="Control No."><span class="cell-text" style="font-family:var(--font-data);font-size:12px;letter-spacing:.3px">' +
       controlHtml + '</span></td>' +
     '<td data-label="Barangay">' +
@@ -683,7 +691,7 @@ function renderQueueTable() {
   const slice = rows;
 
   const emptyRow = html =>
-    '<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted)">' + html + '</td></tr>';
+    '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">' + html + '</td></tr>';
 
   if (!total) {
     tbody.innerHTML = emptyRow('No cards in the production queue.');
@@ -1123,6 +1131,37 @@ async function inlineStatusChange(appId, newStatus) {
         'Queue status saved, but application workflow status sync failed:',
         syncError
       );
+    }
+
+    // A replacement request is ready for pickup only after ID Maker completes
+    // the production queue item. Keep the replacement module in sync here.
+    if (newStatus === 'Completed') {
+      try {
+        const replacementsApi = ID_MAKER_API.replace(/\/id-maker-queue\/?$/, '/replacements');
+        const requestsResponse = await fetch(replacementsApi, { cache: 'no-store' });
+        const requestsResult = await requestsResponse.json().catch(() => ({}));
+        if (!requestsResponse.ok || !requestsResult.success) {
+          throw new Error(requestsResult.message || 'Could not load linked replacement requests.');
+        }
+
+        const linkedRequest = (requestsResult.requests || []).find(request =>
+          String(request.application_id) === String(appId)
+        );
+        if (linkedRequest && String(linkedRequest.request_status || '').trim().toLowerCase() !== 'ready for release') {
+          const statusResponse = await fetch(`${replacementsApi}/${encodeURIComponent(linkedRequest.id)}/decision`, {
+            method: 'PUT',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ status: 'Ready for Release' })
+          });
+          const statusResult = await statusResponse.json().catch(() => ({}));
+          if (!statusResponse.ok || !statusResult.success) {
+            throw new Error(statusResult.message || 'Could not set the replacement request to Ready for Release.');
+          }
+        }
+      } catch (replacementSyncError) {
+        console.warn('Queue completed, but linked replacement status sync failed:', replacementSyncError);
+        showToast('ID Maker marked the item completed, but the replacement status could not be updated.', 'error');
+      }
     }
 
     // ========================================

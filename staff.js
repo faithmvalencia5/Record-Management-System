@@ -233,10 +233,19 @@ function updateBatchState() {
   const selectedCount = STAFF_SELECTED_APP_IDS.size;
   const trigger = document.getElementById('batch-ops-trigger');
   const label = document.getElementById('batch-ops-label');
+  const exportButton = document.querySelector('#batch-ops-menu [onclick="runBatchAction(\'export\')"]');
+  const approveButton = document.querySelector('#batch-ops-menu [onclick="runBatchAction(\'approve\')"]');
   if (trigger) trigger.disabled = selectedCount === 0;
   if (label) label.textContent = selectedCount
     ? 'Batch Operations (' + selectedCount.toLocaleString() + ')'
     : 'Batch Operations';
+  if (exportButton) exportButton.disabled = selectedCount === 0;
+
+  const eligibleCount = Array.from(STAFF_SELECTED_APP_IDS).filter(id => {
+    const app = LIVE_APPLICATIONS.find(item => String(item.application_id || item.id) === id);
+    return app && ['pending', 'review', 'process'].includes(normalizeApplicationStatus(app.status));
+  }).length;
+  if (approveButton) approveButton.disabled = eligibleCount === 0;
 }
 
 // Delegate checkbox events from the live applications table. This remains
@@ -2726,41 +2735,14 @@ function renderRecentSubmissions(
 
   const recentApplications =
     applications
-      .filter(application => {
-
-        const status =
-          normalizeApplicationStatus(
-            application.status
-          );
-
-        return (
-          status === 'pending' ||
-          status === 'review'
-        );
-
-      })
       .sort(
         (a, b) => {
-
-          const dateA =
-            new Date(
-              a.created_at ||
-              a.submitted_at ||
-              0
-            );
-
-          const dateB =
-            new Date(
-              b.created_at ||
-              b.submitted_at ||
-              0
-            );
-
-          return (
-            dateB.getTime() -
-            dateA.getTime()
-          );
-
+          const dateValue = application => {
+            const value = application.created_at || application.submitted_at || application.date_submitted;
+            const timestamp = value ? new Date(value).getTime() : 0;
+            return Number.isFinite(timestamp) ? timestamp : 0;
+          };
+          return dateValue(b) - dateValue(a);
         }
       )
       .slice(0, 5);
@@ -2854,6 +2836,8 @@ function renderRecentSubmissions(
             const status =
               application.status ||
               'Pending';
+            const normalizedStatus = normalizeApplicationStatus(status)
+              .replace(/[^a-z0-9]+/g, '-');
 
 
             return `
@@ -2884,7 +2868,7 @@ function renderRecentSubmissions(
                 </td>
 
                 <td>
-                  <span class="cell-text status-select__label">
+                  <span class="recent-submission-status recent-submission-status--${escapeApplicationHtml(normalizedStatus)}">
                     ${escapeApplicationHtml(
               status
             )}
@@ -3409,18 +3393,13 @@ document.addEventListener(
     }
 
     // LOAD APPLICATIONS
-    if (
-      typeof loadApplicationsFromDatabase ===
-      "function"
-    ) {
-
+    if (typeof loadApplicationsFromDatabase === 'function') {
       loadApplicationsFromDatabase();
-
-    // Load replacement requests on initial page load so the sidebar badge is updated automatically.
-    if (typeof loadReplacementRequests === 'function') {
-      loadReplacementRequests();
     }
 
+    // Load replacement requests independently of the applications request.
+    if (typeof loadReplacementRequests === 'function') {
+      loadReplacementRequests();
     }
 
   }
@@ -3524,7 +3503,7 @@ function buildApplicantProfiles(applications) {
 }
 
 function getProfileStatusClass(status) {
-  if (status === 'Registered') return 'badge-issued';
+  if (status === 'Completed') return 'badge-issued';
   const normalized = normalizeApplicationStatus(status);
   if (normalized === 'rejected') return 'badge-rejected';
   if (normalized === 'review') return 'badge-review';
@@ -3563,7 +3542,7 @@ function renderLiveApplicants(applications) {
       data-barangay="${escapeApplicationHtml(profile.barangay.toLowerCase())}" data-search="${escapeApplicationHtml(searchText)}">
       <td><div class="applicant-cell"><div class="applicant-avatar">${escapeApplicationHtml(initials)}</div><div class="applicant-info">
         <span class="applicant-name">${escapeApplicationHtml(profile.name)}</span><span class="applicant-id">${profile.applications.length} linked request${profile.applications.length === 1 ? '' : 's'}</span></div></div></td>
-      <td><span class="cell-text">${escapeApplicationHtml(profile.seniorId || '—')}</span></td>
+      <td><span class="cell-text">${escapeApplicationHtml(profile.seniorId || '—')}</span>${profile.seniorId ? ` <button type="button" class="applicant-id-copy" data-copy-id="${escapeApplicationHtml(profile.seniorId)}" aria-label="Copy application ID ${escapeApplicationHtml(profile.seniorId)}" title="Copy application ID" onclick="copyApplicantApplicationId(this)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg></button>` : ''}</td>
       <td><span class="cell-text">${escapeApplicationHtml(profile.barangay || '—')}</span></td>
       <td><span class="cell-text">${escapeApplicationHtml(String(profile.age))}</span></td>
       <td><span class="cell-text">${profile.registeredAt ? escapeApplicationHtml(formatStaffDate(profile.registeredAt)) : '—'}</span></td>
@@ -3600,7 +3579,7 @@ function applyApplicantsFilters() {
 
 function getProfileStatusPillClass(status) {
   const norm = String(status || '').trim().toLowerCase();
-  if (norm === 'registered' || /issued|complete|verified|approved|ready/.test(norm)) {
+  if (/issued|complete|verified|approved|ready/.test(norm)) {
     return 'status-pill--success';
   }
   if (/reject|cancel|deni/.test(norm)) {
@@ -3610,6 +3589,41 @@ function getProfileStatusPillClass(status) {
     return 'status-pill--info';
   }
   return 'status-pill--pending';
+}
+
+async function copyApplicantApplicationId(button) {
+  const applicationId = button?.dataset.copyId;
+  if (!applicationId) return;
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(applicationId);
+    } else {
+      const input = document.createElement('textarea');
+      input.value = applicationId;
+      input.setAttribute('readonly', '');
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      document.body.appendChild(input);
+      input.select();
+      const copied = document.execCommand('copy');
+      input.remove();
+      if (!copied) throw new Error('Clipboard access is unavailable.');
+    }
+
+    button.classList.add('is-copied');
+    button.title = 'Copied!';
+    button.setAttribute('aria-label', `Copied application ID ${applicationId}`);
+    if (typeof showToast === 'function') showToast(`Copied ${applicationId}`, 'success');
+    window.setTimeout(() => {
+      button.classList.remove('is-copied');
+      button.title = 'Copy application ID';
+      button.setAttribute('aria-label', `Copy application ID ${applicationId}`);
+    }, 1600);
+  } catch (error) {
+    console.error('Failed to copy applicant application ID:', error);
+    if (typeof showToast === 'function') showToast('Could not copy the application ID.', 'error');
+  }
 }
 
 function openApplicantProfile(index) {
@@ -3808,17 +3822,16 @@ async function updateMembershipStatus(applicationId, newStatus, selectEl) {
     }
 
     if (selectEl) {
-      selectEl.dataset.previousValue = newStatus;
+      const savedStatus = result.membership_status || newStatus;
+      setMembershipSelectValue(selectEl, savedStatus);
+      selectEl.dataset.previousValue = savedStatus;
     }
-
     if (typeof showToast === 'function') {
       showToast(`Membership status updated to ${newStatus}`, 'success');
     }
   } catch (error) {
     console.error('Error updating membership status:', error);
-    if (selectEl && previousValue) {
-      selectEl.value = previousValue;
-    }
+    if (selectEl) setMembershipSelectValue(selectEl, previousValue);
     if (typeof showToast === 'function') {
       showToast(error.message || 'Unable to update membership status', 'error');
     } else {
@@ -3844,7 +3857,8 @@ const MEMBERSHIP_CONFIG = {
 };
 
 function buildMembershipSelect(appId, membershipStatus) {
-  const current = membershipStatus === 'Active' ? 'Active' : (membershipStatus === 'Deceased' ? 'Deceased' : '');
+  const normalizedStatus = String(membershipStatus || '').trim().toLowerCase();
+  const current = normalizedStatus === 'active' ? 'Active' : (normalizedStatus === 'deceased' ? 'Deceased' : '');
   const displayLabel = current || 'Select status';
   const cfg = MEMBERSHIP_CONFIG[current] || MEMBERSHIP_CONFIG[''];
 
@@ -3859,7 +3873,7 @@ function buildMembershipSelect(appId, membershipStatus) {
     </button>`;
   }).join('');
 
-  return `<div class="status-select membership-select" data-app-id="${escapeApplicationHtml(appId)}">
+  return `<div class="status-select membership-select" data-app-id="${escapeApplicationHtml(appId)}" data-previous-value="${escapeApplicationHtml(current)}">
     <button type="button" class="status-select__trigger membership-select__trigger" onclick="toggleMembershipSelect(this, event)" aria-label="Membership status: ${escapeApplicationHtml(displayLabel)}">
       <span class="status-select__icon" style="color:${cfg.color}">
         <svg viewBox="0 0 20 20" fill="currentColor">${cfg.icon}</svg>
@@ -3871,6 +3885,25 @@ function buildMembershipSelect(appId, membershipStatus) {
       ${options}
     </div>
   </div>`;
+}
+
+function setMembershipSelectValue(root, status) {
+  if (!root) return;
+  const normalizedStatus = String(status || '').trim().toLowerCase();
+  const value = normalizedStatus === 'active' ? 'Active' : (normalizedStatus === 'deceased' ? 'Deceased' : '');
+  const cfg = MEMBERSHIP_CONFIG[value] || MEMBERSHIP_CONFIG[''];
+  const iconWrap = root.querySelector('.status-select__icon');
+  const labelEl = root.querySelector('.status-select__label');
+  const trigger = root.querySelector('.membership-select__trigger');
+  if (iconWrap) {
+    iconWrap.style.color = cfg.color;
+    iconWrap.innerHTML = `<svg viewBox="0 0 20 20" fill="currentColor">${cfg.icon}</svg>`;
+  }
+  if (labelEl) labelEl.textContent = value || 'Select status';
+  if (trigger) trigger.setAttribute('aria-label', `Membership status: ${value || 'Select status'}`);
+  root.querySelectorAll('.status-select__option').forEach(option => {
+    option.classList.toggle('active', option.dataset.membership === value);
+  });
 }
 
 function toggleMembershipSelect(btn, event) {
@@ -3936,19 +3969,7 @@ async function selectMembershipOption(btn, event) {
 
   const newStatus = btn.dataset.membership;
   const appId = root.dataset.appId;
-  const cfg = MEMBERSHIP_CONFIG[newStatus] || MEMBERSHIP_CONFIG[''];
-
-  const iconWrap = root.querySelector('.status-select__icon');
-  const labelEl = root.querySelector('.status-select__label');
-  if (iconWrap) {
-    iconWrap.style.color = cfg.color;
-    iconWrap.innerHTML = `<svg viewBox="0 0 20 20" fill="currentColor">${cfg.icon}</svg>`;
-  }
-  if (labelEl) labelEl.textContent = newStatus;
-
-  root.querySelectorAll('.status-select__option').forEach(o => {
-    o.classList.toggle('active', o.dataset.membership === newStatus);
-  });
+  setMembershipSelectValue(root, newStatus);
   if (menu) {
     menu.querySelectorAll('.status-select__option').forEach(o => {
       o.classList.toggle('active', o.dataset.membership === newStatus);
@@ -3957,7 +3978,7 @@ async function selectMembershipOption(btn, event) {
     restoreMembershipMenu(menu);
   }
 
-  await updateMembershipStatus(appId, newStatus);
+  await updateMembershipStatus(appId, newStatus, root);
 }
 
 window.toggleMembershipSelect = toggleMembershipSelect;
@@ -3985,6 +4006,7 @@ function renderLiveApplications(applications) {
     const total = document.getElementById('apps-total');
     if (shown) shown.textContent = '0';
     if (total) total.textContent = '0';
+    updateBatchState();
     return;
   }
 
@@ -4001,22 +4023,11 @@ function renderLiveApplications(applications) {
         : '<span class="cell-text">—</span>';
 
     const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0].toUpperCase()).join('');
-    const avatarColors = [
-      '#f59e0b', // orange (MC)
-      '#10b981', // teal (VE)
-      '#3b82f6', // blue (MC)
-      '#ec4899', // pink (CA)
-      '#8b5cf6', // purple (JE)
-      '#ef4444', // red (DG)
-      '#d97706', // amber (AP)
-      '#059669'  // emerald (ME)
-    ];
-    const avatarBg = avatarColors[index % avatarColors.length];
     const barangay = application.barangay_district || application.barangay || '';
     const days = getApplicationDaysPending(application);
     return `<tr data-app-id="${escapeApplicationHtml(id)}" data-status="${escapeApplicationHtml(String(status).toLowerCase())}" data-barangay="${escapeApplicationHtml(String(barangay).toLowerCase())}" >
       <td style="width:36px;text-align:center"><input type="checkbox" class="row-check" data-app-id="${escapeApplicationHtml(id)}" aria-label="Select ${escapeApplicationHtml(name)}" ${STAFF_SELECTED_APP_IDS.has(String(id)) ? 'checked' : ''}  /></td>
-      <td data-label="Applicant"><div class="applicant-cell"><div class="applicant-avatar" style="background:${avatarBg}">${escapeApplicationHtml(initials)}</div><div class="applicant-info"><span class="applicant-name">${escapeApplicationHtml(name)}</span><span class="applicant-id">${escapeApplicationHtml(id)}</span></div></div></td>
+      <td data-label="Applicant"><div class="applicant-cell"><div class="applicant-avatar">${escapeApplicationHtml(initials)}</div><div class="applicant-info"><span class="applicant-name">${escapeApplicationHtml(name)}</span><span class="applicant-id">${escapeApplicationHtml(id)}</span></div></div></td>
       <td data-label="Submitted"><span class="cell-text">${escapeApplicationHtml(formatStaffDate(getApplicationSubmittedDate(application)))}</span></td>
       <td data-label="Documents">${docs}</td><td data-label="Stage">${statusHtml}</td><td data-label="Membership">${membershipHtml}</td>
       <td data-label="Days Pending" style="text-align:center"><span class="cell-text">${days === null ? '—' : Math.floor(days).toLocaleString()}</span></td>
@@ -4042,6 +4053,100 @@ function renderLiveApplications(applications) {
   if (urgentDescription) urgentDescription.textContent = urgentCount ? 'These applications have been pending for more than 5 days and need immediate attention.' : 'Applications pending for more than 5 days will appear here.';
   updateBatchState();
 }
+
+function getSelectedApplicationIds() {
+  return [...document.querySelectorAll('#applications-tbody .row-check:checked')]
+    .map(checkbox => checkbox.dataset.appId)
+    .filter(Boolean);
+}
+
+function toggleBatchMenu(button, event) {
+  event?.preventDefault();
+  event?.stopPropagation();
+  const menu = document.getElementById('batch-ops-menu');
+  const wrapper = document.getElementById('batch-ops-wrap');
+  if (!menu || !wrapper || !button || button.disabled) return;
+  const opening = !wrapper.classList.contains('open');
+  document.querySelectorAll('.batch-ops-wrap.open').forEach(openWrap => openWrap.classList.remove('open'));
+  wrapper.classList.toggle('open', opening);
+  button.setAttribute('aria-expanded', String(opening));
+}
+
+function exportSelectedApplications() {
+  const selectedIds = new Set(getSelectedApplicationIds().map(String));
+  const selected = LIVE_APPLICATIONS.filter(app => selectedIds.has(String(app.application_id || app.id)));
+  if (!selected.length) return;
+  const fields = [
+    ['Application ID', app => app.application_id || app.id || ''],
+    ['Applicant', getApplicationName],
+    ['Barangay', app => app.barangay_district || app.barangay || ''],
+    ['Status', app => app.status || ''],
+    ['Submitted', getApplicationSubmittedDate]
+  ];
+  const csvCell = value => {
+    const text = String(value ?? '');
+    const safeText = /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+    return `"${safeText.replace(/"/g, '""')}"`;
+  };
+  const csv = [fields.map(([heading]) => csvCell(heading)).join(','), ...selected.map(app =>
+    fields.map(([, getValue]) => csvCell(getValue(app))).join(',')
+  )].join('\r\n');
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `selected-applications-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function approveSelectedApplications() {
+  const selectedIds = new Set(getSelectedApplicationIds().map(String));
+  const selected = LIVE_APPLICATIONS.filter(app => selectedIds.has(String(app.application_id || app.id)) &&
+    ['pending', 'review', 'process'].includes(normalizeApplicationStatus(app.status)));
+  if (!selected.length) return;
+
+  const results = await Promise.allSettled(selected.map(async app => {
+    const id = app.application_id || app.id;
+    const response = await fetch(`https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(id)}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ status: 'Ready for Release' })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.success) throw new Error(result.message || `Could not approve application ${id}`);
+    app.status = 'Ready for Release';
+  }));
+
+  const succeeded = results.filter(result => result.status === 'fulfilled').length;
+  const failed = results.length - succeeded;
+  if (typeof showToast === 'function') {
+    showToast(failed ? `${succeeded} approved; ${failed} failed.` : `${succeeded} application${succeeded === 1 ? '' : 's'} approved.`, failed ? 'error' : 'success');
+  }
+  const selectAll = document.getElementById('select-all-apps');
+  if (selectAll) selectAll.checked = false;
+  renderLiveApplications(LIVE_APPLICATIONS);
+}
+
+async function runBatchAction(action) {
+  document.getElementById('batch-ops-wrap')?.classList.remove('open');
+  document.getElementById('batch-ops-trigger')?.setAttribute('aria-expanded', 'false');
+  if (action === 'export') exportSelectedApplications();
+  else if (action === 'approve') await approveSelectedApplications();
+}
+
+window.toggleBatchMenu = toggleBatchMenu;
+window.toggleSelectAllApps = toggleSelectAllApps;
+window.updateBatchState = updateBatchState;
+window.runBatchAction = runBatchAction;
+
+document.addEventListener('click', event => {
+  if (event.target.closest('#batch-ops-wrap')) return;
+  document.getElementById('batch-ops-wrap')?.classList.remove('open');
+  document.getElementById('batch-ops-trigger')?.setAttribute('aria-expanded', 'false');
+});
 
 function applyApplicationsModuleFilters(statusKey) {
   if (statusKey) {
@@ -4102,6 +4207,7 @@ function applyApplicationsModuleFilters(statusKey) {
 
   const shown = document.getElementById('apps-shown');
   if (shown) shown.textContent = visible.toLocaleString();
+  updateBatchState();
 }
 
 function filterApplicationsTable(query) { 
@@ -4412,14 +4518,25 @@ async function loadReplacementRequests() {
   const hasReplacementTable = Boolean(tbody);
 
   if (hasReplacementTable) {
-    tbody.innerHTML =
-      '<tr><td colspan="6" style="text-align:center;padding:24px">' +
-      'Loading ID requests...</td></tr>';
+    if (typeof Skeleton !== 'undefined') {
+      Skeleton.setTable(tbody, 5);
+    } else {
+      tbody.setAttribute('aria-busy', 'true');
+      tbody.innerHTML = Array.from({ length: 5 }, (_, row) =>
+        `<tr class="sk-row" aria-hidden="true">${Array.from({ length: 6 }, (_, col) =>
+          `<td><span class="skeleton sk-cell" style="width:${[62, 88, 45, 74, 56, 92][(row + col) % 6]}%"></span></td>`
+        ).join('')}</tr>`
+      ).join('');
+    }
   }
+
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => controller.abort(), 30000);
 
   try {
     const response = await fetch(REPLACEMENTS_API, {
-      cache: 'no-store'
+      cache: 'no-store',
+      signal: controller.signal
     });
 
     const result = await response.json();
@@ -4433,6 +4550,7 @@ async function loadReplacementRequests() {
     replacementRequests = Array.isArray(result.requests)
       ? result.requests
       : [];
+    window.LIVE_REPLACEMENT_REQUESTS = replacementRequests;
     updateReplacementAnalytics(replacementRequests);
 
     if (typeof requestStaffAnalyticsInsights === "function") {
@@ -4501,16 +4619,22 @@ async function loadReplacementRequests() {
     // Render the table only if it exists on this page.
     if (hasReplacementTable) {
       renderReplacementRequests();
+      if (typeof Skeleton !== 'undefined') Skeleton.clearBusy(tbody);
+      else tbody.removeAttribute('aria-busy');
     }
+    if (typeof initSmallFormIssuance === 'function') initSmallFormIssuance();
   } catch (error) {
     console.error('Replacement requests error:', error);
 
     if (hasReplacementTable) {
+      const message = error.name === 'AbortError'
+        ? 'The request timed out. Please try again.'
+        : `Unable to load requests: ${escapeReplacementText(error.message || 'Please try again.')}`;
       tbody.innerHTML =
-        '<tr><td colspan="6" style="text-align:center;padding:24px;color:#dc2626">' +
-        'Unable to load requests: ' +
-        escapeReplacementText(error.message) +
-        '</td></tr>';
+        `<tr><td colspan="6" style="text-align:center;padding:24px;color:#dc2626">${message} ` +
+        '<button type="button" class="replacement-refresh" onclick="loadReplacementRequests()">Retry</button></td></tr>';
+      if (typeof Skeleton !== 'undefined') Skeleton.clearBusy(tbody);
+      else tbody.removeAttribute('aria-busy');
 
       const badge = document.getElementById('replacement-total');
 
@@ -4518,6 +4642,8 @@ async function loadReplacementRequests() {
         badge.textContent = 'Load failed';
       }
     }
+  } finally {
+    window.clearTimeout(timeoutId);
   }
 }
 
@@ -4560,12 +4686,22 @@ function renderReplacementRequests() {
     tbody.innerHTML =
       '<tr><td colspan="6" style="text-align:center;padding:28px">' +
       'No matching requests found.</td></tr>';
+    if (typeof Skeleton !== 'undefined') Skeleton.clearBusy(tbody);
     return;
   }
 
   tbody.innerHTML = filtered.map(request => {
     const id = String(request.application_id || '');
     const status = request.request_status || 'Pending';
+    const applicantName = request.applicant_name || 'Applicant record not found';
+    const initials = applicantName.trim().split(/\s+/).filter(Boolean).slice(0, 2)
+      .map(part => part[0].toUpperCase()).join('') || '—';
+    const reason = String(request.reason || '');
+    const reasonIcon = /address/i.test(reason)
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"></path><circle cx="12" cy="10" r="2.5"></circle></svg>'
+      : /damage/i.test(reason)
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 20H2L12 3Z"></path><path d="M12 9v5m0 3h.01"></path></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7"></circle><path d="m16 16 5 5"></path></svg>';
 
     const statusHtml = typeof buildStatusSelect === 'function'
       ? buildStatusSelect(id, status)
@@ -4576,14 +4712,12 @@ function renderReplacementRequests() {
         data-request-id="${Number(request.id)}"
         data-app-id="${escapeReplacementText(id)}"
       >
-        <td>
-          <strong>${escapeReplacementText(
-            request.applicant_name || 'Applicant record not found'
-          )}</strong>
-        </td>
-        <td>${escapeReplacementText(id || '—')}</td>
-        <td>
-          ${escapeReplacementText(request.reason || '—')}
+        <td><div class="replacement-applicant"><span class="replacement-avatar">${escapeReplacementText(initials)}</span>
+          <strong>${escapeReplacementText(applicantName)}</strong></div></td>
+        <td><span class="replacement-app-id">${escapeReplacementText(id || '—')}</span>
+          ${id ? `<button type="button" class="replacement-copy" data-copy-id="${escapeReplacementText(id)}" aria-label="Copy application ID ${escapeReplacementText(id)}" title="Copy application ID" onclick="copyReplacementApplicationId(this)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"></rect><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"></path></svg></button>` : ''}</td>
+        <td><span class="replacement-reason-icon">${reasonIcon}</span><span>
+          ${escapeReplacementText(request.reason || '—')}</span>
           ${request.other_reason
             ? `<div style="font-size:12px;color:var(--text-muted)">
                 ${escapeReplacementText(request.other_reason)}
@@ -4611,8 +4745,44 @@ function renderReplacementRequests() {
       select.dataset.appId = row.dataset.appId;
     }
   });
+  if (typeof Skeleton !== 'undefined') Skeleton.clearBusy(tbody);
 }
 
+
+async function copyReplacementApplicationId(button) {
+  const applicationId = button?.dataset.copyId;
+  if (!applicationId) return;
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(applicationId);
+    } else {
+      const input = document.createElement('textarea');
+      input.value = applicationId;
+      input.setAttribute('readonly', '');
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      document.body.appendChild(input);
+      input.select();
+      const copied = document.execCommand('copy');
+      input.remove();
+      if (!copied) throw new Error('Clipboard access is unavailable.');
+    }
+
+    button.classList.add('is-copied');
+    button.title = 'Copied!';
+    button.setAttribute('aria-label', `Copied application ID ${applicationId}`);
+    if (typeof showToast === 'function') showToast(`Copied ${applicationId}`, 'success');
+    window.setTimeout(() => {
+      button.classList.remove('is-copied');
+      button.title = 'Copy application ID';
+      button.setAttribute('aria-label', `Copy application ID ${applicationId}`);
+    }, 1600);
+  } catch (error) {
+    console.error('Failed to copy replacement application ID:', error);
+    if (typeof showToast === 'function') showToast('Could not copy the application ID.', 'error');
+  }
+}
 
 function filterReplacementRequests() {
   renderReplacementRequests();

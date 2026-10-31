@@ -159,6 +159,9 @@ const addToIdMakerQueue = async (req, res) => {
       control_no: normalizeControlNo(control_no, application_id) || null,
       date_issued: date_issued || null,
       print_status: queueStatus,
+      // This is the queue position timestamp; status updates must not decide
+      // which applicant appears first in the ID Maker table.
+      sent_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };
     if (completionTimestampAvailable) {
@@ -346,6 +349,15 @@ const getIdMakerQueue = async (req, res) => {
       applicationIds
     );
 
+    const idRequests = await fetchByApplicationIds(
+      "id_requests",
+      "id, application_id, requested_at",
+      applicationIds
+    );
+    const replacementApplicationIds = new Set(
+      idRequests.map((request) => String(request.application_id || "").trim()).filter(Boolean)
+    );
+
     const applicationFiles = await fetchByApplicationIds(
       "application_files",
       "application_id, latest_photo_url, signature_url",
@@ -406,6 +418,19 @@ const getIdMakerQueue = async (req, res) => {
           .filter(Boolean)
           .join(" ");
         const fullName = String(rawFullName || "").trim().replace(/\s+/g, " ");
+        const explicitRequestType = [
+          application?.request_category,
+          application?.request_kind,
+          application?.request_type,
+          application?.application_type,
+          application?.applicationType,
+          application?.type,
+          application?.request_for,
+          application?.id_request_type,
+        ].find((value) => value !== null && value !== undefined && String(value).trim());
+        const requestType = /replace/i.test(String(explicitRequestType || "")) || replacementApplicationIds.has(applicationId)
+          ? "Replacement"
+          : "New";
 
         return {
           id: applicationId || `queue-${queueItem.id}`,
@@ -413,6 +438,7 @@ const getIdMakerQueue = async (req, res) => {
           inPrintQueue: Boolean(queueItem),
 
           name: fullName,
+          requestType,
           firstName,
           middleName,
           surname,
