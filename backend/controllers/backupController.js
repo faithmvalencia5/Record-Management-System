@@ -751,17 +751,13 @@ async function restoreSystemBackup(req, res) {
 async function runSystemRestoreJob(req, backupId) {
   try {
     encryptionKey();
-    const backupId = String(req.params.backupId || "");
-    if (!/^backup-[0-9T-]+Z$/.test(backupId)) {
-      return res.status(400).json({ success: false, message: "Invalid backup identifier." });
-    }
     setRestoreProgress(4, "Checking backup archive and recovery chain");
     await ensureBucket(BACKUP_BUCKET, false);
 
     const storage = supabase.storage.from(BACKUP_BUCKET);
     const { data: metadataBlob, error: metadataError } = await storage.download(backupId + ".json");
     if (metadataError || !metadataBlob) {
-      return res.status(404).json({ success: false, message: "Backup metadata was not found." });
+      throw new Error("Backup metadata was not found.");
     }
 
     const metadata = JSON.parse(await metadataBlob.text());
