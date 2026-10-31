@@ -61,7 +61,14 @@ function decryptArchive(buffer) {
 async function ensureBucket(name, isPublic = false) {
   const { data: buckets, error: listError } = await supabase.storage.listBuckets();
   if (listError) throw listError;
-  if ((buckets || []).some(bucket => bucket.name === name)) return;
+  const existing = (buckets || []).find(bucket => bucket.name === name);
+  if (existing) {
+    if (name === BACKUP_BUCKET && existing.public) {
+      const { error: privacyError } = await supabase.storage.updateBucket(name, { public: false });
+      if (privacyError) throw privacyError;
+    }
+    return;
+  }
   const { error } = await supabase.storage.createBucket(name, { public: isPublic, fileSizeLimit: "2GB" });
   if (error && !/already exists|duplicate/i.test(error.message || "")) throw error;
 }
