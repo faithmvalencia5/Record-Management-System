@@ -1097,7 +1097,6 @@ body.backup-progress-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) {
   .backup-progress-track__bar { transition: none; }
 }
-
 /* Admin System Settings */
 .system-settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
 .system-settings-form{display:flex;flex-direction:column;gap:16px}
@@ -1124,3 +1123,46 @@ body.backup-progress-open { overflow: hidden; }
 .system-settings-updated{font-size:12px;color:var(--text-muted);min-height:18px;margin:8px 2px}
 @media(max-width:760px){.system-settings-grid{grid-template-columns:1fr}.system-security-card{grid-column:auto}.system-security-list{grid-template-columns:1fr}}
 @media(max-width:480px){.system-security-list>div{flex-direction:column;gap:5px}.system-security-list strong{text-align:left}}
+#user-mgmt-tbody .applicant-avatar {
+  background: #eaf0ff;
+  color: #244a9d;
+}
+
+:root[data-theme="dark"] #user-mgmt-tbody .applicant-avatar {
+  background: #26395f;
+  color: #bdd0ff;
+}
+
+#user-mgmt-tbody .badge,
+#audit-logs-tbody .badge {
+  border-radius: var(--r-pill);
+}
+
+#user-mgmt-tbody .badge::before,
+#audit-logs-tbody .badge::before,
+#user-mgmt-tbody .status-dot {
+  content: none;
+  display: none;
+}
+
+#mod-backup .badge {
+  border-radius: var(--r-pill);
+}
+
+#mod-backup .badge::before {
+  content: none;
+  display: none;
+}
+:root[data-theme="dark"] .admin-actions-table tbody tr:hover td,
+:root[data-theme="dark"] .admin-actions-table .admin-actions-row--alert:hover td {
+  background: #263449;
+  color: #F1F5F9;
+}
+:root[data-theme="dark"] .audit-log-row:hover {
+  background: #263449 !important;
+  color: #F8FAFC;
+}
+:root[data-theme="dark"] .audit-detail-field:hover {
+  background: #263449;
+  border-color: #60A5FA;
+}

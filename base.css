@@ -7642,8 +7642,6 @@ body.portal-mode #toast-container {
     padding: 14px 16px;
   }
 }
-
-
 /* Login page input cleanup: native dropdown indicators must not appear on text inputs. */
 #login-page input.auth-input {
   -webkit-appearance: none;
@@ -7664,4 +7662,18 @@ body.portal-mode #toast-container {
 }
 .filter-select-wrap .select-chevron {
   pointer-events: none;
+}
+
+:root[data-theme="dark"] .data-table tbody tr:hover,
+:root[data-theme="dark"] .data-table tbody tr:hover > td {
+  background-color: #263449 !important;
+}
+
+:root[data-theme="dark"] .data-table th:hover {
+  background-color: #263449;
+  color: #F8FAFC;
+}
+
+:root[data-theme="dark"] .data-table tbody tr:focus-within > td {
+  background-color: #263449;
 }

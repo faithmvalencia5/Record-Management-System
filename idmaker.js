@@ -51,11 +51,11 @@ const ID_MAKER_ANALYTICS_CONFIG = Object.freeze({
 });
 
 const ID_MAKER_ANALYTICS_STAGES = [
-  { key: 'Queued', label: 'Queued', color: '#94A3B8', icon: 'fi-rr-clock', title: 'Application is waiting to enter production.' },
-  { key: 'In Production', label: 'In Production', color: '#3B82F6', icon: 'fi-rr-document', title: 'ID is currently being produced.' },
-  { key: 'Printed', label: 'Printed', color: '#6366F1', icon: 'fi-rr-print', title: 'ID has been printed.' },
-  { key: 'In Transit', label: 'In Transit', color: '#14B8A6', icon: 'fi-rr-truck-side', title: 'ID is on the way to its destination.' },
-  { key: 'Completed', label: 'Completed', color: '#22C55E', icon: 'fi-rr-check', title: 'ID delivery or release is marked complete.' },
+  { key: 'Queued', label: 'Queued', color: '#FECACA', icon: 'fi-rr-clock', title: 'Application is waiting to enter production.' },
+  { key: 'In Production', label: 'In Production', color: '#F87171', icon: 'fi-rr-document', title: 'ID is currently being produced.' },
+  { key: 'Printed', label: 'Printed', color: '#EF4444', icon: 'fi-rr-print', title: 'ID has been printed.' },
+  { key: 'In Transit', label: 'In Transit', color: '#DC2626', icon: 'fi-rr-truck-side', title: 'ID is on the way to its destination.' },
+  { key: 'Completed', label: 'Completed', color: '#991B1B', icon: 'fi-rr-check', title: 'ID delivery or release is marked complete.' },
 ];
 
 const ID_MAKER_API =
@@ -88,19 +88,30 @@ const QUEUE_FILTER_STATE = {
 let QUEUE_FILTER_SIG = '';
 const SELECTED_QUEUE_IDS = new Set();
 
-// Single delay rule used by the banner, KPI badges, row flag and "Delayed" filter.
-// Queued: measured from sent_at. In Production / In Transit: measured from updated_at.
-// Printed and Completed are never delayed.
-function isQueueItemDelayed(app, now = Date.now()) {
+// One delay assessment is shared by the banner, KPI badges, row flag and filter.
+// Queued uses sent_at; active production/transit uses updated_at. Printed and
+// completed items are not monitored for delays.
+function getQueueDelayAssessment(app, now = Date.now()) {
   const status = String(app.printStatus || '').trim().toLowerCase();
+  const monitored = status === 'queued' || status === 'in production' || status === 'in transit';
+  if (!monitored) return { monitored: false, verified: true, delayed: false };
+
   const ref = status === 'queued'
     ? (app.sentAt || app.updatedAt)
     : (status === 'in production' || status === 'in transit')
       ? (app.updatedAt || app.sentAt)
       : null;
-  if (!ref) return false;
+  if (!ref) return { monitored: true, verified: false, delayed: false };
+
   const t = new Date(ref).getTime();
-  return Number.isFinite(t) && t <= now && (now - t) > QUEUE_STALE_MS;
+  if (!Number.isFinite(t) || t > now) {
+    return { monitored: true, verified: false, delayed: false };
+  }
+  return { monitored: true, verified: true, delayed: (now - t) > QUEUE_STALE_MS };
+}
+
+function isQueueItemDelayed(app, now = Date.now()) {
+  return getQueueDelayAssessment(app, now).delayed;
 }
 
 function escapeQueueHtml(value) {
@@ -301,7 +312,7 @@ function getFilteredQueue() {
 
     if (st.search) {
       // Search real data only (not the hidden status dropdown text).
-      const haystack = [app.name, app.id, app.controlNo, app.barangay, app.printStatus]
+      const haystack = [app.name, app.id, app.controlNo, app.control_no, app.barangay, app.printStatus]
         .join(' ')
         .toLowerCase();
       if (!haystack.includes(st.search)) return false;
@@ -375,11 +386,7 @@ async function bulkUpdateQueueStatus() {
     return;
   }
 
-  const confirmed = window.confirm(
-    'Update ' + toUpdate.length + ' applicant' + (toUpdate.length === 1 ? '' : 's') +
-    ' to "' + newStatus + '"?' +
-    (unchanged ? '\\n' + unchanged + ' applicant(s) already have this status and will be skipped.' : '')
-  );
+  const confirmed = await confirmBulkQueueUpdate(toUpdate.length, newStatus, unchanged);
   if (!confirmed) return;
 
   const button = document.getElementById('bulk-update-button');
@@ -483,6 +490,68 @@ async function bulkUpdateQueueStatus() {
 }
 
 /* ── Main Queue List: sorting ── */
+let bulkQueueConfirmResolver = null;
+let bulkQueueConfirmKeyHandler = null;
+
+function resolveBulkQueueConfirmation(confirmed) {
+  const modal = document.getElementById('bulk-queue-confirm-modal');
+  if (!modal || !bulkQueueConfirmResolver) return;
+
+  modal.classList.remove('show');
+  if (bulkQueueConfirmKeyHandler) {
+    document.removeEventListener('keydown', bulkQueueConfirmKeyHandler);
+    bulkQueueConfirmKeyHandler = null;
+  }
+
+  const resolve = bulkQueueConfirmResolver;
+  bulkQueueConfirmResolver = null;
+  document.getElementById('bulk-update-button')?.focus();
+  resolve(Boolean(confirmed));
+}
+
+function confirmBulkQueueUpdate(count, status, unchanged) {
+  const modal = document.getElementById('bulk-queue-confirm-modal');
+  if (!modal) {
+    showToast('The status confirmation dialog is unavailable. Refresh the page and try again.', 'error');
+    return Promise.resolve(false);
+  }
+
+  document.getElementById('bulk-queue-confirm-desc').textContent =
+    `Change the production status to ${status} for the selected applicants?`;
+  document.getElementById('bulk-queue-confirm-count').textContent =
+    `${count} applicant${count === 1 ? '' : 's'} will be updated`;
+  document.getElementById('bulk-queue-confirm-note').textContent = unchanged
+    ? `${unchanged} already have this status and will be skipped.`
+    : 'This updates the selected applicants in the production queue.';
+  const statusBadge = document.getElementById('bulk-queue-confirm-status');
+  statusBadge.textContent = status;
+  statusBadge.style.setProperty('--bulk-queue-status-color', QUEUE_STATUS_COLORS[status] || 'var(--primary)');
+
+  modal.classList.add('show');
+
+  return new Promise(resolve => {
+    bulkQueueConfirmResolver = resolve;
+    bulkQueueConfirmKeyHandler = event => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        resolveBulkQueueConfirmation(false);
+      } else if (event.key === 'Tab') {
+        const cancel = document.getElementById('bulk-queue-confirm-cancel');
+        const submit = document.getElementById('bulk-queue-confirm-submit');
+        if (event.shiftKey && document.activeElement === cancel) {
+          event.preventDefault();
+          submit?.focus();
+        } else if (!event.shiftKey && document.activeElement === submit) {
+          event.preventDefault();
+          cancel?.focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', bulkQueueConfirmKeyHandler);
+    document.getElementById('bulk-queue-confirm-submit')?.focus();
+  });
+}
+
 function queueSortValue(app, key) {
   switch (key) {
     case 'name': return String(app.name || '').trim().toLowerCase();
@@ -604,6 +673,8 @@ function buildQueueRow(app) {
   const controlNo = normalizeQueueControlNo(app.controlNo, app.id);
   const requestType = app.requestType === 'Replacement' ? 'Replacement' : 'New';
   const requestTypeClass = requestType === 'Replacement' ? 'request-type-pill--replacement' : 'request-type-pill--new';
+  const requestTypeIcon = requestType === 'Replacement' ? '↻' : '★';
+  const requestTypeTitle = requestType === 'Replacement' ? 'Replacement request' : 'New application';
 
   const missingTip = escapeQueueHtml(
     linked ? 'Missing in application record' : 'No matching application record for this queue ID'
@@ -613,10 +684,6 @@ function buildQueueRow(app) {
   const initials = words.length
     ? (words[0][0] + (words.length > 1 ? words[words.length - 1][0] : '')).toUpperCase()
     : '?';
-  const avatarBg = name
-    ? 'linear-gradient(135deg,#7140D8,#5C51E0)'
-    : '#94A3B8';
-
   const mutedCell =
     '<span class="cell-text" style="color:var(--text-muted)" title="' + missingTip + '">—</span>';
 
@@ -651,11 +718,11 @@ function buildQueueRow(app) {
     '" data-brgy="' + escapeQueueHtml(barangay) + '">' +
     selectionCell +
     '<td data-label="Applicant"><div class="applicant-cell">' +
-      '<span class="applicant-avatar" style="background:' + avatarBg + '">' + escapeQueueHtml(initials) + '</span>' +
+      '<span class="applicant-avatar">' + escapeQueueHtml(initials) + '</span>' +
       '<div class="applicant-info">' + nameHtml +
         '<span class="applicant-id">' + id + '</span>' +
       '</div></div></td>' +
-    '<td data-label="Request Type"><span class="request-type-pill ' + requestTypeClass + '">' + escapeQueueHtml(requestType) + '</span></td>' +
+    '<td data-label="Request Type"><span class="request-type-pill ' + requestTypeClass + '" title="' + requestTypeTitle + '"><span aria-hidden="true">' + requestTypeIcon + '</span> ' + escapeQueueHtml(requestType) + '</span></td>' +
     '<td data-label="Control No."><span class="cell-text" style="font-family:var(--font-data);font-size:12px;letter-spacing:.3px">' +
       controlHtml + '</span></td>' +
     '<td data-label="Barangay">' +
@@ -1320,8 +1387,23 @@ function selectRowStatus(opt, appId, newStatus){
     menu.classList.remove('qsd-menu--portal');
     menu.style.cssText = '';
     root.appendChild(menu);
+    delete menu._queueStatusRoot;
   }
   inlineStatusChange(appId, newStatus);
+}
+
+function closeRowStatusMenus() {
+  document.querySelectorAll('.qsd-menu--portal').forEach(menu => {
+    const root = menu._queueStatusRoot || document.querySelector('.row-status-select.open');
+    if (root) {
+      root.classList.remove('open');
+      root.appendChild(menu);
+    }
+    menu.classList.remove('qsd-menu--portal');
+    menu.style.cssText = '';
+    delete menu._queueStatusRoot;
+  });
+  document.querySelectorAll('.row-status-select.open').forEach(root => root.classList.remove('open'));
 }
 
 function toggleQueueFilter(event){
@@ -1368,15 +1450,7 @@ function toggleRowStatus(btn, event){
   event.stopPropagation();
   const root = btn.closest('.row-status-select');
   const wasOpen = root.classList.contains('open');
-  document.querySelectorAll('.row-status-select.open').forEach(r => {
-    r.classList.remove('open');
-    const menu = document.querySelector('.qsd-menu--portal') || r.querySelector('.qsd-menu');
-    if (menu) {
-      menu.classList.remove('qsd-menu--portal');
-      menu.style.cssText = '';
-      r.appendChild(menu);
-    }
-  });
+  closeRowStatusMenus();
   if (wasOpen) return;
 
   root.classList.add('open');
@@ -1386,6 +1460,7 @@ function toggleRowStatus(btn, event){
   // Move the open menu out of the scrollable table so it cannot be clipped or
   // offset by the table's containing block.
   menu.classList.add('qsd-menu--portal');
+  menu._queueStatusRoot = root;
   document.body.appendChild(menu);
 
   const rect = btn.getBoundingClientRect();
@@ -1482,11 +1557,14 @@ function updateAlertCounts(){
   const banner = document.getElementById('system-alert-banner');
   if (!banner) return;
 
+  banner.classList.remove('is-clear', 'is-warning', 'is-unavailable', 'is-loading');
+
   const title = banner.querySelector('.alert-banner__title');
   const list = banner.querySelector('.alert-banner__list');
   if (!list) return;
 
   if (ID_MAKER_QUEUE_DATA_STATE !== 'ready') {
+    banner.classList.add(ID_MAKER_QUEUE_DATA_STATE === 'error' ? 'is-unavailable' : 'is-loading');
     if (title) {
       title.textContent = ID_MAKER_QUEUE_DATA_STATE === 'error'
         ? 'Queue status unavailable'
@@ -1503,15 +1581,27 @@ function updateAlertCounts(){
   }
 
   const now = Date.now();
-  const delayedCount = ID_MAKER_QUEUE.filter(app => isQueueItemDelayed(app, now)).length;
+  const assessments = ID_MAKER_QUEUE.map(app => getQueueDelayAssessment(app, now));
+  const delayedCount = assessments.filter(item => item.delayed).length;
+  const unverifiedCount = assessments.filter(item => item.monitored && !item.verified).length;
 
-  if (title) title.textContent = delayedCount ? 'Queue needs attention' : 'Queue status';
+  banner.classList.add(delayedCount || unverifiedCount ? 'is-warning' : 'is-clear');
+  if (title) {
+    title.textContent = delayedCount
+      ? 'Queue needs attention'
+      : unverifiedCount
+        ? 'Queue status incomplete'
+        : 'Queue status';
+  }
   list.replaceChildren();
 
   const item = document.createElement('li');
   item.textContent = delayedCount
-    ? `${delayedCount} queue ${delayedCount === 1 ? 'item needs' : 'items need'} attention due to delays (over 48 hours without progress).`
-    : 'No delayed queue items right now.';
+    ? `${delayedCount} queue ${delayedCount === 1 ? 'item needs' : 'items need'} attention due to delays (over 48 hours without progress).` +
+      (unverifiedCount ? ` Delay status could not be verified for ${unverifiedCount} active ${unverifiedCount === 1 ? 'item' : 'items'} because its timestamp is missing, invalid, or in the future.` : '')
+    : unverifiedCount
+      ? `Delay status could not be verified for ${unverifiedCount} active ${unverifiedCount === 1 ? 'item' : 'items'} because its timestamp is missing, invalid, or in the future.`
+      : 'No delayed queue items right now.';
 
   if (delayedCount) {
     const btn = document.createElement('button');
@@ -1682,7 +1772,7 @@ function initIdMakerBarangayChart() {
         backgroundColor: values.map((value, index) => index === 0 ? '#2563EB' : '#93B4F5'),
         borderRadius: 5,
         borderSkipped: false,
-        maxBarThickness: 24,
+        maxBarThickness: 36,
       }],
     },
     plugins: [valueLabels],
@@ -1725,29 +1815,31 @@ function initIdMakerMonthlyOutputChart() {
       canvasContext.save();
       canvasContext.font = '700 11px sans-serif';
       canvasContext.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--text-primary').trim() || '#334155';
-      chart.getDatasetMeta(0).data.forEach((bar, index) => {
-        if (!values[index]) return;
+      chart.getDatasetMeta(0).data.forEach((point, index) => {
         canvasContext.textAlign = 'center';
         canvasContext.textBaseline = 'bottom';
-        canvasContext.fillText(String(values[index]), bar.x, bar.y - 5);
+        canvasContext.fillText(String(values[index]), point.x, point.y - 8);
       });
       canvasContext.restore();
     },
   };
   CHARTS['idmaker-monthly-output'] = new Chart(ctx, {
-    type: 'bar',
+    type: 'line',
     data: {
       labels: stats.monthly.map(month => month.label),
       datasets: [{
         label: 'Completed IDs',
         data: values,
-        backgroundColor: '#22C55E',
-        borderRadius: 5,
-        borderSkipped: false,
-        barThickness: 'flex',
-        maxBarThickness: 48,
-        categoryPercentage: 0.88,
-        barPercentage: 0.92,
+        borderColor: '#DC2626',
+        backgroundColor: 'rgba(220, 38, 38, 0.12)',
+        borderWidth: 3,
+        tension: 0.3,
+        fill: false,
+        pointRadius: 4,
+        pointHoverRadius: 6,
+        pointBackgroundColor: '#DC2626',
+        pointBorderColor: getComputedStyle(document.documentElement).getPropertyValue('--surface').trim() || '#FFFFFF',
+        pointBorderWidth: 2,
       }],
     },
     plugins: [valueLabels],
@@ -1793,9 +1885,9 @@ function initIdMakerSLA() {
   }
 
   const segments = [
-    ['sla-bar-on-time', aging.within24, '#16A34A'],
+    ['sla-bar-on-time', aging.within24, '#3B82F6'],
     ['sla-bar-24h', aging.from24To48, '#F59E0B'],
-    ['sla-bar-48h', aging.over48, '#DC2626'],
+    ['sla-bar-48h', aging.over48, '#EF4444'],
     ['sla-bar-unknown', aging.unknown, '#94A3B8'],
   ];
   segments.forEach(([id, count, color]) => {
@@ -1932,12 +2024,16 @@ document.addEventListener('click',function(e){
   if(!e.target.closest('.queue-filter-dropdown')) closeQueueFilter();
 });
 
-document.addEventListener('click', () => document.querySelectorAll('.row-status-select.open').forEach(r => r.classList.remove('open')));
+document.addEventListener('click', event => {
+  if (event.target.closest('.row-status-select, .qsd-menu--portal')) return;
+  closeRowStatusMenus();
+});
 
 document.addEventListener('DOMContentLoaded', async function () {
 
   // Load queue from Supabase
   await loadIdMakerQueueFromDatabase(false);
+  window.setInterval(updateAlertCounts, 60 * 1000);
 
 });
 

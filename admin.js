@@ -2082,32 +2082,6 @@ let editingUserKey =
   null;
 
 
-function roleColorMap(
-  role
-) {
-
-  const colors = {
-
-    Admin:
-      'linear-gradient(135deg,#E0E9FF,#93B4FF)',
-
-    Staff:
-      'linear-gradient(135deg,#FDE68A,#D97706)',
-
-    'ID Maker':
-      'linear-gradient(135deg,#C4B5FD,#7140D8)'
-
-  };
-
-
-  return (
-    colors[role] ||
-    colors.Staff
-  );
-
-}
-
-
 function renderUserMgmtTable() {
 
   const tbody =
@@ -2221,7 +2195,6 @@ function renderUserMgmtTable() {
 
             <div
               class="applicant-avatar"
-              style="background:${roleColorMap(u.role)}"
             >
               ${initials}
             </div>

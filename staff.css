@@ -2570,3 +2570,23 @@ body>.status-select__menu {
 @media (max-width: 760px) {
   #mod-replacements .replacement-table { min-width: 760px; }
 }
+:root[data-theme="dark"] #mod-replacements .replacement-table tbody tr:hover > td {
+  background: #263449;
+  color: #F1F5F9;
+}
+:root[data-theme="dark"] #mod-replacements .replacement-refresh:hover {
+  background: #1E3A8A;
+  border-color: #3B82F6;
+  color: #DBEAFE;
+}
+:root[data-theme="dark"] #mod-replacements .replacement-table .row-action:hover {
+  background: #1E3A8A;
+  border-color: #3B82F6;
+  color: #DBEAFE;
+}
+:root[data-theme="dark"] #mod-replacements .replacement-copy:hover,
+:root[data-theme="dark"] #mod-replacements .replacement-copy.is-copied,
+:root[data-theme="dark"] #mod-applicants .applicant-id-copy:hover,
+:root[data-theme="dark"] #mod-applicants .applicant-id-copy.is-copied {
+  color: #93C5FD;
+}

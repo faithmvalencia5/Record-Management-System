@@ -23,7 +23,7 @@
   <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-bold-rounded/css/uicons-bold-rounded.css" />
 
   <link rel="stylesheet" href="base.css?v=42" />
-  <link rel="stylesheet" href="idmaker.css?v=35" />
+  <link rel="stylesheet" href="idmaker.css?v=47" />
   <script src="skeleton.js?v=3"></script>
 </head>
 
@@ -329,20 +329,31 @@
             </div>
           </div>
 
-          <div class="bulk-update-toolbar" id="bulk-update-toolbar" hidden>
+          <div class="bulk-update-toolbar" id="bulk-update-toolbar" role="status" aria-live="polite" hidden>
             <div class="bulk-update-toolbar__summary">
-              <strong id="bulk-selected-count">0 applicants selected</strong>
-              <span>Choose one status to apply to all selected applicants.</span>
+              <span class="bulk-update-toolbar__icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="4" y="4" width="16" height="16" rx="3" />
+                  <path d="m7.5 12.25 3 3L16.75 9" />
+                </svg>
+              </span>
+              <span class="bulk-update-toolbar__copy">
+                <strong id="bulk-selected-count">0 applicants selected</strong>
+                <span>Choose a status to apply to all selected applicants.</span>
+              </span>
             </div>
             <div class="bulk-update-toolbar__actions">
-              <select id="bulk-update-status" aria-label="New status for selected applicants">
-                <option value="">Select new status</option>
-                <option value="Queued">Queued</option>
-                <option value="In Production">In Production</option>
-                <option value="Printed">Printed</option>
-                <option value="In Transit">In Transit</option>
-                <option value="Completed">Completed</option>
-              </select>
+              <label class="bulk-update-toolbar__status">
+                <span>New status</span>
+                <select id="bulk-update-status" aria-label="New status for selected applicants">
+                  <option value="">Select new status</option>
+                  <option value="Queued">Queued</option>
+                  <option value="In Production">In Production</option>
+                  <option value="Printed">Printed</option>
+                  <option value="In Transit">In Transit</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </label>
               <button type="button" class="btn btn--primary" id="bulk-update-button" onclick="bulkUpdateQueueStatus()">Update Selected</button>
               <button type="button" class="btn btn--ghost" onclick="clearQueueSelection()">Clear selection</button>
             </div>
@@ -481,7 +492,7 @@
             ">
 
 
-            <div class="analytics-stage-count" style="--stage-color:#94A3B8">
+            <div class="analytics-stage-count" style="--stage-color:#FECACA">
               <strong title="Waiting to enter production."><i class="analytics-stage-dot"></i>Queued</strong>
 
               <br>
@@ -492,7 +503,7 @@
             </div>
 
 
-            <div class="analytics-stage-count" style="--stage-color:#3B82F6">
+            <div class="analytics-stage-count" style="--stage-color:#F87171">
               <strong title="Currently being produced."><i class="analytics-stage-dot"></i>In Production</strong>
 
               <br>
@@ -503,7 +514,7 @@
             </div>
 
 
-            <div class="analytics-stage-count" style="--stage-color:#6366F1">
+            <div class="analytics-stage-count" style="--stage-color:#EF4444">
               <strong title="Printing is complete."><i class="analytics-stage-dot"></i>Printed</strong>
 
               <br>
@@ -514,7 +525,7 @@
             </div>
 
 
-            <div class="analytics-stage-count" style="--stage-color:#14B8A6">
+            <div class="analytics-stage-count" style="--stage-color:#DC2626">
               <strong title="On the way to its destination."><i class="analytics-stage-dot"></i>In Transit</strong>
 
               <br>
@@ -524,7 +535,7 @@
 
             </div>
 
-            <div class="analytics-stage-count" style="--stage-color:#22C55E">
+            <div class="analytics-stage-count" style="--stage-color:#991B1B">
               <strong title="Release or delivery is marked complete."><i class="analytics-stage-dot"></i>Completed</strong>
 
               <br>
@@ -590,9 +601,8 @@
           ">
 
           <div
-            class="chart-wrap chart-wrap--analytics"
+            class="chart-wrap chart-wrap--analytics chart-wrap--barangay"
             style="
-              height:320px;
               position:relative;
             ">
 
@@ -1161,6 +1171,32 @@
     </div>
   </div>
 
+  <!-- Bulk queue update confirmation -->
+  <div class="modal-backdrop" id="bulk-queue-confirm-modal" onclick="if(event.target===this) resolveBulkQueueConfirmation(false)">
+    <div class="modal confirm-modal" role="alertdialog" aria-modal="true" aria-labelledby="bulk-queue-confirm-title" aria-describedby="bulk-queue-confirm-desc">
+      <div class="confirm-hero">
+        <div class="confirm-icon"><i class="fi fi-rr-refresh"></i></div>
+        <div>
+          <div class="confirm-title" id="bulk-queue-confirm-title">Update queue status?</div>
+          <div class="confirm-desc" id="bulk-queue-confirm-desc"></div>
+        </div>
+      </div>
+      <div class="confirm-body">
+        <div class="confirm-user">
+          <div>
+            <div class="bulk-queue-confirm-count" id="bulk-queue-confirm-count"></div>
+            <div class="bulk-queue-confirm-note" id="bulk-queue-confirm-note"></div>
+          </div>
+          <span class="small-pill bulk-queue-confirm-status" id="bulk-queue-confirm-status"></span>
+        </div>
+      </div>
+      <div class="confirm-actions">
+        <button class="btn btn--ghost" type="button" onclick="resolveBulkQueueConfirmation(false)" id="bulk-queue-confirm-cancel">Cancel</button>
+        <button class="btn btn--primary" type="button" onclick="resolveBulkQueueConfirmation(true)" id="bulk-queue-confirm-submit">Update Status</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Logout confirmation modal -->
   <div class="modal-backdrop" id="logout-confirm-modal">
     <div class="modal confirm-modal" role="dialog" aria-modal="true" aria-labelledby="logout-confirm-title">
@@ -1192,7 +1228,7 @@
 
 <script src="theme.js?v=1"></script>
 <script src="app.js?v=39"></script>
-  <script src="idmaker.js?v=multi-provider-ai-9"></script>
+  <script src="idmaker.js?v=multi-provider-ai-23"></script>
 </body>
 
 </html>
