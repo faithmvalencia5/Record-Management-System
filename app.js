@@ -960,7 +960,8 @@ function filterApplicantsByStatus(control) {
 
 function filterRecentSubmissions() {
   const q = (document.getElementById('recent-submission-search')?.value || '').trim().toLowerCase();
-  const barangay = document.getElementById('recent-barangay-filter')?.value || '';
+  const barangays = Array.from(document.getElementById('recent-barangay-filter')?.selectedOptions || [])
+    .map(option => String(option.value || '').trim().toLowerCase()).filter(Boolean);
   const rows = document.querySelectorAll('#recent-submissions-tbody tr');
   let visible = 0;
 
@@ -968,7 +969,7 @@ function filterRecentSubmissions() {
     const rowText = row.textContent.toLowerCase();
     const rowBarangay = row.children[2]?.textContent?.trim() || '';
     const matchesSearch = !q || rowText.includes(q);
-    const matchesBarangay = !barangay || rowBarangay === barangay;
+    const matchesBarangay = !barangays.length || barangays.includes(rowBarangay.toLowerCase());
     const show = matchesSearch && matchesBarangay;
     row.style.display = show ? '' : 'none';
     if (show) visible += 1;
