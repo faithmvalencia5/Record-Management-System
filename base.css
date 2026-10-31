@@ -1903,10 +1903,6 @@ table {
   transition: opacity .2s
 }
 
-.data-table th .sort-icon {
-  opacity: .35
-}
-
 .data-table th[style*='color'] .sort-icon,
 .data-table th.sorted .sort-icon {
   opacity: 1
