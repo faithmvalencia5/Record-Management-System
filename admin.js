@@ -5096,16 +5096,97 @@ function initiateRestore() {
   restoreFromHistory(backupId);
 }
 
+function showRestoreProgressModal() {
+  const modal = document.getElementById("restore-progress-modal");
+  if (modal) modal.hidden = false;
+  document.body.classList.add("backup-progress-open");
+  updateRestoreProgressUI({ percent: 1, stage: "Starting non-destructive recovery", status: "running" });
+}
+
+function updateRestoreProgressUI(progress = {}) {
+  const modal = document.getElementById("restore-progress-modal");
+  if (!modal) return;
+  const percent = Math.max(0, Math.min(100, Number(progress.percent) || 0));
+  const bar = document.getElementById("restore-progress-bar");
+  const percentEl = document.getElementById("restore-progress-percent");
+  const status = document.getElementById("restore-progress-status");
+  const stage = document.getElementById("restore-progress-stage");
+  const detail = document.getElementById("restore-progress-detail");
+  const note = document.getElementById("restore-progress-note");
+  if (bar) {
+    bar.style.width = percent + "%";
+    bar.setAttribute("aria-valuenow", String(percent));
+  }
+  if (percentEl) percentEl.textContent = percent + "%";
+  if (status) {
+    const labels = { running: "In progress", completed: "Completed", completed_with_issues: "Completed with issues", failed: "Failed" };
+    status.textContent = labels[progress.status] || "In progress";
+    status.className = "backup-progress-status" + (progress.status === "failed" || progress.status === "completed_with_issues" ? " is-warning" : "");
+  }
+  if (stage) stage.textContent = progress.stage || "Restoring missing data…";
+  const parts = [];
+  if (Number.isFinite(Number(progress.completedTables)) && progress.totalTables) parts.push(progress.completedTables + "/" + progress.totalTables + " tables");
+  if (Number.isFinite(Number(progress.restoredRows))) parts.push(Number(progress.restoredRows).toLocaleString() + " rows restored");
+  if (Number.isFinite(Number(progress.skippedRows))) parts.push(Number(progress.skippedRows).toLocaleString() + " existing rows preserved");
+  if (Number.isFinite(Number(progress.completedFiles)) && progress.totalFiles) parts.push(progress.completedFiles.toLocaleString() + "/" + progress.totalFiles.toLocaleString() + " files checked");
+  if (Number.isFinite(Number(progress.filesRestored))) parts.push(Number(progress.filesRestored).toLocaleString() + " files restored");
+  if (Number.isFinite(Number(progress.filesSkipped))) parts.push(Number(progress.filesSkipped).toLocaleString() + " existing files preserved");
+  if (detail) detail.textContent = parts.join(" · ") || "Validating backup and preparing recovery";
+  if (note) note.textContent = progress.status === "completed" || progress.status === "completed_with_issues"
+    ? "Recovery process finished. You may close this window."
+    : progress.status === "failed"
+      ? (progress.error || "Recovery failed. Check the backend logs.")
+      : "Please keep this page open while missing records and files are restored.";
+}
+
+function closeRestoreProgressModal() {
+  const modal = document.getElementById("restore-progress-modal");
+  if (modal) modal.hidden = true;
+  document.body.classList.remove("backup-progress-open");
+}
+
+async function refreshRestoreProgress() {
+  try {
+    const response = await fetch(ADMIN_BACKUPS_API + "/restore-progress", {
+      headers: { Accept: "application/json", ...getAuthHeaders() },
+      cache: "no-store"
+    });
+    if (!response.ok) return null;
+    const result = await response.json();
+    if (!result.success || !result.progress) return null;
+    updateRestoreProgressUI(result.progress);
+    return result.progress;
+  } catch (error) {
+    console.warn("[Backups] Restore progress update unavailable:", error.message);
+    return null;
+  }
+}
+
 async function runRestore(backupId) {
-  showToast("Recovery started. Checking the backup and restoring missing data…", "info");
+  showRestoreProgressModal();
+  showToast("Recovery started. Restoring only missing records and files…", "info");
   try {
     const response = await fetch(ADMIN_BACKUPS_API + "/" + encodeURIComponent(backupId) + "/restore", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       body: JSON.stringify({})
     });
-    const result = await response.json();
-    if (!response.ok || !result.summary) throw new Error(result.message || "Recovery could not be completed.");
+    const accepted = await response.json();
+    if (!response.ok || !accepted.success) throw new Error(accepted.message || "Recovery could not be started.");
+
+    let progress = await refreshRestoreProgress();
+    let consecutivePollFailures = 0;
+    const restoreDeadline = Date.now() + 90 * 60 * 1000;
+    while (!progress || !["completed", "completed_with_issues", "failed"].includes(progress.status)) {
+      if (Date.now() > restoreDeadline) throw new Error("Recovery has not reported a final status after 90 minutes. Check the Render backend logs.");
+      await new Promise(resolve => window.setTimeout(resolve, 1500));
+      progress = await refreshRestoreProgress();
+      if (progress) consecutivePollFailures = 0;
+      else if (++consecutivePollFailures >= 10) throw new Error("The backend stopped responding during recovery. Check the Render service and logs.");
+    }
+
+    if (progress.status === "failed") throw new Error(progress.error || progress.stage || "Recovery failed.");
+    const result = { success: progress.status === "completed", summary: progress.summary || {} };
     const summary = result.summary;
     const restoredRows = Object.values(summary.tables || {}).reduce((sum, value) => sum + Number(value || 0), 0);
     const skippedRows = Object.values(summary.skippedExistingRows || {}).reduce((sum, value) => sum + Number(value || 0), 0);
@@ -5117,12 +5198,14 @@ async function runRestore(backupId) {
       showToast("Recovery completed. " + details, "success");
     } else {
       const issueCount = Array.isArray(summary.failures) ? summary.failures.length : 0;
-      showToast("Recovery finished with " + issueCount + " issue(s). " + details + " Review the backend logs for details.", "warning");
+      showToast("Recovery finished with " + issueCount + " issue(s). " + details, "warning");
       console.warn("[Backups] Recovery issues:", summary.failures);
     }
     await loadSystemBackups();
+    window.setTimeout(closeRestoreProgressModal, 2200);
   } catch (error) {
     console.error("[Backups] Recovery failed:", error);
+    updateRestoreProgressUI({ status: "failed", stage: error.message || "Recovery failed", error: error.message });
     showToast(error.message || "Recovery failed. Existing data has not been intentionally overwritten.", "error");
   }
 }

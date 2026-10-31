@@ -7,6 +7,24 @@ const BACKUP_BUCKET = "system-backups";
 const SOURCE_BUCKET = "documents";
 const BACKUP_VERSION = 1;
 const PAGE_SIZE = 1000;
+let currentRestoreProgress = { active: false, status: "idle", percent: 0, stage: "Waiting to start", updatedAt: null };
+
+function setRestoreProgress(percent, stage, extra = {}) {
+  currentRestoreProgress = {
+    ...currentRestoreProgress,
+    ...extra,
+    active: extra.active !== undefined ? extra.active : true,
+    status: extra.status || "running",
+    percent: Math.max(0, Math.min(100, Math.round(percent))),
+    stage,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function getSystemRestoreProgress(req, res) {
+  return res.json({ success: true, progress: currentRestoreProgress });
+}
+
 let currentBackupProgress = { active: false, status: "idle", percent: 0, stage: "Waiting to start", updatedAt: null };
 let backupCancelRequested = false;
 let listingFoldersScanned = 0;
@@ -353,6 +371,9 @@ async function loadBackupMetadata(storage, backupId) {
 }
 
 async function createSystemBackup(req, res) {
+  if (currentRestoreProgress.active) {
+    return res.status(409).json({ success: false, message: "A recovery operation is currently running." });
+  }
   if (currentBackupProgress.active) {
     return res.status(409).json({
       success: false,
@@ -710,27 +731,50 @@ async function listSystemBackups(req, res) {
 }
 
 async function restoreSystemBackup(req, res) {
+  if (currentBackupProgress.active) {
+    return res.status(409).json({ success: false, message: "A backup operation is currently running. Wait for it to finish before starting recovery." });
+  }
+  if (currentRestoreProgress.active) {
+    return res.status(409).json({ success: false, message: "A recovery operation is already running.", progress: currentRestoreProgress });
+  }
+  encryptionKey();
+  const backupId = String(req.params.backupId || "");
+  if (!/^backup-[0-9T-]+Z$/.test(backupId)) {
+    return res.status(400).json({ success: false, message: "Invalid backup identifier." });
+  }
+  setRestoreProgress(1, "Starting non-destructive recovery", { active: true, status: "running", error: null, summary: null, backupId });
+  setImmediate(() => {
+    runSystemRestoreJob(req, backupId).catch(error => {
+      console.error("Restore system backup error:", error);
+      setRestoreProgress(currentRestoreProgress.percent, "Recovery failed: " + (error.message || "Unknown error"), {
+        active: false, status: "failed", error: error.message || "Unable to restore this backup."
+      });
+    });
+  });
+  return res.status(202).json({ success: true, accepted: true, message: "Recovery started. Follow the progress indicator until it completes." });
+}
+
+async function runSystemRestoreJob(req, backupId) {
   try {
     encryptionKey();
-    const backupId = String(req.params.backupId || "");
-    if (!/^backup-[0-9T-]+Z$/.test(backupId)) {
-      return res.status(400).json({ success: false, message: "Invalid backup identifier." });
-    }
+    setRestoreProgress(4, "Checking backup archive and recovery chain");
     await ensureBucket(BACKUP_BUCKET, false);
 
     const storage = supabase.storage.from(BACKUP_BUCKET);
     const { data: metadataBlob, error: metadataError } = await storage.download(backupId + ".json");
     if (metadataError || !metadataBlob) {
-      return res.status(404).json({ success: false, message: "Backup metadata was not found." });
+      throw new Error("Backup metadata was not found.");
     }
 
     const metadata = JSON.parse(await metadataBlob.text());
+    setRestoreProgress(10, "Decrypting backup and validating recovery chain");
     const { zip, manifest } = await downloadAndOpenBackupArchive(storage, backupId, metadata);
     const recoveryChain = [{ metadata, zip, manifest }];
     let chainMetadata = metadata;
     const seenBackupIds = new Set([backupId]);
 
     while (chainMetadata.backupType === "incremental" && chainMetadata.parentBackupId) {
+      setRestoreProgress(Math.min(18, 10 + recoveryChain.length * 2), "Loading previous backup in recovery chain");
       const parentId = chainMetadata.parentBackupId;
       if (seenBackupIds.has(parentId)) throw new Error("The backup recovery chain contains a circular reference.");
       seenBackupIds.add(parentId);
@@ -749,6 +793,8 @@ async function restoreSystemBackup(req, res) {
     const failed = [];
     const tableData = manifest.database?.tables || {};
 
+    let tablesCompleted = 0;
+    setRestoreProgress(20, "Restoring missing database records");
     for (const table of TABLES) {
       const entry = zip.getEntry("database/" + table.name + ".json");
       if (!entry) {
@@ -774,6 +820,8 @@ async function restoreSystemBackup(req, res) {
       }
       restored[table.name] = inserted;
       skipped[table.name] = ignored;
+      tablesCompleted++;
+      setRestoreProgress(20 + Math.round((tablesCompleted / TABLES.length) * 35), "Restoring database table: " + table.name, { completedTables: tablesCompleted, totalTables: TABLES.length, restoredRows: Object.values(restored).reduce((sum, value) => sum + value, 0), skippedRows: Object.values(skipped).reduce((sum, value) => sum + value, 0) });
     }
 
     let filesRestored = 0;
@@ -784,14 +832,21 @@ async function restoreSystemBackup(req, res) {
         if (file?.path) filesToRestore.set(file.path, { file, zip: archive.zip });
       }
     }
-    for (const { file, zip: fileZip } of filesToRestore.values()) {
+    const filesToProcess = Array.from(filesToRestore.values());
+    let filesProcessed = 0;
+    setRestoreProgress(57, "Checking uploaded applicant files");
+    for (const { file, zip: fileZip } of filesToProcess) {
       if (file.bucket !== SOURCE_BUCKET || !file.path || file.path.startsWith("/") || file.path.split("/").includes("..")) {
         failed.push({ item: file.path || "unknown file", reason: "Unsafe or unsupported file path." });
+        filesProcessed++;
+        setRestoreProgress(57 + Math.round((filesProcessed / Math.max(filesToProcess.length, 1)) * 38), "Checking uploaded files", { completedFiles: filesProcessed, totalFiles: filesToProcess.length, filesRestored, filesSkipped });
         continue;
       }
       const archiveEntry = fileZip.getEntry("storage/" + SOURCE_BUCKET + "/" + file.path);
       if (!archiveEntry) {
         failed.push({ item: file.path, reason: "Uploaded file is missing from the archive." });
+        filesProcessed++;
+        setRestoreProgress(57 + Math.round((filesProcessed / Math.max(filesToProcess.length, 1)) * 38), "Checking uploaded files", { completedFiles: filesProcessed, totalFiles: filesToProcess.length, filesRestored, filesSkipped });
         continue;
       }
 
@@ -804,10 +859,14 @@ async function restoreSystemBackup(req, res) {
       });
       if (listError) {
         failed.push({ item: file.path, reason: listError.message });
+        filesProcessed++;
+        setRestoreProgress(57 + Math.round((filesProcessed / Math.max(filesToProcess.length, 1)) * 38), "Checking uploaded files", { completedFiles: filesProcessed, totalFiles: filesToProcess.length, filesRestored, filesSkipped });
         continue;
       }
       if ((existing || []).some(item => item.name === filename && item.id !== null)) {
         filesSkipped++;
+        filesProcessed++;
+        setRestoreProgress(57 + Math.round((filesProcessed / Math.max(filesToProcess.length, 1)) * 38), "Checking uploaded files", { completedFiles: filesProcessed, totalFiles: filesToProcess.length, filesRestored, filesSkipped });
         continue;
       }
 
@@ -822,6 +881,8 @@ async function restoreSystemBackup(req, res) {
       } else {
         filesRestored++;
       }
+      filesProcessed++;
+      setRestoreProgress(57 + Math.round((filesProcessed / Math.max(filesToProcess.length, 1)) * 38), "Restoring missing uploaded files", { completedFiles: filesProcessed, totalFiles: filesToProcess.length, filesRestored, filesSkipped });
     }
 
     const summary = {
@@ -833,6 +894,7 @@ async function restoreSystemBackup(req, res) {
       failures: failed,
     };
 
+    setRestoreProgress(97, "Recording recovery activity");
     await createAuditLogFromRequest(req, {
       action: "SYSTEM_BACKUP_RESTORED",
       entityType: "SYSTEM_BACKUP",
@@ -840,20 +902,27 @@ async function restoreSystemBackup(req, res) {
       details: "Non-destructive recovery completed. Restored " + Object.values(restored).reduce((a, b) => a + b, 0) + " rows and " + filesRestored + " files; " + failed.length + " issues.",
     });
 
-    return res.json({
+    const result = {
       success: failed.length === 0,
       message: failed.length ? "Recovery finished with some items that need attention. Existing records and files were not overwritten." : "Recovery completed. Missing records and files were restored; existing records and files were preserved.",
       summary,
-    });
+    };
+    setRestoreProgress(100, failed.length ? "Recovery finished with issues" : "Recovery completed successfully", { active: false, status: failed.length ? "completed_with_issues" : "completed", summary });
+    return result;
   } catch (error) {
     console.error("Restore system backup error:", error);
-    return res.status(500).json({ success: false, message: error.message || "Unable to restore this backup." });
+    setRestoreProgress(currentRestoreProgress.percent, "Recovery failed: " + (error.message || "Unknown error"), {
+      active: false, status: "failed", error: error.message || "Unable to restore this backup."
+    });
+    throw error;
   }
 }
+
 
 module.exports = {
   createSystemBackup,
   getSystemBackupProgress,
+  getSystemRestoreProgress,
   cancelSystemBackup,
   listSystemBackups,
   restoreSystemBackup,
