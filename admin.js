@@ -4937,9 +4937,14 @@ async function refreshBackupProgress() {
     });
     if (!response.ok) return;
     const result = await response.json();
-    if (result.success && result.progress) updateBackupProgressUI(result.progress);
+    if (result.success && result.progress) {
+      updateBackupProgressUI(result.progress);
+      return result.progress;
+    }
+    return null;
   } catch (error) {
     console.warn("[Backups] Progress update unavailable:", error.message);
+    return null;
   }
 }
 
@@ -4998,7 +5003,6 @@ async function runBackupNow() {
   showBackupProgressModal();
   showToast("Creating encrypted backup of database records and uploaded files…", "info");
   await refreshBackupProgress();
-  backupProgressPoller = setInterval(refreshBackupProgress, 1000);
   try {
     const response = await fetch(ADMIN_BACKUPS_API, {
       method: "POST",
@@ -5006,8 +5010,24 @@ async function runBackupNow() {
       body: JSON.stringify({})
     });
     const result = await response.json();
-    if (!response.ok || !result.success) throw new Error(result.message || "Backup could not be created.");
-    updateBackupProgressUI({ percent: 100, stage: "Backup completed and saved successfully", status: "completed" });
+    if (!response.ok || !result.success) throw new Error(result.message || "Backup could not be started.");
+
+    // The backend now runs the backup as a background job. Keep this page
+    // updated by polling until the backend reports a terminal state.
+    let progress = await refreshBackupProgress();
+    while (!progress || !["completed", "failed", "cancelled"].includes(progress.status)) {
+      await new Promise(resolve => window.setTimeout(resolve, 1000));
+      progress = await refreshBackupProgress();
+    }
+
+    if (progress.status === "failed") {
+      throw new Error(progress.error || progress.stage || "Backup failed. Check the backend logs.");
+    }
+    if (progress.status === "cancelled") {
+      throw new Error("Backup cancelled by administrator.");
+    }
+
+    updateBackupProgressUI({ ...progress, percent: 100, stage: "Backup completed and saved successfully", status: "completed" });
     showToast("Backup created successfully. Database records and uploaded files were included.", "success");
     await loadSystemBackups();
     window.setTimeout(closeBackupProgressModal, 1200);
