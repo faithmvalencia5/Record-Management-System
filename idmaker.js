@@ -77,8 +77,8 @@ const QUEUE_STATUS_COLORS = {
 
 const QUEUE_FILTER_STATE = {
   search: '',
-  status: 'all',
-  barangay: 'all',
+  status: [],
+  barangay: [],
   delayedOnly: false,
   sortKey: 'updatedAt',
   sortDir: 'desc',
@@ -292,11 +292,9 @@ function getFilteredQueue() {
   const st = QUEUE_FILTER_STATE;
   const now = Date.now();
   return ID_MAKER_QUEUE.filter(app => {
-    if (st.status !== 'all' && app.printStatus !== st.status) return false;
-
+    if (st.status.length && !st.status.includes(app.printStatus)) return false;
     const brgy = String(app.barangay || '').trim();
-    if (st.barangay === QUEUE_NO_BARANGAY && brgy) return false;
-    if (st.barangay !== 'all' && st.barangay !== QUEUE_NO_BARANGAY && brgy !== st.barangay) return false;
+    if (st.barangay.length && !(st.barangay.includes(brgy) || (st.barangay.includes(QUEUE_NO_BARANGAY) && !brgy))) return false;
 
     if (st.delayedOnly && !isQueueItemDelayed(app, now)) return false;
 
@@ -521,7 +519,7 @@ function sortQueueBy(key) {
 
 function applyQueueFilters() {
   const st = QUEUE_FILTER_STATE;
-  const sig = [st.search, st.status, st.barangay, st.delayedOnly].join('|');
+  const sig = [st.search, st.status.join(','), st.barangay.join(','), st.delayedOnly].join('|');
   if (sig !== QUEUE_FILTER_SIG) {
     st.page = 1;
     QUEUE_FILTER_SIG = sig;
@@ -532,14 +530,14 @@ function applyQueueFilters() {
 function resetQueueFilters() {
   Object.assign(QUEUE_FILTER_STATE, {
     search: '',
-    status: 'all',
-    barangay: 'all',
+    status: [],
+    barangay: [],
     delayedOnly: false,
   });
   const search = document.getElementById('queue-search');
   if (search) search.value = '';
   const brgy = document.getElementById('queue-barangay-filter');
-  if (brgy) brgy.value = 'all';
+  if (brgy) Array.from(brgy.options).forEach(option => { option.selected = false; });
   const label = document.getElementById('queue-filter-label');
   if (label) label.textContent = 'Status: All';
   document.querySelectorAll('.queue-filter-option').forEach(o =>
@@ -563,10 +561,20 @@ function filterIdMakerQueue(q){
   applyQueueFilters();
 }
 
-function filterQueueChip(btn,status){
-  btn.closest('.filter-bar')?.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
-  btn.classList.add('active');
-  QUEUE_FILTER_STATE.status = status || 'all';
+function filterQueueChip(btn, status) {
+  const value = status || 'all';
+  const bar = btn.closest('.filter-bar');
+  if (value === 'all') {
+    QUEUE_FILTER_STATE.status = [];
+    bar?.querySelectorAll('.filter-chip').forEach(chip => chip.classList.remove('active'));
+    btn.classList.add('active');
+  } else {
+    QUEUE_FILTER_STATE.status = QUEUE_FILTER_STATE.status.filter(item => item !== value);
+    if (btn.classList.contains('active')) btn.classList.remove('active');
+    else { QUEUE_FILTER_STATE.status.push(value); btn.classList.add('active'); }
+    const allChip = bar?.querySelector('.filter-chip[data-status="all"]');
+    if (allChip) allChip.classList.toggle('active', QUEUE_FILTER_STATE.status.length === 0);
+  }
   applyQueueFilters();
 }
 
@@ -705,8 +713,7 @@ function renderQueueTable() {
   if (!total) { footer.style.display = 'none'; return; }
   footer.style.display = '';
 
-  const filtersActive =
-    st.search || st.status !== 'all' || st.barangay !== 'all' || st.delayedOnly;
+  const filtersActive = st.search || st.status.length > 0 || st.barangay.length > 0 || st.delayedOnly;
 
   info.textContent = rows.length
     ? (rows.length === total
@@ -1178,14 +1185,12 @@ async function inlineStatusChange(appId, newStatus) {
 
 /* ── KPI cards: counts + delayed badge from the same data and rule as the table ── */
 function getQueueBySelectedBarangay() {
-  const barangay = QUEUE_FILTER_STATE?.barangay || 'all';
-  if (barangay === 'all') return ID_MAKER_QUEUE;
-  if (barangay === QUEUE_NO_BARANGAY) {
-    return ID_MAKER_QUEUE.filter(app => !String(app.barangay || '').trim());
-  }
-  return ID_MAKER_QUEUE.filter(
-    app => String(app.barangay || '').trim() === barangay
-  );
+  const barangays = QUEUE_FILTER_STATE?.barangay || [];
+  if (!barangays.length) return ID_MAKER_QUEUE;
+  return ID_MAKER_QUEUE.filter(app => {
+    const value = String(app.barangay || '').trim();
+    return barangays.includes(value) || (barangays.includes(QUEUE_NO_BARANGAY) && !value);
+  });
 }
 
 function updateIdMakerKPIs() {
@@ -1359,7 +1364,7 @@ function toggleRowStatus(btn, event){
 function populateQueueFilters(){
   const sel = document.getElementById('queue-barangay-filter');
   if(!sel) return;
-  const current = sel.value;
+  const current = Array.from(sel.selectedOptions).map(option => option.value);
   // Keep the full static barangay list from the page, then merge in any
   // queue barangays that are not listed yet (so live data never loses options).
   const brgys = [];
@@ -1373,15 +1378,16 @@ function populateQueueFilters(){
   brgys.sort((a, b) => a.localeCompare(b));
   const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const allLabel = (sel.options[0] && sel.options[0].value === 'all') ? sel.options[0].textContent : 'All Barangay';
-  sel.innerHTML = '<option value="all">' + esc(allLabel) + '</option>' +
-    '<option value="' + QUEUE_NO_BARANGAY + '">Not specified</option>' +
-    brgys.map(b => '<option value="' + esc(b) + '">' + esc(b) + '</option>').join('')
-  sel.value = (current && (brgys.indexOf(current) !== -1 || current === QUEUE_NO_BARANGAY)) ? current : 'all';
-  QUEUE_FILTER_STATE.barangay = sel.value;
+  sel.innerHTML = '<option value="' + QUEUE_NO_BARANGAY + '">Not specified</option>' +
+    brgys.map(b => '<option value="' + esc(b) + '">' + esc(b) + '</option>').join('');
+  Array.from(sel.options).forEach(option => { option.selected = current.includes(option.value); });
+  QUEUE_FILTER_STATE.barangay = current.filter(value => value === QUEUE_NO_BARANGAY || brgys.includes(value));
 }
 
-function filterQueueByBarangay(value){
-  QUEUE_FILTER_STATE.barangay = value || 'all';
+function filterQueueByBarangay(control) {
+  QUEUE_FILTER_STATE.barangay = control instanceof HTMLSelectElement
+    ? Array.from(control.selectedOptions).map(option => option.value).filter(Boolean)
+    : (control ? [control] : []);
   applyQueueFilters();
   updateIdMakerKPIs();
 }
@@ -1396,11 +1402,20 @@ function updateQueueTagCounts(){
   });
 }
 
-function filterQueueByStatusTag(btn, status){
+function filterQueueByStatusTag(btn, status) {
+  const value = status || 'all';
   const bar = btn.closest('.ops-toolbar');
-  if(bar) bar.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-  btn.classList.add('active');
-  QUEUE_FILTER_STATE.status = status || 'all';
+  if (value === 'all') {
+    QUEUE_FILTER_STATE.status = [];
+    bar?.querySelectorAll('.filter-chip').forEach(chip => chip.classList.remove('active'));
+    btn.classList.add('active');
+  } else {
+    QUEUE_FILTER_STATE.status = QUEUE_FILTER_STATE.status.filter(item => item !== value);
+    if (btn.classList.contains('active')) btn.classList.remove('active');
+    else { QUEUE_FILTER_STATE.status.push(value); btn.classList.add('active'); }
+    const allChip = bar?.querySelector('.filter-chip[data-status="all"]');
+    if (allChip) allChip.classList.toggle('active', QUEUE_FILTER_STATE.status.length === 0);
+  }
   applyQueueFilters();
 }
 
