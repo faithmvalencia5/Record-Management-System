@@ -23,9 +23,9 @@ function setRestoreProgress(percent, stage, extra = {}) {
     ...currentRestoreProgress,
     ...extra,
     active: extra.active !== undefined ? extra.active : true,
-    status: extra.status || "running",
+    status: extra.status || (restoreCancelRequested ? "cancelling" : "running"),
     percent: Math.max(0, Math.min(100, Math.round(percent))),
-    stage,
+    stage: restoreCancelRequested && !["completed", "completed_with_issues", "cancelled", "failed"].includes(extra.status) ? "Cancellation requested. Finishing the current safe operation…" : stage,
     updatedAt: new Date().toISOString(),
   };
 }
