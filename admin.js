@@ -12,11 +12,96 @@ const ADMIN_AUDIT_API =
 const ADMIN_HEALTH_API =
   'https://management-backend-3cij.onrender.com/api/test';
 
+const ADMIN_SYSTEM_SETTINGS_API =
+  'https://management-backend-3cij.onrender.com/api/system-settings';
+
 let ADMIN_APPLICATIONS = [];
 
 let ADMIN_USER_ACCOUNTS = [];
 
 let AUDIT_LOG_DATA = [];
+
+
+/* ADMIN SYSTEM SETTINGS */
+let ADMIN_SYSTEM_SETTINGS = {
+  system_name: "Record Management System",
+  organization_name: "Office of the Senior Citizens Affairs",
+  allow_public_registration: true
+};
+
+async function loadSystemSettings() {
+  const status = document.getElementById("system-settings-updated");
+  try {
+    const response = await fetch(ADMIN_SYSTEM_SETTINGS_API, {
+      headers: { Accept: "application/json", ...getAuthHeaders() }, cache: "no-store"
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) throw new Error(result.message || "Unable to load system settings.");
+    ADMIN_SYSTEM_SETTINGS = { ...ADMIN_SYSTEM_SETTINGS, ...(result.settings || {}) };
+    const systemName = document.getElementById("setting-system-name");
+    const orgName = document.getElementById("setting-organization-name");
+    const registration = document.getElementById("setting-registration-enabled");
+    if (systemName) systemName.value = ADMIN_SYSTEM_SETTINGS.system_name || "";
+    if (orgName) orgName.value = ADMIN_SYSTEM_SETTINGS.organization_name || "";
+    if (registration) registration.checked = ADMIN_SYSTEM_SETTINGS.allow_public_registration !== false;
+    const subtitle = document.querySelector(".sidebar__brand-subtitle");
+    if (subtitle) subtitle.textContent = ADMIN_SYSTEM_SETTINGS.organization_name;
+    if (status) status.textContent = ADMIN_SYSTEM_SETTINGS.updated_at
+      ? "Last saved: " + new Date(ADMIN_SYSTEM_SETTINGS.updated_at).toLocaleString()
+      : "Default settings are currently in use.";
+  } catch (error) {
+    console.error("[Admin Settings] Load failed:", error);
+    if (status) status.textContent = error.message;
+    showToast(error.message || "Unable to load system settings.", "error");
+  }
+}
+
+async function saveSystemSettings(overrides = {}) {
+  const systemName = document.getElementById("setting-system-name");
+  const orgName = document.getElementById("setting-organization-name");
+  const registration = document.getElementById("setting-registration-enabled");
+  const payload = {
+    system_name: overrides.system_name ?? (systemName ? systemName.value.trim() : ADMIN_SYSTEM_SETTINGS.system_name),
+    organization_name: overrides.organization_name ?? (orgName ? orgName.value.trim() : ADMIN_SYSTEM_SETTINGS.organization_name),
+    allow_public_registration: overrides.allow_public_registration ?? (registration ? registration.checked : ADMIN_SYSTEM_SETTINGS.allow_public_registration)
+  };
+  try {
+    const response = await fetch(ADMIN_SYSTEM_SETTINGS_API, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) throw new Error(result.message || "Unable to save system settings.");
+    ADMIN_SYSTEM_SETTINGS = { ...ADMIN_SYSTEM_SETTINGS, ...(result.settings || payload) };
+    const subtitle = document.querySelector(".sidebar__brand-subtitle");
+    if (subtitle) subtitle.textContent = ADMIN_SYSTEM_SETTINGS.organization_name;
+    const status = document.getElementById("system-settings-updated");
+    if (status) status.textContent = "Last saved: " + new Date(ADMIN_SYSTEM_SETTINGS.updated_at || Date.now()).toLocaleString();
+    showToast(result.message || "System settings saved.", "success");
+    return true;
+  } catch (error) {
+    console.error("[Admin Settings] Save failed:", error);
+    showToast(error.message || "Unable to save system settings.", "error");
+    return false;
+  }
+}
+
+async function saveRegistrationSetting() {
+  const checkbox = document.getElementById("setting-registration-enabled");
+  if (!checkbox) return;
+  const desired = checkbox.checked;
+  const saved = await saveSystemSettings({ allow_public_registration: desired });
+  if (!saved) checkbox.checked = ADMIN_SYSTEM_SETTINGS.allow_public_registration !== false;
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("system-general-form");
+  if (form) form.addEventListener("submit", async event => {
+    event.preventDefault();
+    await saveSystemSettings();
+  });
+});
 
 
 /* =========================================================
@@ -1607,6 +1692,7 @@ document.addEventListener(
       loadSystemBackups();
       loadAdminUsers();
       loadAdminAuditLogs();
+      loadSystemSettings();
       checkAdminSystemHealth();
     }
 
