@@ -46,6 +46,7 @@ async function loadSystemSettings() {
     if (registration) registration.checked = ADMIN_SYSTEM_SETTINGS.allow_public_registration !== false;
     const subtitle = document.querySelector(".sidebar__brand-subtitle");
     if (subtitle) subtitle.textContent = ADMIN_SYSTEM_SETTINGS.organization_name;
+    document.title = "Admin Portal | " + (ADMIN_SYSTEM_SETTINGS.system_name || "Record Management System");
     if (status) status.textContent = ADMIN_SYSTEM_SETTINGS.updated_at
       ? "Last saved: " + new Date(ADMIN_SYSTEM_SETTINGS.updated_at).toLocaleString()
       : "Default settings are currently in use.";
@@ -76,6 +77,7 @@ async function saveSystemSettings(overrides = {}) {
     ADMIN_SYSTEM_SETTINGS = { ...ADMIN_SYSTEM_SETTINGS, ...(result.settings || payload) };
     const subtitle = document.querySelector(".sidebar__brand-subtitle");
     if (subtitle) subtitle.textContent = ADMIN_SYSTEM_SETTINGS.organization_name;
+    document.title = "Admin Portal | " + (ADMIN_SYSTEM_SETTINGS.system_name || "Record Management System");
     const status = document.getElementById("system-settings-updated");
     if (status) status.textContent = "Last saved: " + new Date(ADMIN_SYSTEM_SETTINGS.updated_at || Date.now()).toLocaleString();
     showToast(result.message || "System settings saved.", "success");
