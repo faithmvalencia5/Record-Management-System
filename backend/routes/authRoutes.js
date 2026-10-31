@@ -61,7 +61,7 @@ router.post("/login", async (req, res) => {
     const { data: user, error } = await supabase
       .from("user_accounts")
       .select(
-        "id, username, full_name, password_hash, role, email, account_status"
+        "id, username, full_name, password_hash, role, email, account_status, approval_status"
       )
       .eq("username", username.trim())
       .maybeSingle();
@@ -88,6 +88,33 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({
         success: false,
         message: "Invalid username or password.",
+      });
+    }
+
+    /* -----------------------------------------
+       Block accounts awaiting administrator approval.
+       Missing approval_status means an existing account;
+       those accounts remain approved for backward compatibility.
+       ----------------------------------------- */
+    const approvalStatus = String(user.approval_status || "Approved").trim();
+    if (approvalStatus !== "Approved") {
+      await createAuditLog({
+        userId: user.id,
+        username: user.username,
+        role: user.role,
+        action: "LOGIN_BLOCKED",
+        entityType: "USER",
+        entityId: String(user.id),
+        details: `Login blocked because account approval status is ${approvalStatus}.`,
+        ipAddress: req.ip,
+        userAgent: req.get("user-agent"),
+      });
+      return res.status(403).json({
+        success: false,
+        code: approvalStatus === "Rejected" ? "ACCOUNT_REJECTED" : "ACCOUNT_PENDING",
+        message: approvalStatus === "Rejected"
+          ? "Your registration was not approved. Please contact the administrator."
+          : "Your registration is awaiting administrator approval. You can sign in after it has been approved.",
       });
     }
 
@@ -513,6 +540,92 @@ router.put(
 
 
 /* =========================================================
+   PUBLIC ACCOUNT REGISTRATION
+   POST /api/auth/register
+   Public requests are always Staff and must be approved by Admin.
+   ========================================================= */
+router.post("/register", async (req, res) => {
+  try {
+    const fullName = String(req.body.full_name || "").trim();
+    const username = String(req.body.username || "").trim();
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const password = String(req.body.password || "");
+
+    if (!fullName || !username || !email || !password) {
+      return res.status(400).json({ success: false, message: "Full name, username, email, and password are required." });
+    }
+    if (fullName.length > 150 || username.length < 3 || username.length > 40) {
+      return res.status(400).json({ success: false, message: "Please check your full name and username. Usernames must be 3–40 characters." });
+    }
+    if (!/^[A-Za-z0-9._-]+$/.test(username)) {
+      return res.status(400).json({ success: false, message: "Username may contain only letters, numbers, periods, underscores, and hyphens." });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, message: "Please enter a valid email address." });
+    }
+    if (!isStrongPassword(password)) {
+      return res.status(400).json({ success: false, message: "Password must be at least 8 characters and include an uppercase letter, a number, and a special character." });
+    }
+
+    const { data: existing, error: lookupError } = await supabase
+      .from("user_accounts")
+      .select("id")
+      .or(`username.ilike.${username.replace(/[%_,]/g, "")},email.ilike.${email.replace(/[%_,]/g, "")}`)
+      .limit(1);
+
+    if (lookupError) {
+      console.error("Registration duplicate check error:", lookupError);
+      return res.status(500).json({ success: false, message: "Unable to validate registration details." });
+    }
+    if (existing && existing.length) {
+      return res.status(409).json({ success: false, message: "That username or email is already registered." });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const { data: created, error } = await supabase
+      .from("user_accounts")
+      .insert({
+        username,
+        full_name: fullName,
+        email,
+        password_hash: passwordHash,
+        role: "staff",
+        account_status: "Active",
+        approval_status: "Pending",
+      })
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("Registration insert error:", error);
+      if (error.code === "23505") return res.status(409).json({ success: false, message: "That username or email is already registered." });
+      return res.status(500).json({ success: false, message: "Unable to submit your registration. Confirm the account approval migration has been applied." });
+    }
+
+    await createAuditLog({
+      userId: created.id,
+      username,
+      role: "Staff",
+      action: "ACCOUNT_REGISTRATION_SUBMITTED",
+      entityType: "USER",
+      entityId: String(created.id),
+      details: "New Staff registration submitted and is awaiting administrator approval.",
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Registration submitted. Your account is pending administrator approval. You can sign in after it has been approved.",
+    });
+  } catch (error) {
+    console.error("Registration error:", error);
+    return res.status(500).json({ success: false, message: "Something went wrong while submitting your registration." });
+  }
+});
+
+
+/* =========================================================
    GET ALL USER ACCOUNTS
    GET /api/auth/users
 
@@ -527,7 +640,7 @@ router.get(
     try {
       const { data: users, error } = await supabase
         .from("user_accounts")
-        .select("id, username, full_name, email, role, account_status")
+        .select("id, username, full_name, email, role, account_status, approval_status, created_at")
         .order("id", { ascending: true });
 
       if (error) {
@@ -572,6 +685,8 @@ router.get(
           role: user.role || "Staff",
           account_status:
             user.account_status || "Active",
+          approval_status: user.approval_status || "Approved",
+          created_at: user.created_at || null,
           last_active_at: lastLoginByUsername.get(String(user.username || "").trim().toLowerCase()) || null,
         })),
       });
@@ -922,6 +1037,67 @@ router.put(
     });
   }
 );
+
+/* =========================================================
+   APPROVE / REJECT REGISTRATION
+   PUT /api/auth/users/:id/approval
+   ADMIN ONLY
+   ========================================================= */
+router.put("/users/:id/approval", authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const approval_status = String(req.body.approval_status || "").trim();
+    if (!["Approved", "Rejected"].includes(approval_status)) {
+      return res.status(400).json({ success: false, message: "Approval status must be Approved or Rejected." });
+    }
+
+    const { data: current, error: readError } = await supabase
+      .from("user_accounts")
+      .select("id, username, approval_status")
+      .eq("id", req.params.id)
+      .maybeSingle();
+
+    if (readError) {
+      console.error("Registration review lookup error:", readError);
+      return res.status(500).json({ success: false, message: "Unable to load the registration." });
+    }
+    if (!current) return res.status(404).json({ success: false, message: "Account not found." });
+    if ((current.approval_status || "Approved") !== "Pending") {
+      return res.status(409).json({ success: false, message: "This registration has already been reviewed." });
+    }
+
+    const { data: updated, error } = await supabase
+      .from("user_accounts")
+      .update({ approval_status })
+      .eq("id", req.params.id)
+      .eq("approval_status", "Pending")
+      .select("id, username, full_name, email, role, account_status, approval_status")
+      .maybeSingle();
+
+    if (error) {
+      console.error("Registration approval update error:", error);
+      return res.status(500).json({ success: false, message: "Unable to update this registration. Confirm the approval migration has been applied." });
+    }
+    if (!updated) return res.status(409).json({ success: false, message: "This registration was already reviewed by another administrator." });
+
+    await createAuditLog({
+      userId: req.user.id,
+      username: req.user.username,
+      role: req.user.role,
+      action: approval_status === "Approved" ? "ACCOUNT_REGISTRATION_APPROVED" : "ACCOUNT_REGISTRATION_REJECTED",
+      entityType: "USER",
+      entityId: String(updated.id),
+      details: `${approval_status} registration for ${updated.username}.`,
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+    });
+
+    return res.json({ success: true, message: `Registration ${approval_status.toLowerCase()} successfully.`, user: updated });
+  } catch (error) {
+    console.error("Registration review error:", error);
+    return res.status(500).json({ success: false, message: "Something went wrong while reviewing this registration." });
+  }
+});
+
 
 /* =========================================================
    ENABLE / DISABLE USER
