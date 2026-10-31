@@ -875,6 +875,117 @@ function selectedFilterValues(control) {
   return value ? [value] : [];
 }
 
+// Render native multi-select controls as compact dropdowns with checkbox options.
+function enhanceMultiSelectDropdowns(root = document) {
+  root.querySelectorAll('select[multiple]').forEach(select => {
+    if (select.dataset.multiDropdownReady === 'true') return;
+    select.dataset.multiDropdownReady = 'true';
+
+    const wrapper = document.createElement('div');
+    wrapper.className = 'multi-select-dropdown';
+    wrapper.style.cssText = 'position:relative;display:inline-block;min-width:130px;max-width:240px;vertical-align:middle;';
+    select.parentNode.insertBefore(wrapper, select);
+    wrapper.appendChild(select);
+    select.style.display = 'none';
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'filter-select multi-select-dropdown__trigger';
+    trigger.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:38px;padding:8px 12px;border:1px solid var(--border-color,#dbe3ef);border-radius:10px;background:var(--surface,#fff);color:var(--text-primary,#334155);font:inherit;font-size:13px;text-align:left;cursor:pointer;white-space:nowrap;';
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+
+    const label = document.createElement('span');
+    label.style.cssText = 'overflow:hidden;text-overflow:ellipsis;';
+    const caret = document.createElement('span');
+    caret.textContent = '▾';
+    caret.setAttribute('aria-hidden', 'true');
+    trigger.append(label, caret);
+
+    const menu = document.createElement('div');
+    menu.className = 'multi-select-dropdown__menu';
+    menu.hidden = true;
+    menu.style.cssText = 'position:absolute;top:calc(100% + 6px);left:0;z-index:1000;min-width:100%;width:max-content;max-width:min(280px,80vw);max-height:280px;overflow:auto;padding:6px;border:1px solid var(--border-color,#dbe3ef);border-radius:10px;background:var(--surface,#fff);box-shadow:0 12px 28px rgba(15,23,42,.16);';
+
+    function refreshLabel() {
+      const selected = Array.from(select.selectedOptions).filter(option => option.value && option.value !== 'all');
+      const allOption = Array.from(select.options).find(option => !option.value || option.value === 'all');
+      if (!selected.length) label.textContent = allOption?.textContent?.trim() || select.getAttribute('aria-label') || 'All';
+      else if (selected.length <= 2) label.textContent = selected.map(option => option.textContent.trim()).join(', ');
+      else label.textContent = selected.length + ' selected';
+      trigger.title = selected.map(option => option.textContent.trim()).join(', ') || label.textContent;
+    }
+
+    function renderOptions() {
+      menu.replaceChildren();
+      Array.from(select.options).forEach(option => {
+        const row = document.createElement('label');
+        row.style.cssText = 'display:flex;align-items:center;gap:9px;padding:8px 9px;border-radius:7px;font-size:13px;cursor:pointer;white-space:nowrap;';
+        row.addEventListener('mouseenter', () => { row.style.background = 'var(--surface-hover,#f1f5f9)'; });
+        row.addEventListener('mouseleave', () => { row.style.background = 'transparent'; });
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = option.selected && option.value !== '' && option.value !== 'all';
+        checkbox.style.cssText = 'accent-color:var(--primary,#2563eb);';
+        const textNode = document.createElement('span');
+        textNode.textContent = option.textContent.trim();
+        row.append(checkbox, textNode);
+        checkbox.addEventListener('change', () => {
+          if (!option.value || option.value === 'all') {
+            Array.from(select.options).forEach(item => { item.selected = false; });
+          } else {
+            const all = Array.from(select.options).find(item => !item.value || item.value === 'all');
+            if (all) all.selected = false;
+            option.selected = checkbox.checked;
+          }
+          refreshLabel();
+          select.dispatchEvent(new Event('change', { bubbles: true }));
+          renderOptions();
+        });
+        menu.appendChild(row);
+      });
+    }
+
+    trigger.addEventListener('click', event => {
+      event.stopPropagation();
+      const opening = menu.hidden;
+      document.querySelectorAll('.multi-select-dropdown__menu').forEach(other => {
+        if (other !== menu) {
+          other.hidden = true;
+          const otherTrigger = other.parentElement?.querySelector('.multi-select-dropdown__trigger');
+          if (otherTrigger) otherTrigger.setAttribute('aria-expanded', 'false');
+        }
+      });
+      renderOptions();
+      menu.hidden = !opening;
+      trigger.setAttribute('aria-expanded', String(opening));
+    });
+
+    wrapper.append(trigger, menu);
+    select.addEventListener('change', refreshLabel);
+    refreshLabel();
+  });
+}
+
+function initMultiSelectDropdowns() {
+  enhanceMultiSelectDropdowns(document);
+  if (window.__multiSelectDropdownObserver) return;
+  window.__multiSelectDropdownObserver = new MutationObserver(() => enhanceMultiSelectDropdowns(document));
+  window.__multiSelectDropdownObserver.observe(document.body, { childList: true, subtree: true });
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.multi-select-dropdown__menu').forEach(menu => {
+      menu.hidden = true;
+      const trigger = menu.parentElement?.querySelector('.multi-select-dropdown__trigger');
+      if (trigger) trigger.setAttribute('aria-expanded', 'false');
+    });
+  });
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initMultiSelectDropdowns, { once: true });
+} else {
+  initMultiSelectDropdowns();
+}
+
 function applyApplicantsFilters() {
   const rows = document.querySelectorAll(
     '#applicants-tbody tr[data-app-id]'
