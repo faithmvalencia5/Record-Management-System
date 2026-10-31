@@ -5114,35 +5114,70 @@ function updateRestoreProgressUI(progress = {}) {
   const detail = document.getElementById("restore-progress-detail");
   const note = document.getElementById("restore-progress-note");
   const cancelButton = document.getElementById("restore-cancel-button");
+
   if (bar) {
     bar.style.width = percent + "%";
     bar.setAttribute("aria-valuenow", String(percent));
   }
   if (percentEl) percentEl.textContent = percent + "%";
   if (status) {
-    const labels = { running: "In progress", cancelling: "Cancelling…", cancelled: "Cancelled", completed: "Completed", completed_with_issues: "Completed with issues", failed: "Failed", interrupted: "Recovery interrupted" };
+    const labels = {
+      running: "In progress",
+      cancelling: "Cancelling…",
+      cancelled: "Cancelled",
+      completed: "Completed",
+      completed_with_issues: "Completed with issues",
+      failed: "Failed",
+      interrupted: "Recovery interrupted"
+    };
     status.textContent = labels[progress.status] || "In progress";
-    status.className = "backup-progress-status" + (progress.status === "failed" || progress.status === "completed_with_issues" ? " is-warning" : "");
+    status.className = "backup-progress-status" +
+      (progress.status === "failed" || progress.status === "completed_with_issues" ? " is-warning" :
+        progress.status === "cancelled" ? " is-cancelled" :
+          progress.status === "completed" ? " is-complete" : "");
   }
   if (stage) stage.textContent = progress.stage || "Restoring missing data…";
+
   const parts = [];
-  if (Number.isFinite(Number(progress.completedTables)) && progress.totalTables) parts.push(progress.completedTables + "/" + progress.totalTables + " tables");
-  if (Number.isFinite(Number(progress.restoredRows))) parts.push(Number(progress.restoredRows).toLocaleString() + " rows restored");
-  if (Number.isFinite(Number(progress.skippedRows))) parts.push(Number(progress.skippedRows).toLocaleString() + " existing rows preserved");
-  if (Number.isFinite(Number(progress.completedFiles)) && progress.totalFiles) parts.push(progress.completedFiles.toLocaleString() + "/" + progress.totalFiles.toLocaleString() + " files checked");
-  if (Number.isFinite(Number(progress.filesRestored))) parts.push(Number(progress.filesRestored).toLocaleString() + " files restored");
-  if (Number.isFinite(Number(progress.filesSkipped))) parts.push(Number(progress.filesSkipped).toLocaleString() + " existing files preserved");
+  if (Number.isFinite(Number(progress.completedTables)) && progress.totalTables) {
+    parts.push(progress.completedTables + "/" + progress.totalTables + " tables");
+  }
+  if (Number.isFinite(Number(progress.restoredRows))) {
+    parts.push(Number(progress.restoredRows).toLocaleString() + " rows restored");
+  }
+  if (Number.isFinite(Number(progress.skippedRows))) {
+    parts.push(Number(progress.skippedRows).toLocaleString() + " existing rows preserved");
+  }
+  if (Number.isFinite(Number(progress.completedFiles)) && progress.totalFiles) {
+    parts.push(progress.completedFiles.toLocaleString() + "/" + progress.totalFiles.toLocaleString() + " files checked");
+  }
+  if (Number.isFinite(Number(progress.filesRestored))) {
+    parts.push(Number(progress.filesRestored).toLocaleString() + " files restored");
+  }
+  if (Number.isFinite(Number(progress.filesSkipped))) {
+    parts.push(Number(progress.filesSkipped).toLocaleString() + " existing files preserved");
+  }
   if (detail) detail.textContent = parts.join(" · ") || "Validating backup and preparing recovery";
+
   const terminal = ["completed", "completed_with_issues", "cancelled", "failed", "interrupted"].includes(progress.status);
   if (cancelButton) {
+    cancelButton.hidden = terminal;
     cancelButton.disabled = terminal || progress.status === "cancelling";
-    cancelButton.textContent = progress.status === "cancelling" ? "Cancelling…" : progress.status === "cancelled"
-      ? "Recovery cancelled. All records and files added by this recovery attempt were rolled back; pre-existing data was preserved."
-      : progress.status === "failed" || progress.status === "interrupted"
-        ? (progress.error || "Recovery failed. Check the backend logs.")
-        : progress.status === "cancelling"
-          ? "Cancellation requested. Waiting for the current safe operation to finish…"
-          : "Please keep this page open while missing records and files are restored.";
+    cancelButton.textContent = progress.status === "cancelling" ? "Cancelling…" : "Cancel Recovery";
+  }
+  if (note) {
+    note.textContent = progress.status === "cancelling"
+      ? "Cancellation requested. Restoring changes from this attempt will be rolled back."
+      : progress.status === "cancelled"
+        ? "Recovery cancelled. Changes made by this attempt were rolled back; existing data was preserved."
+        : progress.status === "completed"
+          ? "Recovery completed. Missing records and files were restored without overwriting existing data."
+          : progress.status === "completed_with_issues"
+            ? "Recovery finished with some issues. Review the recovery summary and backend logs."
+            : progress.status === "failed" || progress.status === "interrupted"
+              ? (progress.error || "Recovery did not complete. Verify the database and Storage before retrying.")
+              : "Please keep this page open while missing records and files are restored.";
+  }
 }
 
 function closeRestoreProgressModal() {
@@ -5225,7 +5260,7 @@ async function runRestore(backupId) {
     }
 
     if (progress.status === "cancelled") {
-      showToast("Recovery cancelled. Any changes completed before cancellation were preserved.", "warning");
+      showToast("Recovery cancelled. Changes made by this attempt were rolled back.", "warning");
       await loadSystemBackups();
       window.setTimeout(closeRestoreProgressModal, 1200);
       return;
