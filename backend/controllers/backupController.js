@@ -36,7 +36,7 @@ function encryptionKey(salt = Buffer.from("record-management-system-backup-v1"))
 function encryptArchive(buffer) {
   const salt = crypto.randomBytes(16);
   const iv = crypto.randomBytes(12);
-  const key = encryptionKey();
+  const key = encryptionKey(salt);
   const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
   const encrypted = Buffer.concat([cipher.update(buffer), cipher.final()]);
   return Buffer.concat([Buffer.from("RMSE1"), salt, iv, cipher.getAuthTag(), encrypted]);
