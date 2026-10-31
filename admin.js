@@ -3546,6 +3546,33 @@ async function resetUserCredentials() {
 }
 
 
+async function recordAdminExport(report, recordCount, format = "CSV") {
+  try {
+    const response = await fetch(`${ADMIN_AUDIT_API}/exports`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify({
+        report,
+        format,
+        recordCount: Number(recordCount) || 0
+      })
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "Unable to save export activity.");
+    }
+    await loadAdminAuditLogs();
+    return true;
+  } catch (error) {
+    console.error("[Admin Export] Audit logging failed:", error);
+    showToast("The file was downloaded, but its export activity could not be recorded in Audit Logs.", "warning");
+    return false;
+  }
+}
+
 function exportUsers() {
   if (!Array.isArray(ADMIN_USER_ACCOUNTS) || !ADMIN_USER_ACCOUNTS.length) {
     showToast('There are no user accounts to export.', 'error');
@@ -3576,11 +3603,7 @@ function exportUsers() {
   link.remove();
   URL.revokeObjectURL(url);
 
-  appendAudit(
-    CURRENT_USER?.displayName || 'Admin',
-    'Exported user accounts list (CSV)',
-    'Admin'
-  );
+  void recordAdminExport("User accounts", rows.length, "CSV");
   showToast('User accounts CSV downloaded successfully.', 'success');
 }
 
@@ -4537,12 +4560,7 @@ function exportAuditLog() {
   );
 
 
-  appendAudit(
-    CURRENT_USER?.displayName ||
-      'Admin',
-    'Exported audit summary (CSV)',
-    'Admin'
-  );
+  void recordAdminExport("Audit summary", rows.length, "CSV");
 
 
   showToast(
@@ -4728,6 +4746,8 @@ function exportAuditReport() {
     data
   );
 
+
+  void recordAdminExport("Audit trail", filtered.length, "CSV");
 
   showToast(
     `Audit trail exported (${filtered.length} rows) — DPA-safe CSV`,
