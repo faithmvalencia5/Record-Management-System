@@ -5120,7 +5120,7 @@ function updateRestoreProgressUI(progress = {}) {
   }
   if (percentEl) percentEl.textContent = percent + "%";
   if (status) {
-    const labels = { running: "In progress", cancelling: "Cancelling…", cancelled: "Cancelled", completed: "Completed", completed_with_issues: "Completed with issues", failed: "Failed" };
+    const labels = { running: "In progress", cancelling: "Cancelling…", cancelled: "Cancelled", completed: "Completed", completed_with_issues: "Completed with issues", failed: "Failed", interrupted: "Recovery interrupted" };
     status.textContent = labels[progress.status] || "In progress";
     status.className = "backup-progress-status" + (progress.status === "failed" || progress.status === "completed_with_issues" ? " is-warning" : "");
   }
@@ -5133,7 +5133,7 @@ function updateRestoreProgressUI(progress = {}) {
   if (Number.isFinite(Number(progress.filesRestored))) parts.push(Number(progress.filesRestored).toLocaleString() + " files restored");
   if (Number.isFinite(Number(progress.filesSkipped))) parts.push(Number(progress.filesSkipped).toLocaleString() + " existing files preserved");
   if (detail) detail.textContent = parts.join(" · ") || "Validating backup and preparing recovery";
-  const terminal = ["completed", "completed_with_issues", "cancelled", "failed"].includes(progress.status);
+  const terminal = ["completed", "completed_with_issues", "cancelled", "failed", "interrupted"].includes(progress.status);
   if (cancelButton) {
     cancelButton.disabled = terminal || progress.status === "cancelling";
     cancelButton.textContent = progress.status === "cancelling" ? "Cancelling…" : progress.status === "cancelled" ? "Cancelled" : "Cancel Recovery";
@@ -5143,7 +5143,7 @@ function updateRestoreProgressUI(progress = {}) {
     ? "Recovery process finished. You may close this window."
     : progress.status === "cancelled"
       ? "Recovery stopped. Any records or files already restored were kept; no existing data was overwritten."
-      : progress.status === "failed"
+      : progress.status === "failed" || progress.status === "interrupted"
         ? (progress.error || "Recovery failed. Check the backend logs.")
         : progress.status === "cancelling"
           ? "Cancellation requested. Waiting for the current safe operation to finish…"
@@ -5210,12 +5210,23 @@ async function runRestore(backupId) {
     let progress = await refreshRestoreProgress();
     let consecutivePollFailures = 0;
     const restoreDeadline = Date.now() + 90 * 60 * 1000;
-    while (!progress || !["completed", "completed_with_issues", "cancelled", "failed"].includes(progress.status)) {
+    while (!progress || !["completed", "completed_with_issues", "cancelled", "failed", "interrupted"].includes(progress.status)) {
       if (Date.now() > restoreDeadline) throw new Error("Recovery has not reported a final status after 90 minutes. Check the Render backend logs.");
       await new Promise(resolve => window.setTimeout(resolve, 1500));
       progress = await refreshRestoreProgress();
       if (progress) consecutivePollFailures = 0;
       else if (++consecutivePollFailures >= 10) throw new Error("The backend stopped responding during recovery. Check the Render service and logs.");
+      if (progress && progress.active === false && progress.status === "idle") {
+        progress = { ...progress, status: "interrupted", stage: "Recovery stopped before reporting a final result", error: "The backend reports that no recovery job is active. Its progress state may have been reset by a server restart or process interruption. Check the Render logs and verify the database before trying again." };
+        updateRestoreProgressUI(progress);
+      }
+    }
+
+    if (progress.status === "interrupted") {
+      showToast(progress.error, "error");
+      await loadSystemBackups();
+      window.setTimeout(closeRestoreProgressModal, 6000);
+      return;
     }
 
     if (progress.status === "cancelled") {
