@@ -234,8 +234,8 @@
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                   <circle cx="12" cy="10" r="3" />
                 </svg>
-                <select class="filter-select" id="queue-barangay-filter" style="height:36px"
-                  onchange="filterQueueByBarangay(this.value)" aria-label="Filter queue by barangay">
+                <select class="filter-select" id="queue-barangay-filter" multiple size="4" title="Select multiple values. Hold Ctrl while clicking to select more than one."
+                  onchange="filterQueueByBarangay(this)" aria-label="Filter queue by barangay">
                   <option value="">Barangay: All</option>
                   <option value="Alagao">Alagao</option>
                   <option value="Aplaya">Aplaya</option>
@@ -394,10 +394,6 @@
 
       </div>
       <div class="page-header__controls">
-        <button class="btn btn--ghost analytics-report-button" type="button" onclick="downloadIdMakerAnalyticsReport()" title="Print this analytics page or save it as a PDF">
-          <i class="fi fi-rr-download" aria-hidden="true"></i>
-          Download report (PDF)
-        </button>
         <button class="theme-toggle theme-toggle--header" type="button" data-theme-toggle aria-label="Switch to dark mode" title="Switch to dark mode" aria-pressed="false">
           <svg data-theme-icon="light" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
           <svg data-theme-icon="dark" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M20.5 15.5A8.5 8.5 0 0 1 8.5 3.5 8.5 8.5 0 1 0 20.5 15.5Z"/></svg>
