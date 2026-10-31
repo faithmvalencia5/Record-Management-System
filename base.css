@@ -7653,3 +7653,15 @@ body.portal-mode #toast-container {
 #login-page input.auth-input::-ms-expand {
   display: none;
 }
+
+
+/* Compact application filters: render one custom chevron per native select. */
+.filter-select-wrap select.filter-select,
+.barangay-select-wrap select.filter-select {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  background-image: none !important;
+}
+.filter-select-wrap .select-chevron {
+  pointer-events: none;
+}
