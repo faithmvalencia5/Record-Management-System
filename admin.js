@@ -5232,6 +5232,7 @@ async function runRestore(backupId) {
     if (progress.status === "cancelled") {
       showToast("Recovery cancelled. Any changes completed before cancellation were preserved.", "warning");
       await loadSystemBackups();
+      window.setTimeout(closeRestoreProgressModal, 1200);
       return;
     }
     if (progress.status === "failed") throw new Error(progress.error || progress.stage || "Recovery failed.");
