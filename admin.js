@@ -5015,9 +5015,25 @@ async function runBackupNow() {
     // The backend now runs the backup as a background job. Keep this page
     // updated by polling until the backend reports a terminal state.
     let progress = await refreshBackupProgress();
+    let consecutivePollFailures = 0;
+    const backupDeadline = Date.now() + 90 * 60 * 1000;
+
     while (!progress || !["completed", "failed", "cancelled"].includes(progress.status)) {
-      await new Promise(resolve => window.setTimeout(resolve, 1000));
+      if (Date.now() > backupDeadline) {
+        throw new Error("The backup has not reported a final status after 90 minutes. Check the Render backend logs before trying again.");
+      }
+
+      await new Promise(resolve => window.setTimeout(resolve, 1500));
       progress = await refreshBackupProgress();
+
+      if (progress) {
+        consecutivePollFailures = 0;
+      } else {
+        consecutivePollFailures += 1;
+        if (consecutivePollFailures >= 10) {
+          throw new Error("The backend stopped responding while the backup was running. Check the Render service and logs.");
+        }
+      }
     }
 
     if (progress.status === "failed") {
