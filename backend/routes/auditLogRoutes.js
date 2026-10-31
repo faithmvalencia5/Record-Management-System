@@ -2,6 +2,7 @@ const express = require("express");
 
 const {
   getAuditLogs,
+  recordExportAudit,
 } = require("../controllers/auditLogController");
 
 const {
@@ -16,6 +17,13 @@ router.get(
   authenticateToken,
   requireAdmin,
   getAuditLogs
+);
+
+router.post(
+  "/exports",
+  authenticateToken,
+  requireAdmin,
+  recordExportAudit
 );
 
 module.exports = router;
