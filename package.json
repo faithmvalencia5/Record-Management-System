@@ -24,5 +24,8 @@
     "nodemailer": "^10.0.16",
     "puppeteer-core": "^25.9.0",
     "resend": "^6.32.1"
+  },
+  "devDependencies": {
+    "supabase": "^2.122.0"
   }
 }
