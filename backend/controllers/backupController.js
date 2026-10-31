@@ -12,26 +12,25 @@ const TABLES = [
   { name: "user_accounts", conflict: "id" },
   { name: "application_files", conflict: "application_id" },
   { name: "family_composition", conflict: "id" },
-  { name: "personal_background", conflict: "id" },
-  { name: "problems_needs", conflict: "id" },
-  { name: "confirmations", conflict: "id" },
-  { name: "memberships", conflict: "id" },
+  { name: "personal_background", conflict: "application_id" },
+  { name: "problems_needs", conflict: "application_id" },
+  { name: "confirmations", conflict: "application_id" },
+  { name: "memberships", conflict: "application_id" },
   { name: "application_status_history", conflict: "id" },
   { name: "document_authentications", conflict: "id" },
   { name: "id_maker_queue", conflict: "id" },
   { name: "id_requests", conflict: "id" },
   { name: "audit_logs", conflict: "id" },
-  { name: "password_reset_tokens", conflict: "id" },
 ];
 
-function encryptionKey() {
+function encryptionKey(salt = Buffer.from("record-management-system-backup-v1")) {
   const secret = process.env.BACKUP_ENCRYPTION_KEY;
   if (!secret || secret.length < 32) {
     const error = new Error("BACKUP_ENCRYPTION_KEY is not configured. Add a secret of at least 32 characters to the backend environment before creating or restoring backups.");
     error.status = 503;
     throw error;
   }
-  return crypto.scryptSync(secret, "record-management-system-backup-v1", 32);
+  return crypto.scryptSync(secret, salt, 32);
 }
 
 function encryptArchive(buffer) {
@@ -53,7 +52,7 @@ function decryptArchive(buffer) {
   const encrypted = buffer.subarray(49);
   const secret = process.env.BACKUP_ENCRYPTION_KEY;
   if (!secret || secret.length < 32) throw new Error("BACKUP_ENCRYPTION_KEY is not configured on the backend.");
-  const key = crypto.scryptSync(secret, "record-management-system-backup-v1", 32);
+  const key = crypto.scryptSync(secret, salt, 32);
   const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(encrypted), decipher.final()]);
