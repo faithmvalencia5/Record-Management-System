@@ -1613,68 +1613,16 @@ document.addEventListener(
 
 
     /*
-     * Existing admin modules.
+     * Render only modules that are present on this admin page.
+     * Backup history is rendered by loadSystemBackups() after the
+     * protected API request completes.
      */
-    setTimeout(
-      () => {
-
-        renderUserMgmtTable();
-
-        renderAuditTable();
-
-        renderBackupHistory();
-
-        renderRestorePoints();
-
-        renderServiceStatus();
-
-      },
-      100
-    );
-
-
-    /*
-     * SMS template counters.
-     */
-    [
-      'approval',
-      'rejection'
-    ].forEach(
-      kind => {
-
-        const ta =
-          document.getElementById(
-            'tpl-sms-' + kind
-          );
-
-
-        if (ta) {
-
-          ta.addEventListener(
-            'input',
-            () =>
-              updateSmsCount(
-                'tpl-sms-' + kind,
-                'tpl-counter-' + kind
-              )
-          );
-
-        }
-
-      }
-    );
-
-
-    updateSmsCount(
-      'tpl-sms-approval',
-      'tpl-counter-approval'
-    );
-
-
-    updateSmsCount(
-      'tpl-sms-rejection',
-      'tpl-counter-rejection'
-    );
+    setTimeout(() => {
+      if (typeof renderUserMgmtTable === 'function') renderUserMgmtTable();
+      if (typeof renderAuditTable === 'function') renderAuditTable();
+      if (typeof renderBackupHistory === 'function') renderBackupHistory();
+      if (typeof renderRestorePoints === 'function') renderRestorePoints();
+    }, 100);
 
 
     /*
