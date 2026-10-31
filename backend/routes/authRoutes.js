@@ -570,6 +570,15 @@ router.post("/register", async (req, res) => {
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
 
+    const { data: registrationSettings, error: settingsError } = await supabase.from("system_settings").select("allow_public_registration").eq("id", 1).maybeSingle();
+    if (settingsError) {
+      console.error("Registration settings lookup error:", settingsError);
+      return res.status(503).json({ success: false, message: "Registration is temporarily unavailable. Please contact the administrator." });
+    }
+    if (registrationSettings && registrationSettings.allow_public_registration === false) {
+      return res.status(403).json({ success: false, message: "Public account registration is currently disabled. Please contact the administrator." });
+    }
+
     if (!fullName || !username || !email || !password) {
       return res.status(400).json({ success: false, message: "Full name, username, email, and password are required." });
     }
