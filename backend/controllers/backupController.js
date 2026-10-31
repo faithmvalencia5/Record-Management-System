@@ -8,6 +8,15 @@ const SOURCE_BUCKET = "documents";
 const BACKUP_VERSION = 1;
 const PAGE_SIZE = 1000;
 let currentRestoreProgress = { active: false, status: "idle", percent: 0, stage: "Waiting to start", updatedAt: null };
+let restoreCancelRequested = false;
+
+function checkRestoreCancelled() {
+  if (restoreCancelRequested) {
+    const error = new Error("Recovery was cancelled by the administrator.");
+    error.code = "RESTORE_CANCELLED";
+    throw error;
+  }
+}
 
 function setRestoreProgress(percent, stage, extra = {}) {
   currentRestoreProgress = {
@@ -23,6 +32,15 @@ function setRestoreProgress(percent, stage, extra = {}) {
 
 async function getSystemRestoreProgress(req, res) {
   return res.json({ success: true, progress: currentRestoreProgress });
+}
+
+async function cancelSystemRestore(req, res) {
+  if (!currentRestoreProgress.active) {
+    return res.status(409).json({ success: false, message: "There is no active recovery to cancel." });
+  }
+  restoreCancelRequested = true;
+  setRestoreProgress(currentRestoreProgress.percent, "Cancellation requested. Finishing the current safe operation…", { active: true, status: "cancelling" });
+  return res.json({ success: true, message: "Recovery cancellation requested. The current database batch or file operation will finish before recovery stops." });
 }
 
 let currentBackupProgress = { active: false, status: "idle", percent: 0, stage: "Waiting to start", updatedAt: null };
@@ -742,13 +760,16 @@ async function restoreSystemBackup(req, res) {
   if (!/^backup-[0-9T-]+Z$/.test(backupId)) {
     return res.status(400).json({ success: false, message: "Invalid backup identifier." });
   }
+  restoreCancelRequested = false;
   setRestoreProgress(1, "Starting non-destructive recovery", { active: true, status: "running", error: null, summary: null, backupId });
   setImmediate(() => {
     runSystemRestoreJob(req, backupId).catch(error => {
       console.error("Restore system backup error:", error);
-      setRestoreProgress(currentRestoreProgress.percent, "Recovery failed: " + (error.message || "Unknown error"), {
-        active: false, status: "failed", error: error.message || "Unable to restore this backup."
-      });
+      if (error.code !== "RESTORE_CANCELLED") {
+        setRestoreProgress(currentRestoreProgress.percent, "Recovery failed: " + (error.message || "Unknown error"), {
+          active: false, status: "failed", error: error.message || "Unable to restore this backup."
+        });
+      }
     });
   });
   return res.status(202).json({ success: true, accepted: true, message: "Recovery started. Follow the progress indicator until it completes." });
@@ -769,6 +790,7 @@ async function runSystemRestoreJob(req, backupId) {
     const metadata = JSON.parse(await metadataBlob.text());
     setRestoreProgress(10, "Decrypting backup and validating recovery chain");
     const { zip, manifest } = await downloadAndOpenBackupArchive(storage, backupId, metadata);
+    checkRestoreCancelled();
     const recoveryChain = [{ metadata, zip, manifest }];
     let chainMetadata = metadata;
     const seenBackupIds = new Set([backupId]);
@@ -780,6 +802,7 @@ async function runSystemRestoreJob(req, backupId) {
       seenBackupIds.add(parentId);
       const parentMetadata = await loadBackupMetadata(storage, parentId);
       const parentArchive = await downloadAndOpenBackupArchive(storage, parentId, parentMetadata);
+      checkRestoreCancelled();
       recoveryChain.push({ metadata: parentMetadata, ...parentArchive });
       chainMetadata = parentMetadata;
     }
@@ -796,6 +819,7 @@ async function runSystemRestoreJob(req, backupId) {
     let tablesCompleted = 0;
     setRestoreProgress(20, "Restoring missing database records");
     for (const table of TABLES) {
+      checkRestoreCancelled();
       const entry = zip.getEntry("database/" + table.name + ".json");
       if (!entry) {
         failed.push({ item: table.name, reason: "Table data is missing from the archive." });
@@ -805,6 +829,7 @@ async function runSystemRestoreJob(req, backupId) {
       let inserted = 0;
       let ignored = 0;
       for (let offset = 0; offset < rows.length; offset += 100) {
+        checkRestoreCancelled();
         const batch = rows.slice(offset, offset + 100);
         if (!batch.length) continue;
         const { data, error } = await supabase.from(table.name).upsert(batch, {
@@ -836,6 +861,7 @@ async function runSystemRestoreJob(req, backupId) {
     let filesProcessed = 0;
     setRestoreProgress(57, "Checking uploaded applicant files");
     for (const { file, zip: fileZip } of filesToProcess) {
+      checkRestoreCancelled();
       if (file.bucket !== SOURCE_BUCKET || !file.path || file.path.startsWith("/") || file.path.split("/").includes("..")) {
         failed.push({ item: file.path || "unknown file", reason: "Unsafe or unsupported file path." });
         filesProcessed++;
@@ -894,6 +920,7 @@ async function runSystemRestoreJob(req, backupId) {
       failures: failed,
     };
 
+    checkRestoreCancelled();
     setRestoreProgress(97, "Recording recovery activity");
     await createAuditLogFromRequest(req, {
       action: "SYSTEM_BACKUP_RESTORED",
@@ -910,6 +937,12 @@ async function runSystemRestoreJob(req, backupId) {
     setRestoreProgress(100, failed.length ? "Recovery finished with issues" : "Recovery completed successfully", { active: false, status: failed.length ? "completed_with_issues" : "completed", summary });
     return result;
   } catch (error) {
+    if (error.code === "RESTORE_CANCELLED") {
+      setRestoreProgress(currentRestoreProgress.percent, "Recovery cancelled. Completed changes were kept safely.", {
+        active: false, status: "cancelled", error: null
+      });
+      return;
+    }
     console.error("Restore system backup error:", error);
     setRestoreProgress(currentRestoreProgress.percent, "Recovery failed: " + (error.message || "Unknown error"), {
       active: false, status: "failed", error: error.message || "Unable to restore this backup."
@@ -923,6 +956,7 @@ module.exports = {
   createSystemBackup,
   getSystemBackupProgress,
   getSystemRestoreProgress,
+  cancelSystemRestore,
   cancelSystemBackup,
   listSystemBackups,
   restoreSystemBackup,
