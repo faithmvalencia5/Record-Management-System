@@ -539,6 +539,7 @@ async function restoreSystemBackup(req, res) {
 module.exports = {
   createSystemBackup,
   getSystemBackupProgress,
+  cancelSystemBackup,
   listSystemBackups,
   restoreSystemBackup,
 };
