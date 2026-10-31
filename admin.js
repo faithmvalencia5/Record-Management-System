@@ -4744,6 +4744,7 @@ const ADMIN_BACKUPS_API = "https://management-backend-3cij.onrender.com/api/back
 let backupIsRunning = false;
 let BACKUP_HISTORY = [];
 let backupProgressPoller = null;
+let backupCancelRequestedByUser = false;
 
 function formatBackupBytes(bytes) {
   const value = Number(bytes) || 0;
@@ -4873,9 +4874,35 @@ function updateBackupProgressUI(progress = {}) {
   if (stage) stage.textContent = progress.stage || "Preparing backup…";
   if (status) {
     status.textContent = progress.status === "failed" ? "Failed" :
-      progress.status === "completed" ? "Completed" : "In progress";
+      progress.status === "completed" ? "Completed" :
+      progress.status === "cancelled" ? "Cancelled" :
+      progress.status === "cancelling" ? "Cancelling…" : "In progress";
     status.className = "backup-progress-status" +
-      (progress.status === "failed" ? " is-failed" : progress.status === "completed" ? " is-complete" : "");
+      (progress.status === "failed" ? " is-failed" :
+        progress.status === "completed" ? " is-complete" :
+        progress.status === "cancelled" || progress.status === "cancelling" ? " is-cancelled" : "");
+  }
+  const cancelButton = document.getElementById("backup-cancel-button");
+  const note = document.getElementById("backup-progress-note");
+  const terminal = ["failed", "completed", "cancelled"].includes(progress.status);
+  if (cancelButton) {
+    cancelButton.hidden = terminal;
+    if (progress.status === "cancelling" || backupCancelRequestedByUser) {
+      cancelButton.disabled = true;
+      cancelButton.textContent = "Cancelling…";
+    } else {
+      cancelButton.disabled = false;
+      cancelButton.textContent = "Cancel Backup";
+    }
+  }
+  if (note) {
+    note.textContent = progress.status === "cancelling"
+      ? "Please wait while the current operation finishes and temporary files are cleaned up."
+      : progress.status === "cancelled"
+        ? "The backup was cancelled. No recovery point was saved."
+        : progress.status === "completed"
+          ? "Your encrypted recovery point is saved."
+          : "Please keep this page open while the backup is running.";
   }
   if (detail) {
     const parts = [];
@@ -4915,9 +4942,46 @@ function stopBackupProgressPolling() {
   }
 }
 
+async function cancelBackupNow() {
+  if (!backupIsRunning || backupCancelRequestedByUser) return;
+  backupCancelRequestedByUser = true;
+  const cancelButton = document.getElementById("backup-cancel-button");
+  if (cancelButton) {
+    cancelButton.disabled = true;
+    cancelButton.textContent = "Cancelling…";
+  }
+  updateBackupProgressUI({
+    percent: Number(document.getElementById("backup-progress-bar")?.getAttribute("aria-valuenow") || 0),
+    stage: "Sending cancellation request…",
+    status: "cancelling"
+  });
+  try {
+    const response = await fetch(ADMIN_BACKUPS_API + "/cancel", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({})
+    });
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "Unable to cancel the backup.");
+    }
+    showToast("Cancellation requested. Waiting for safe cleanup…", "info");
+    await refreshBackupProgress();
+  } catch (error) {
+    console.error("[Backups] Cancellation request failed:", error);
+    backupCancelRequestedByUser = false;
+    if (cancelButton) {
+      cancelButton.disabled = false;
+      cancelButton.textContent = "Cancel Backup";
+    }
+    showToast(error.message || "Unable to cancel the backup.", "error");
+  }
+}
+
 async function runBackupNow() {
   if (backupIsRunning) return;
   backupIsRunning = true;
+  backupCancelRequestedByUser = false;
   const button = document.getElementById("btn-execute-backup");
   if (button) {
     button.disabled = true;
@@ -4941,12 +5005,19 @@ async function runBackupNow() {
     window.setTimeout(closeBackupProgressModal, 1200);
   } catch (error) {
     console.error("[Backups] Create failed:", error);
-    updateBackupProgressUI({ percent: 0, stage: error.message || "Backup failed. Please try again.", status: "failed" });
-    showToast(error.message || "Backup failed. Check the backend configuration.", "error");
+    const wasCancelled = backupCancelRequestedByUser || /cancelled by administrator/i.test(error.message || "");
+    const currentPercent = Number(document.getElementById("backup-progress-bar")?.getAttribute("aria-valuenow") || 0);
+    updateBackupProgressUI({
+      percent: currentPercent,
+      stage: wasCancelled ? "Backup cancelled. Temporary files were cleaned up." : (error.message || "Backup failed. Please try again."),
+      status: wasCancelled ? "cancelled" : "failed"
+    });
+    showToast(wasCancelled ? "Backup cancelled. No recovery point was saved." : (error.message || "Backup failed. Check the backend configuration."), wasCancelled ? "warning" : "error");
     window.setTimeout(closeBackupProgressModal, 2800);
   } finally {
     stopBackupProgressPolling();
     backupIsRunning = false;
+    backupCancelRequestedByUser = false;
     if (button) {
       button.disabled = false;
       button.textContent = "Execute Immediate Database Backup";
