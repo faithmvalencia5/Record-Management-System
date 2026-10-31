@@ -37,6 +37,9 @@ function updateAdminDashboardFromApplications(applications) {
   updateAdminApplicationAnalytics(applications);
 
   const total = applications.length;
+  const registered = applications.filter(application =>
+    String(application.status || '').trim().toLowerCase() === 'completed'
+  ).length;
 
 
   /* -----------------------------------------
@@ -49,7 +52,7 @@ function updateAdminDashboardFromApplications(applications) {
   if (citizens) {
 
     citizens.textContent =
-      total.toLocaleString('en-US');
+      registered.toLocaleString('en-US');
 
   }
 
@@ -62,10 +65,17 @@ function updateAdminDashboardFromApplications(applications) {
     document.getElementById('metric-received');
 
   if (received) {
-
-    received.textContent =
-      total.toLocaleString('en-US');
-
+    const today = new Date();
+    const receivedToday = applications.filter(application => {
+      const value = application.created_at || application.submitted_at || application.application_date;
+      if (!value) return false;
+      const date = new Date(value);
+      return !Number.isNaN(date.getTime()) &&
+        date.getFullYear() === today.getFullYear() &&
+        date.getMonth() === today.getMonth() &&
+        date.getDate() === today.getDate();
+    }).length;
+    received.textContent = receivedToday.toLocaleString('en-US');
   }
 
 
@@ -81,6 +91,8 @@ function updateAdminDashboardFromApplications(applications) {
 
     ANALYTICS_DATA.Admin.totalApplications =
       total;
+    ANALYTICS_DATA.Admin.completed =
+      registered;
 
   }
 
@@ -515,26 +527,8 @@ function updateAdminApplicationAnalytics(
      Total daily application actions
      ----------------------------------------- */
 
-  const dailyActions =
-    getTodayApplicationActions(
-      applications
-    );
-
-
-  const dailyActionsEl =
-    document.getElementById(
-      'metric-daily-actions'
-    );
-
-
-  if (dailyActionsEl) {
-
-    dailyActionsEl.textContent =
-      dailyActions.toLocaleString(
-        'en-US'
-      );
-
-  }
+  // Daily actions and exports are calculated from the complete audit trail.
+  updateAdminAuditActivityKPIs();
 
 
   /* -----------------------------------------
@@ -1367,6 +1361,8 @@ async function loadAdminAuditLogs() {
       renderAuditTable();
       renderAuditSummaryFromLiveData();
       updateSecurityAlertsKPI();
+      updateAdminAuditActivityKPIs();
+      updateAdminAuditActivityKPIs();
 
       if (typeof Skeleton !== 'undefined') {
         Skeleton.clearBusy('audit-logs-tbody');
@@ -1428,20 +1424,13 @@ function updateSecurityAlertsKPI() {
   }
 
 
-  const securityActions =
-    AUDIT_LOG_DATA.filter(
-      log =>
-        [
-          'LOGIN_FAILED',
-          'PASSWORD_RESET',
-          'USER_DEACTIVATED'
-        ].includes(
-          String(
-            log.action ||
-            ''
-          ).toUpperCase()
-        )
-    );
+  const cutoff = Date.now() - (30 * 24 * 60 * 60 * 1000);
+  const securityActions = AUDIT_LOG_DATA.filter(log => {
+    const action = String(log.action || '').toUpperCase();
+    const time = new Date(log.createdAt || '').getTime();
+    return ['LOGIN_FAILED', 'PASSWORD_RESET', 'USER_DEACTIVATED'].includes(action) &&
+      Number.isFinite(time) && time >= cutoff;
+  });
 
 
   element.textContent =
@@ -1451,7 +1440,7 @@ function updateSecurityAlertsKPI() {
 
 
   element.title =
-    'Security-sensitive audit events recorded in the system';
+    'Security-sensitive audit events recorded in the last 30 days';
 
 }
 
@@ -1462,6 +1451,24 @@ function updateSecurityAlertsKPI() {
  *
  * This preserves the existing summary filter.
  */
+function updateAdminAuditActivityKPIs() {
+  const today = new Date();
+  const todayLogs = AUDIT_LOG_DATA.filter(log => {
+    const date = new Date(log.createdAt || '');
+    return !Number.isNaN(date.getTime()) &&
+      date.getFullYear() === today.getFullYear() &&
+      date.getMonth() === today.getMonth() &&
+      date.getDate() === today.getDate();
+  });
+  const exportsToday = todayLogs.filter(log =>
+    String(log.action || '').toUpperCase() === 'DATA_EXPORTED'
+  ).length;
+  const exportedEl = document.getElementById('metric-printed');
+  const actionsEl = document.getElementById('metric-daily-actions');
+  if (exportedEl) exportedEl.textContent = exportsToday.toLocaleString('en-US');
+  if (actionsEl) actionsEl.textContent = todayLogs.length.toLocaleString('en-US');
+}
+
 function renderAuditSummaryFromLiveData() {
 
   const tbody =
@@ -4814,6 +4821,13 @@ function updateBackupSummary() {
   if (storage) storage.textContent = Number(latest?.totalRows || 0).toLocaleString();
   if (next) next.textContent = Number(latest?.fileCount || 0).toLocaleString();
   if (restore) restore.textContent = latest ? "Ready" : "None";
+  const dashboardBackup = document.getElementById("kpi-backup");
+  if (dashboardBackup) {
+    dashboardBackup.textContent = BACKUP_HISTORY.length.toLocaleString();
+    dashboardBackup.title = latest
+      ? "Latest successful backup: " + formatBackupDate(latest.createdAt)
+      : "No successful backup is available.";
+  }
   if (title) title.textContent = latest
     ? "Latest successful backup: " + formatBackupDate(latest.createdAt)
     : "No successful backup has been created yet.";
