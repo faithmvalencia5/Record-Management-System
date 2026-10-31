@@ -836,6 +836,30 @@
     </section>
   </div>
 
+  <!-- RESTORE PROGRESS MODAL -->
+  <div class="backup-progress-modal" id="restore-progress-modal" hidden>
+    <div class="backup-progress-modal__backdrop"></div>
+    <section class="backup-progress-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="restore-progress-title" aria-describedby="restore-progress-stage">
+      <div class="backup-progress-modal__icon" aria-hidden="true">
+        <i class="fi fi-rr-shield-check"></i>
+      </div>
+      <div class="backup-progress-modal__eyebrow">BACKUP &amp; RECOVERY</div>
+      <h2 id="restore-progress-title">Recovering missing records and files</h2>
+      <div class="backup-progress-modal__status-row">
+        <span id="restore-progress-status" class="backup-progress-status">In progress</span>
+        <strong id="restore-progress-percent">0%</strong>
+      </div>
+      <div class="backup-progress-track" role="progressbar" aria-label="Recovery progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+        <div class="backup-progress-track__bar" id="restore-progress-bar"></div>
+      </div>
+      <p class="backup-progress-modal__stage" id="restore-progress-stage">Preparing recovery…</p>
+      <p class="backup-progress-modal__detail" id="restore-progress-detail">Validating backup and preparing recovery</p>
+      <div class="backup-progress-modal__footer">
+        <span id="restore-progress-note">Please keep this page open while missing records and files are restored.</span>
+      </div>
+    </section>
+  </div>
+
   <!-- USER ACCOUNT MODAL (Add / Edit) -->
   <div class="modal-backdrop" id="user-modal">
     <div class="modal user-account-modal" role="dialog" aria-modal="true" aria-labelledby="user-modal-title">
