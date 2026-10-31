@@ -137,49 +137,50 @@ async function getAuditLogs(req, res) {
 }
 
 
-async function recordExportAudit(req, res) {
+async function recordDataActivity(req, res, forcedAction = null) {
   try {
+    const actorRole = String(req.user?.role || "").trim().toLowerCase();
+    if (!["admin", "administrator", "staff", "osca staff"].includes(actorRole)) {
+      return res.status(403).json({ success: false, message: "Only authorized Staff and Admin accounts can record data activities." });
+    }
+    const action = forcedAction || String(req.body?.action || "DATA_EXPORTED").trim().toUpperCase();
+    const isExport = action === "DATA_EXPORTED";
+    const isImport = action === "DATA_IMPORTED";
     const report = String(req.body?.report || "").trim().slice(0, 120);
-    const format = String(req.body?.format || "").trim().toUpperCase().slice(0, 12);
+    const format = String(req.body?.format || "CSV").trim().toUpperCase().slice(0, 12);
     const recordCount = Number(req.body?.recordCount);
-
-    if (!report || !["CSV", "JSON", "PDF", "XLSX"].includes(format) ||
+    if ((!isExport && !isImport) || !report || !["CSV", "JSON", "PDF", "XLSX"].includes(format) ||
         !Number.isInteger(recordCount) || recordCount < 0) {
-      return res.status(400).json({
-        success: false,
-        message: "A valid report name, export format, and record count are required.",
-      });
+      return res.status(400).json({ success: false, message: "A valid activity type, report name, format, and record count are required." });
     }
-
     const saved = await createAuditLogFromRequest(req, {
-      action: "DATA_EXPORTED",
-      entityType: "export",
-      details: `Exported ${report} as ${format} (${recordCount.toLocaleString()} records).`,
+      action,
+      entityType: isExport ? "export" : "import",
+      details: `${isExport ? "Exported" : "Imported"} ${report} as ${format} (${recordCount.toLocaleString()} records).`,
     });
-
     if (!saved) {
-      return res.status(500).json({
-        success: false,
-        message: "The export was created, but its audit event could not be saved.",
-      });
+      return res.status(500).json({ success: false, message: "The activity could not be saved to the audit log." });
     }
-
-    return res.status(201).json({
-      success: true,
-      message: "Export activity recorded.",
-    });
+    return res.status(201).json({ success: true, message: `${isExport ? "Export" : "Import"} activity recorded.` });
   } catch (error) {
-    console.error("Record export audit error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Unable to record export activity.",
-    });
+    console.error("Record data activity error:", error);
+    return res.status(500).json({ success: false, message: "Unable to record the data activity." });
   }
+}
+
+async function recordExportAudit(req, res) {
+  return recordDataActivity(req, res, "DATA_EXPORTED");
+}
+
+async function recordImportAudit(req, res) {
+  return recordDataActivity(req, res, "DATA_IMPORTED");
 }
 
 module.exports = {
   createAuditLog,
   createAuditLogFromRequest,
   recordExportAudit,
+  recordImportAudit,
+  recordDataActivity,
   getAuditLogs,
 };
