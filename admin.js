@@ -1347,7 +1347,6 @@ async function loadAdminAuditLogs() {
       renderAuditSummaryFromLiveData();
       updateSecurityAlertsKPI();
       updateAdminAuditActivityKPIs();
-      updateAdminAuditActivityKPIs();
 
       if (typeof Skeleton !== 'undefined') {
         Skeleton.clearBusy('audit-logs-tbody');
@@ -2026,8 +2025,8 @@ function renderUserMgmtTable() {
     ).toLowerCase();
 
 
-  const roleF = Array.from(document.getElementById('user-role-filter')?.selectedOptions || []).map(option => option.value);
-  const statusF = Array.from(document.getElementById('user-status-filter')?.selectedOptions || []).map(option => option.value);
+  const roleF = Array.from(document.getElementById('user-role-filter')?.selectedOptions || []).map(option => option.value).filter(Boolean);
+  const statusF = Array.from(document.getElementById('user-status-filter')?.selectedOptions || []).map(option => option.value).filter(Boolean);
 
 
   const normalizeAccountRole = value => {
