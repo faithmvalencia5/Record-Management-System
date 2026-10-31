@@ -8,6 +8,7 @@ const SOURCE_BUCKET = "documents";
 const BACKUP_VERSION = 1;
 const PAGE_SIZE = 1000;
 let currentBackupProgress = { active: false, status: "idle", percent: 0, stage: "Waiting to start", updatedAt: null };
+let backupCancelRequested = false;
 
 function setBackupProgress(percent, stage, extra = {}) {
   currentBackupProgress = {
@@ -23,6 +24,25 @@ function setBackupProgress(percent, stage, extra = {}) {
 
 async function getSystemBackupProgress(req, res) {
   return res.json({ success: true, progress: currentBackupProgress });
+}
+
+async function cancelSystemBackup(req, res) {
+  if (!currentBackupProgress.active) {
+    return res.status(409).json({ success: false, message: "There is no active backup to cancel." });
+  }
+  backupCancelRequested = true;
+  setBackupProgress(currentBackupProgress.percent, "Cancellation requested. Finishing the current operation safely…", {
+    active: true, status: "cancelling"
+  });
+  return res.json({ success: true, message: "Backup cancellation requested. The current operation will finish safely before temporary backup parts are removed." });
+}
+
+function checkBackupCancelled() {
+  if (backupCancelRequested) {
+    const error = new Error("Backup cancelled by administrator.");
+    error.code = "BACKUP_CANCELLED";
+    throw error;
+  }
 }
 
 const TABLES = [
@@ -145,10 +165,13 @@ async function listStorageFiles(bucket, folder = "") {
 }
 
 async function createSystemBackup(req, res) {
+  let archiveParts = [];
   try {
+    backupCancelRequested = false;
     setBackupProgress(1, "Preparing secure backup storage", { active: true, status: "running", error: null });
     encryptionKey();
     await ensureBucket(BACKUP_BUCKET, false);
+    checkBackupCancelled();
     setBackupProgress(5, "Secure backup storage is ready");
 
     const zip = new AdmZip();
@@ -158,8 +181,10 @@ async function createSystemBackup(req, res) {
     let totalRows = 0;
 
     for (let index = 0; index < TABLES.length; index++) {
+      checkBackupCancelled();
       const table = TABLES[index];
       const rows = await fetchAllTableRows(table.name);
+      checkBackupCancelled();
       tableCounts[table.name] = rows.length;
       totalRows += rows.length;
       zip.addFile("database/" + table.name + ".json", Buffer.from(JSON.stringify(rows), "utf8"));
@@ -170,7 +195,9 @@ async function createSystemBackup(req, res) {
     }
 
     setBackupProgress(43, "Finding uploaded applicant files");
+    checkBackupCancelled();
     const sourceFiles = await listStorageFiles(SOURCE_BUCKET);
+    checkBackupCancelled();
     const fileManifest = [];
     let fileBytes = 0;
     setBackupProgress(47, sourceFiles.length
@@ -178,8 +205,10 @@ async function createSystemBackup(req, res) {
       : "No uploaded applicant files found", { completedFiles: 0, totalFiles: sourceFiles.length });
 
     for (let fileIndex = 0; fileIndex < sourceFiles.length; fileIndex++) {
+      checkBackupCancelled();
       const file = sourceFiles[fileIndex];
       const { data, error } = await supabase.storage.from(SOURCE_BUCKET).download(file.path);
+      checkBackupCancelled();
       if (error || !data) throw new Error("Unable to download uploaded file " + file.path + ": " + (error?.message || "No file data returned."));
       const bytes = Buffer.from(await data.arrayBuffer());
       zip.addFile("storage/" + SOURCE_BUCKET + "/" + file.path, bytes);
@@ -213,12 +242,12 @@ async function createSystemBackup(req, res) {
 
     // Keep each Storage object comfortably below the configured 4 MB bucket limit.
     const ARCHIVE_PART_SIZE = 3 * 1024 * 1024;
-    const archiveParts = [];
     const storage = supabase.storage.from(BACKUP_BUCKET);
     const totalParts = Math.ceil(encrypted.length / ARCHIVE_PART_SIZE);
     setBackupProgress(82, "Uploading encrypted archive (0 of " + totalParts + " parts)", { totalParts, completedParts: 0 });
 
     for (let offset = 0, partNumber = 1; offset < encrypted.length; offset += ARCHIVE_PART_SIZE, partNumber++) {
+      checkBackupCancelled();
       const partPath = backupId + ".part-" + String(partNumber).padStart(4, "0");
       const part = encrypted.subarray(offset, Math.min(offset + ARCHIVE_PART_SIZE, encrypted.length));
       const { error: partError } = await storage.upload(partPath, part, {
@@ -230,12 +259,14 @@ async function createSystemBackup(req, res) {
         throw new Error("Unable to upload backup archive part " + partNumber + ": " + partError.message);
       }
       archiveParts.push(partPath);
+      checkBackupCancelled();
       const percent = 82 + (partNumber / totalParts) * 15;
       setBackupProgress(percent, "Uploading encrypted archive (" + partNumber + " of " + totalParts + " parts)", {
         completedParts: partNumber, totalParts
       });
     }
 
+    checkBackupCancelled();
     setBackupProgress(98, "Saving backup manifest and finalizing");
     const metadata = {
       version: BACKUP_VERSION,
@@ -274,10 +305,16 @@ async function createSystemBackup(req, res) {
     return res.status(201).json({ success: true, message: "Encrypted system backup created and verified.", backup: metadata });
   } catch (error) {
     console.error("Create system backup error:", error);
-    setBackupProgress(currentBackupProgress.percent, "Backup failed: " + (error.message || "Unknown error"), {
-      active: false, status: "failed", error: error.message || "Unable to create system backup."
+    if (archiveParts.length) {
+      const { error: cleanupError } = await supabase.storage.from(BACKUP_BUCKET).remove(archiveParts);
+      if (cleanupError) console.error("Unable to remove cancelled/partial backup parts:", cleanupError.message);
+    }
+    const cancelled = error.code === "BACKUP_CANCELLED";
+    setBackupProgress(currentBackupProgress.percent, cancelled ? "Backup cancelled. Temporary files were cleaned up." : "Backup failed: " + (error.message || "Unknown error"), {
+      active: false, status: cancelled ? "cancelled" : "failed", error: error.message || "Unable to create system backup."
     });
-    return res.status(error.status || 500).json({ success: false, message: error.message || "Unable to create system backup." });
+    backupCancelRequested = false;
+    return res.status(cancelled ? 409 : (error.status || 500)).json({ success: false, cancelled, message: error.message || "Unable to create system backup." });
   }
 }
 
