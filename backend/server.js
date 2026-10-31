@@ -9,6 +9,7 @@ const auditLogRoutes = require("./routes/auditLogRoutes");
 const replacementRoutes = require("./routes/replacementRoutes");
 const staffAnalyticsInsightsRoutes = require("./routes/staffAnalyticsInsightsRoutes");
 const backupRoutes = require("./routes/backupRoutes");
+const systemSettingsRoutes = require("./routes/systemSettingsRoutes");
 
 const app = express();
 
@@ -38,6 +39,7 @@ app.use("/api/audit-logs", auditLogRoutes);
 app.use("/api/replacements", replacementRoutes);
 app.use("/api/analytics-insights", staffAnalyticsInsightsRoutes);
 app.use("/api/backups", backupRoutes);
+app.use("/api/system-settings", systemSettingsRoutes);
 
 app.get("/", (req, res) => {
   res.json({
