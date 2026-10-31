@@ -1226,9 +1226,10 @@ function persistCurrentSession(token) {
 
   session.id = CURRENT_USER.id ?? session.id;
   session.username = CURRENT_USER.username || session.username;
+  session.full_name = CURRENT_USER.fullName || session.full_name || '';
   session.role = CURRENT_USER.role || session.role;
   session.email = CURRENT_USER.email || '';
-  session.displayName = CURRENT_USER.displayName || CURRENT_USER.username || session.displayName;
+  session.displayName = CURRENT_USER.displayName || CURRENT_USER.fullName || CURRENT_USER.username || session.displayName;
 
   if (token) {
     session.token = token;
@@ -1244,7 +1245,8 @@ function applyProfileUser(user, token) {
   CURRENT_USER = CURRENT_USER || {};
   CURRENT_USER.id = user.id ?? CURRENT_USER.id;
   CURRENT_USER.username = user.username || CURRENT_USER.username;
-  CURRENT_USER.displayName = user.username || CURRENT_USER.displayName || user.username;
+  CURRENT_USER.fullName = user.full_name || CURRENT_USER.fullName || user.username || '';
+  CURRENT_USER.displayName = CURRENT_USER.fullName || CURRENT_USER.username || CURRENT_USER.displayName;
   CURRENT_USER.email = user.email || '';
   CURRENT_USER.role = normalizeRole(user.role || CURRENT_USER.role);
   CURRENT_USER.accountStatus = user.account_status || 'Active';
@@ -1255,7 +1257,7 @@ function applyProfileUser(user, token) {
 
 function fillProfileForm(user) {
   const profile = user || CURRENT_USER || {};
-  const displayName = profile.username || '—';
+  const displayName = profile.full_name || profile.fullName || profile.displayName || profile.username || '—';
   const role = normalizeRole(profile.role || CURRENT_ROLE);
 
   const avatar = document.getElementById('profile-avatar');
@@ -1266,6 +1268,9 @@ function fillProfileForm(user) {
 
   const roleLabel = document.getElementById('profile-role-label');
   if (roleLabel) roleLabel.textContent = `${role} account`;
+
+  const fullNameInput = document.getElementById('profile-full-name');
+  if (fullNameInput) fullNameInput.value = profile.full_name || profile.fullName || '';
 
   const usernameInput = document.getElementById('profile-username');
   if (usernameInput) usernameInput.value = profile.username || '';
@@ -1324,6 +1329,10 @@ function ensureProfileModal() {
 
             <form id="profile-info-form" class="profile-panel active" onsubmit="saveProfile(event)">
               <div class="form-grid">
+                <div class="form-group">
+                  <label class="form-label" for="profile-full-name">Full Name <span>*</span></label>
+                  <input class="form-input" id="profile-full-name" autocomplete="name" required />
+                </div>
                 <div class="form-group">
                   <label class="form-label" for="profile-username">Username <span>*</span></label>
                   <input class="form-input" id="profile-username" autocomplete="username" required />
@@ -1501,12 +1510,20 @@ function switchProfileTab(tab) {
 async function saveProfile(event) {
   event.preventDefault();
 
+  const fullNameInput = document.getElementById('profile-full-name');
   const usernameInput = document.getElementById('profile-username');
   const emailInput = document.getElementById('profile-email');
   const saveBtn = document.getElementById('profile-save-btn');
 
+  const fullName = String(fullNameInput?.value || '').trim();
   const username = String(usernameInput?.value || '').trim();
   const email = String(emailInput?.value || '').trim();
+
+  if (!fullName) {
+    showToast('Full name is required.', 'error');
+    fullNameInput?.focus();
+    return;
+  }
 
   if (!username) {
     showToast('Username is required.', 'error');
@@ -1520,7 +1537,7 @@ async function saveProfile(event) {
     const response = await fetch(`${AUTH_API_BASE}/me`, {
       method: 'PUT',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ username, email })
+      body: JSON.stringify({ full_name: fullName, username, email })
     });
 
     const result = await response.json();
@@ -2093,9 +2110,10 @@ async function handleLogin(event) {
     const authUser = {
       id: user.id,
       username: user.username,
+      fullName: user.full_name || user.username,
       role: frontendRole,
       email: user.email,
-      displayName: user.username
+      displayName: user.full_name || user.username
     };
 
     // Update current application session
@@ -2109,6 +2127,7 @@ async function handleLogin(event) {
     const sessionData = {
       id: authUser.id,
       username: authUser.username,
+      full_name: authUser.fullName,
       role: authUser.role,
       email: authUser.email,
       displayName: authUser.displayName,
@@ -2362,17 +2381,17 @@ function restoreSession() {
     username:
       parsed.username,
 
+    fullName:
+      parsed.full_name || parsed.displayName || parsed.username,
+
     role:
       normalizedRole,
 
     email:
       parsed.email || '',
 
-    // The backend stores usernames but has no separate display-name field.
-    // Prefer the current account username over stale displayName values saved
-    // by older portal versions.
     displayName:
-      parsed.username,
+      parsed.full_name || parsed.displayName || parsed.username,
 
     token:
       parsed.token || ''
