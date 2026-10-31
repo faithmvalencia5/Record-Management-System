@@ -2377,7 +2377,7 @@ function renderLiveApplicants(applications) {
     );
 
     if (footer) {
-      footer.textContent = 'Showing 0 of 0 applicants';
+      footer.textContent = 'Showing 0 of 0 registered seniors';
     }
 
     return;
@@ -3514,12 +3514,11 @@ function buildApplicantProfiles(applications) {
     const registeredDates = profile.completedApplications.map(a => new Date(a.status_updated_at || a.updated_at || a.created_at || 0))
       .filter(date => !Number.isNaN(date.getTime()) && date.getTime() > 0).sort((a, b) => a - b);
     profile.registeredAt = registeredDates[0] || null;
+    // Applicants module shows registered citizens only. Use their newest completed record.
+    if (profile.isRegistered) profile.latestApplication = profile.completedApplications[0];
     profile.isActive = profile.ongoingApplications.length > 0;
-    // Show the newest ongoing request in the list, even if the same citizen has older completed history.
-    if (profile.isActive) profile.latestApplication = profile.ongoingApplications[0];
     profile.hasDuplicateFlag = profile.applications.some(isProfileDuplicateFlagged);
-    profile.status = profile.isActive ? (profile.latestApplication.status || 'Pending') :
-      (profile.isRegistered ? 'Registered' : 'Rejected');
+    profile.status = profile.isRegistered ? 'Registered' : 'Rejected';
     return profile;
   });
 }
@@ -3536,17 +3535,19 @@ function getProfileStatusClass(status) {
 function renderLiveApplicants(applications) {
   const tbody = document.getElementById('applicants-tbody');
   if (!tbody) return;
-  // The Applicants module is an ongoing-work queue, not a list of completed registrations.
-  STAFF_APPLICANT_PROFILES = buildApplicantProfiles(applications).filter(profile => profile.isActive);
+  // The Applicants module is the directory of registered senior citizens only.
+  const allProfiles = buildApplicantProfiles(applications);
+  STAFF_APPLICANT_PROFILES = allProfiles.filter(profile => profile.isRegistered);
   const profiles = STAFF_APPLICANT_PROFILES;
   const badge = document.getElementById('applicants-total-badge');
-  if (badge) badge.textContent = profiles.length.toLocaleString() + ' Ongoing Profiles';
+  if (badge) badge.textContent = profiles.length.toLocaleString() + ' Registered Profiles';
+  // The sidebar badge remains the count of ongoing applications (all except Completed and Rejected).
   const sidebarBadge = document.getElementById('applicants-sidebar-count');
-  const ongoingApplicationCount = applications.filter(application =>
-    !['completed', 'rejected'].includes(normalizeApplicationStatus(application.status))).length;
+  const ongoingApplicationCount = (Array.isArray(applications) ? applications : []).reduce((count, application) =>
+    count + (!['completed', 'rejected'].includes(normalizeApplicationStatus(application.status)) ? 1 : 0), 0);
   if (sidebarBadge) sidebarBadge.textContent = ongoingApplicationCount.toLocaleString();
   if (!profiles.length) {
-    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">No applicant profiles found.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--text-muted)">No registered senior citizens found.</td></tr>';
     if (typeof Skeleton !== 'undefined') Skeleton.clearBusy('applicants-tbody');
     const footer = document.querySelector('#mod-applicants .table-footer__info');
     if (footer) footer.textContent = 'Showing 0 of 0 applicants';
@@ -3594,7 +3595,7 @@ function applyApplicantsFilters() {
     if (matches) visible++;
   });
   const footer = document.querySelector('#mod-applicants .table-footer__info');
-  if (footer) footer.textContent = `Showing ${visible.toLocaleString()} of ${rows.length.toLocaleString()} applicants`;
+  if (footer) footer.textContent = `Showing ${visible.toLocaleString()} of ${rows.length.toLocaleString()} registered seniors`;
 }
 
 function getProfileStatusPillClass(status) {
