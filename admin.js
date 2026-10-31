@@ -4743,6 +4743,7 @@ function exportAuditReport() {
 const ADMIN_BACKUPS_API = "https://management-backend-3cij.onrender.com/api/backups";
 let backupIsRunning = false;
 let BACKUP_HISTORY = [];
+let backupProgressPoller = null;
 
 function formatBackupBytes(bytes) {
   const value = Number(bytes) || 0;
@@ -4848,6 +4849,72 @@ function executeBackup() {
   });
 }
 
+function showBackupProgressModal() {
+  const modal = document.getElementById("backup-progress-modal");
+  if (modal) {
+    modal.hidden = false;
+    document.body.classList.add("backup-progress-open");
+  }
+  updateBackupProgressUI({ percent: 1, stage: "Starting secure backup…", status: "running" });
+}
+
+function updateBackupProgressUI(progress = {}) {
+  const percent = Math.max(0, Math.min(100, Number(progress.percent) || 0));
+  const value = document.getElementById("backup-progress-percent");
+  const bar = document.getElementById("backup-progress-bar");
+  const stage = document.getElementById("backup-progress-stage");
+  const status = document.getElementById("backup-progress-status");
+  const detail = document.getElementById("backup-progress-detail");
+  if (value) value.textContent = percent + "%";
+  if (bar) {
+    bar.style.width = percent + "%";
+    bar.setAttribute("aria-valuenow", String(percent));
+  }
+  if (stage) stage.textContent = progress.stage || "Preparing backup…";
+  if (status) {
+    status.textContent = progress.status === "failed" ? "Failed" :
+      progress.status === "completed" ? "Completed" : "In progress";
+    status.className = "backup-progress-status" +
+      (progress.status === "failed" ? " is-failed" : progress.status === "completed" ? " is-complete" : "");
+  }
+  if (detail) {
+    const parts = [];
+    if (Number.isFinite(Number(progress.completedTables)) && progress.totalTables) {
+      parts.push(progress.completedTables + "/" + progress.totalTables + " database tables");
+    }
+    if (progress.totalFiles) parts.push((progress.completedFiles || 0) + "/" + progress.totalFiles + " uploaded files");
+    if (progress.totalParts) parts.push((progress.completedParts || 0) + "/" + progress.totalParts + " archive parts");
+    detail.textContent = parts.join(" · ") || "Preparing backup tasks";
+  }
+}
+
+function closeBackupProgressModal() {
+  const modal = document.getElementById("backup-progress-modal");
+  if (modal) modal.hidden = true;
+  document.body.classList.remove("backup-progress-open");
+}
+
+async function refreshBackupProgress() {
+  try {
+    const response = await fetch(ADMIN_BACKUPS_API + "/progress", {
+      headers: { Accept: "application/json", ...getAuthHeaders() },
+      cache: "no-store"
+    });
+    if (!response.ok) return;
+    const result = await response.json();
+    if (result.success && result.progress) updateBackupProgressUI(result.progress);
+  } catch (error) {
+    console.warn("[Backups] Progress update unavailable:", error.message);
+  }
+}
+
+function stopBackupProgressPolling() {
+  if (backupProgressPoller) {
+    clearInterval(backupProgressPoller);
+    backupProgressPoller = null;
+  }
+}
+
 async function runBackupNow() {
   if (backupIsRunning) return;
   backupIsRunning = true;
@@ -4856,7 +4923,10 @@ async function runBackupNow() {
     button.disabled = true;
     button.textContent = "Creating encrypted backup…";
   }
+  showBackupProgressModal();
   showToast("Creating encrypted backup of database records and uploaded files…", "info");
+  await refreshBackupProgress();
+  backupProgressPoller = setInterval(refreshBackupProgress, 1000);
   try {
     const response = await fetch(ADMIN_BACKUPS_API, {
       method: "POST",
@@ -4865,12 +4935,17 @@ async function runBackupNow() {
     });
     const result = await response.json();
     if (!response.ok || !result.success) throw new Error(result.message || "Backup could not be created.");
+    updateBackupProgressUI({ percent: 100, stage: "Backup completed and saved successfully", status: "completed" });
     showToast("Backup created successfully. Database records and uploaded files were included.", "success");
     await loadSystemBackups();
+    window.setTimeout(closeBackupProgressModal, 1200);
   } catch (error) {
     console.error("[Backups] Create failed:", error);
+    updateBackupProgressUI({ percent: 0, stage: error.message || "Backup failed. Please try again.", status: "failed" });
     showToast(error.message || "Backup failed. Check the backend configuration.", "error");
+    window.setTimeout(closeBackupProgressModal, 2800);
   } finally {
+    stopBackupProgressPolling();
     backupIsRunning = false;
     if (button) {
       button.disabled = false;
