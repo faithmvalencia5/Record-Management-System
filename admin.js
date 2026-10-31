@@ -730,6 +730,9 @@ async function loadAdminUsers() {
             user.account_status ||
             'Active',
 
+          approvalStatus: user.approval_status || 'Approved',
+          createdAt: user.created_at || null,
+
           lastActive:
             formatLastActive(user.last_active_at)
 
@@ -2044,7 +2047,7 @@ function renderUserMgmtTable() {
 
   const filtered = ADMIN_USER_ACCOUNTS.filter(u => {
     const searchable = [
-      u.fullName, u.username, u.email, u.role, u.status
+      u.fullName, u.username, u.email, u.role, u.status, u.approvalStatus
     ].join(' ').toLowerCase();
 
     const matchQ = !q || searchable.includes(q);
@@ -2164,6 +2167,10 @@ function renderUserMgmtTable() {
         </td>
 
 
+        <td data-label="Approval">
+          <span class="badge ${u.approvalStatus === 'Pending' ? 'badge-review' : u.approvalStatus === 'Rejected' ? 'badge-inactive' : 'badge-active'}">${escHtml(u.approvalStatus)}</span>
+        </td>
+
         <td data-label="Status">
 
           <span
@@ -2206,6 +2213,10 @@ function renderUserMgmtTable() {
         >
 
           <div class="row-actions">
+            ${u.approvalStatus === 'Pending' ? `
+              <button class="icon-btn success" title="Approve Registration" aria-label="Approve Registration" onclick="reviewUserRegistration('${escHtml(u.key)}','Approved')"><i class="fi fi-rr-check"></i></button>
+              <button class="icon-btn danger" title="Reject Registration" aria-label="Reject Registration" onclick="reviewUserRegistration('${escHtml(u.key)}','Rejected')"><i class="fi fi-rr-cross-small"></i></button>
+            ` : ''}
 
             <button
               class="icon-btn"
@@ -2961,6 +2972,39 @@ function editUser(
     key
   );
 
+}
+
+
+async function reviewUserRegistration(key, approvalStatus) {
+  const user = ADMIN_USER_ACCOUNTS.find(account => account.key === String(key));
+  if (!user || user.approvalStatus !== 'Pending') return;
+
+  const approved = approvalStatus === 'Approved';
+  openConfirmModal({
+    title: approved ? 'Approve this registration?' : 'Reject this registration?',
+    desc: `${user.fullName} (${user.username}) will be marked as ${approvalStatus.toLowerCase()}.`,
+    alertTitle: approved ? 'The user will be able to sign in after approval.' : 'The user will not be able to access the system.',
+    alertDesc: 'This action will be recorded in the audit log.',
+    confirmLabel: approved ? 'Approve Registration' : 'Reject Registration',
+    danger: !approved,
+    onConfirm: async () => {
+      try {
+        const response = await fetch(`${ADMIN_USERS_API}/${encodeURIComponent(user.id)}/approval`, {
+          method: 'PUT',
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ approval_status: approvalStatus })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'Unable to review registration.');
+        showToast(result.message || 'Registration updated.', 'success');
+        await loadAdminUsers();
+        await loadAdminAuditLogs();
+      } catch (error) {
+        console.error('[Admin Users] Registration review failed:', error);
+        showToast(error.message || 'Unable to review registration.', 'error');
+      }
+    }
+  });
 }
 
 
