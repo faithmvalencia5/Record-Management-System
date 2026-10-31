@@ -18,7 +18,7 @@ const TABLES = [
   { name: "memberships", conflict: "application_id" },
   { name: "application_status_history", conflict: "id" },
   { name: "document_authentications", conflict: "id" },
-  { name: "id_maker_queue", conflict: "id" },
+  { name: "id_maker_queue", conflict: "application_id" },
   { name: "id_requests", conflict: "id" },
   { name: "audit_logs", conflict: "id" },
 ];
