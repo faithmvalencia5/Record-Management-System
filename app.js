@@ -1258,7 +1258,9 @@ function showLogoutPage() {
     showScreen('login-page');
     return;
   }
-  location.href = 'login.html?loggedout=1';
+  location.href = reason === 'inactivity'
+      ? 'login.html?loggedout=1&reason=inactivity'
+      : 'login.html?loggedout=1';
 }
 
 /* Flash a one-time toast/message on the standalone Login page. The message is
@@ -1269,6 +1271,7 @@ function applyLoginFlash(msg, type = 'info') {
   if (location.search.includes('loggedout')) {
     const url = new URL(location.href);
     url.searchParams.delete('loggedout');
+    url.searchParams.delete('reason');
     history.replaceState(null, '', url.toString());
   }
 }
@@ -7427,7 +7430,7 @@ function confirmLogout() {
 
 let logoutInProgress = false;
 
-async function logout() {
+async function logout(reason = 'manual') {
   if (logoutInProgress) return;
   logoutInProgress = true;
 
@@ -7511,18 +7514,18 @@ function togglePwVis(btn) {
   }
 }
 
-/* SESSION TIMEOUT (30 min inactivity) */
+/* SESSION TIMEOUT — 5 minutes of inactivity across Admin, Staff, and ID Maker */
 let inactivityTimer = null;
-const INACTIVITY_MS = 30 * 60 * 1000; // 30 minutes
+const INACTIVITY_MS = 5 * 60 * 1000; // 5 minutes
 function resetInactivityTimer() {
   clearTimeout(inactivityTimer);
-  if (!CURRENT_USER) return;
+  if (!CURRENT_USER || PAGE === 'login') return;
   inactivityTimer = setTimeout(() => {
-    showToast('Session expired due to inactivity (DPA compliant).', 'error');
-    logout();
+    // logout() records the logout event before clearing the authenticated session.
+    logout('inactivity');
   }, INACTIVITY_MS);
 }
-['mousemove', 'keydown', 'click', 'scroll', 'touchstart'].forEach(evt => {
+['mousemove', 'pointerdown', 'keydown', 'click', 'scroll', 'wheel', 'touchstart', 'input', 'change'].forEach(evt => {
   document.addEventListener(evt, resetInactivityTimer, { passive: true });
 });
 
