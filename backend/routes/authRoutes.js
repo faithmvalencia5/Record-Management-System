@@ -657,21 +657,34 @@ router.get(
   requireAdmin,
   async (req, res) => {
     try {
-      const { data: users, error } = await supabase
+      let { data: users, error } = await supabase
         .from("user_accounts")
         .select("id, username, full_name, email, role, account_status, approval_status, created_at")
         .order("id", { ascending: true });
 
-      if (error) {
-        console.error(
-          "Supabase users fetch error:",
-          error
-        );
+      // Backward compatibility: keep existing personnel visible in Admin
+      // while migration 003 has not yet been applied in Supabase.
+      const approvalSchemaMissing = error && (
+        error.code === "42703" ||
+        error.code === "PGRST204" ||
+        /approval_status|created_at.*column|column.*created_at/i.test(error.message || "")
+      );
 
+      if (approvalSchemaMissing) {
+        console.warn("Account approval migration is not applied; loading legacy user account fields.");
+        const fallback = await supabase
+          .from("user_accounts")
+          .select("id, username, full_name, email, role, account_status")
+          .order("id", { ascending: true });
+        users = fallback.data;
+        error = fallback.error;
+      }
+
+      if (error) {
+        console.error("Supabase users fetch error:", error);
         return res.status(500).json({
           success: false,
-          message: "Unable to load user accounts.",
-          // Keep database details in server logs, not the public response.
+          message: "Unable to load user accounts. Check the backend logs for the database error.",
         });
       }
 
