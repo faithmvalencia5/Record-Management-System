@@ -21,12 +21,12 @@ Deno.serve(async (req) => {
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!supabaseUrl || !serviceRoleKey) {
+  const secretKey = Deno.env.get("SUPABASE_SECRET_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !secretKey) {
     return Response.json({ success: false, message: "Supabase service configuration is missing." }, { status: 500, headers: corsHeaders });
   }
 
-  const admin = createClient(supabaseUrl, serviceRoleKey, {
+  const admin = createClient(supabaseUrl, secretKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
