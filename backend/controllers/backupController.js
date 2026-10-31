@@ -156,19 +156,34 @@ async function createSystemBackup(req, res) {
     zip.addFile("manifest.json", Buffer.from(JSON.stringify(manifest, null, 2), "utf8"));
 
     const encrypted = encryptArchive(zip.toBuffer());
-    const archivePath = backupId + ".rmbackup";
-    const { error: uploadError } = await supabase.storage.from(BACKUP_BUCKET).upload(archivePath, encrypted, {
-      contentType: "application/octet-stream",
-      upsert: false,
-    });
-    if (uploadError) throw uploadError;
+
+    // Keep each Storage object comfortably below the common 50 MB object
+    // limit on Supabase plans. The encrypted archive is reconstructed during
+    // restore, so this does not change the backup's contents or encryption.
+    const ARCHIVE_PART_SIZE = 20 * 1024 * 1024;
+    const archiveParts = [];
+    const storage = supabase.storage.from(BACKUP_BUCKET);
+
+    for (let offset = 0, partNumber = 1; offset < encrypted.length; offset += ARCHIVE_PART_SIZE, partNumber++) {
+      const partPath = backupId + ".part-" + String(partNumber).padStart(4, "0");
+      const part = encrypted.subarray(offset, Math.min(offset + ARCHIVE_PART_SIZE, encrypted.length));
+      const { error: partError } = await storage.upload(partPath, part, {
+        contentType: "application/octet-stream",
+        upsert: false,
+      });
+      if (partError) {
+        if (archiveParts.length) await storage.remove(archiveParts);
+        throw new Error("Unable to upload backup archive part " + partNumber + ": " + partError.message);
+      }
+      archiveParts.push(partPath);
+    }
 
     const metadata = {
       version: BACKUP_VERSION,
       backupId,
       createdAt,
       createdBy: manifest.createdBy,
-      archivePath,
+      archiveParts,
       archiveBytes: encrypted.length,
       totalRows,
       tableCounts,
@@ -176,13 +191,13 @@ async function createSystemBackup(req, res) {
       fileBytes,
       status: "Verified",
     };
-    const { error: metadataError } = await supabase.storage.from(BACKUP_BUCKET).upload(
+    const { error: metadataError } = await storage.upload(
       backupId + ".json",
       Buffer.from(JSON.stringify(metadata), "utf8"),
       { contentType: "application/json", upsert: false }
     );
     if (metadataError) {
-      await supabase.storage.from(BACKUP_BUCKET).remove([archivePath]);
+      await storage.remove(archiveParts);
       throw metadataError;
     }
 
@@ -240,7 +255,10 @@ async function listSystemBackups(req, res) {
           metadata &&
           typeof metadata.backupId === "string" &&
           typeof metadata.createdAt === "string" &&
-          typeof metadata.archivePath === "string"
+          (
+            typeof metadata.archivePath === "string" ||
+            (Array.isArray(metadata.archiveParts) && metadata.archiveParts.length > 0)
+          )
         ) {
           backups.push(metadata);
         }
@@ -270,10 +288,44 @@ async function restoreSystemBackup(req, res) {
     }
     await ensureBucket(BACKUP_BUCKET, false);
 
-    const { data: archiveBlob, error: archiveError } = await supabase.storage.from(BACKUP_BUCKET).download(backupId + ".rmbackup");
-    if (archiveError || !archiveBlob) return res.status(404).json({ success: false, message: "Backup archive was not found." });
+    const storage = supabase.storage.from(BACKUP_BUCKET);
+    const { data: metadataBlob, error: metadataError } = await storage.download(backupId + ".json");
+    if (metadataError || !metadataBlob) {
+      return res.status(404).json({ success: false, message: "Backup metadata was not found." });
+    }
 
-    const archiveBuffer = decryptArchive(Buffer.from(await archiveBlob.arrayBuffer()));
+    const metadata = JSON.parse(await metadataBlob.text());
+    let encryptedArchive;
+
+    if (Array.isArray(metadata.archiveParts) && metadata.archiveParts.length > 0) {
+      const parts = [];
+      for (const partPath of metadata.archiveParts) {
+        if (typeof partPath !== "string" || !partPath.startsWith(backupId + ".part-")) {
+          throw new Error("Backup archive contains an invalid part reference.");
+        }
+        const { data: partBlob, error: partError } = await storage.download(partPath);
+        if (partError || !partBlob) {
+          throw new Error("Backup archive part is missing: " + partPath);
+        }
+        parts.push(Buffer.from(await partBlob.arrayBuffer()));
+      }
+      encryptedArchive = Buffer.concat(parts);
+    } else if (typeof metadata.archivePath === "string") {
+      // Backward compatibility for backups created before archive chunking.
+      const { data: archiveBlob, error: archiveError } = await storage.download(metadata.archivePath);
+      if (archiveError || !archiveBlob) {
+        return res.status(404).json({ success: false, message: "Backup archive was not found." });
+      }
+      encryptedArchive = Buffer.from(await archiveBlob.arrayBuffer());
+    } else {
+      throw new Error("Backup archive information is missing from its metadata.");
+    }
+
+    if (metadata.archiveBytes && encryptedArchive.length !== Number(metadata.archiveBytes)) {
+      throw new Error("Backup archive is incomplete. The downloaded size does not match its metadata.");
+    }
+
+    const archiveBuffer = decryptArchive(encryptedArchive);
     const zip = new AdmZip(archiveBuffer);
     const manifestEntry = zip.getEntry("manifest.json");
     if (!manifestEntry) throw new Error("Backup manifest is missing.");
