@@ -61,22 +61,7 @@ function updateAdminDashboardFromApplications(applications) {
      Applications Received
      ----------------------------------------- */
 
-  const received =
-    document.getElementById('metric-received');
-
-  if (received) {
-    const today = new Date();
-    const receivedToday = applications.filter(application => {
-      const value = application.created_at || application.submitted_at || application.application_date;
-      if (!value) return false;
-      const date = new Date(value);
-      return !Number.isNaN(date.getTime()) &&
-        date.getFullYear() === today.getFullYear() &&
-        date.getMonth() === today.getMonth() &&
-        date.getDate() === today.getDate();
-    }).length;
-    received.textContent = receivedToday.toLocaleString('en-US');
-  }
+  applyDashboardDateFilter(window.getDashboardSelectedDate?.() || new Date());
 
 
   /* -----------------------------------------
@@ -1451,22 +1436,34 @@ function updateSecurityAlertsKPI() {
  *
  * This preserves the existing summary filter.
  */
-function updateAdminAuditActivityKPIs() {
-  const today = new Date();
-  const todayLogs = AUDIT_LOG_DATA.filter(log => {
+function updateAdminAuditActivityKPIs(selectedDate = window.getDashboardSelectedDate?.() || new Date()) {
+  const target = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+  const selectedLogs = AUDIT_LOG_DATA.filter(log => {
     const date = new Date(log.createdAt || '');
     return !Number.isNaN(date.getTime()) &&
-      date.getFullYear() === today.getFullYear() &&
-      date.getMonth() === today.getMonth() &&
-      date.getDate() === today.getDate();
+      date.getFullYear() === target.getFullYear() &&
+      date.getMonth() === target.getMonth() &&
+      date.getDate() === target.getDate();
   });
-  const exportsToday = todayLogs.filter(log =>
-    String(log.action || '').toUpperCase() === 'DATA_EXPORTED'
-  ).length;
+  const exportsOnDate = selectedLogs.filter(log => String(log.action || '').toUpperCase() === 'DATA_EXPORTED').length;
   const exportedEl = document.getElementById('metric-printed');
   const actionsEl = document.getElementById('metric-daily-actions');
-  if (exportedEl) exportedEl.textContent = exportsToday.toLocaleString('en-US');
-  if (actionsEl) actionsEl.textContent = todayLogs.length.toLocaleString('en-US');
+  if (exportedEl) exportedEl.textContent = exportsOnDate.toLocaleString('en-US');
+  if (actionsEl) actionsEl.textContent = selectedLogs.length.toLocaleString('en-US');
+}
+
+function applyDashboardDateFilter(selectedDate = new Date()) {
+  const target = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+  const applicationsOnDate = ADMIN_APPLICATIONS.filter(application => {
+    const value = application.created_at || application.submitted_at || application.application_date;
+    if (!value) return false;
+    const date = new Date(value);
+    return !Number.isNaN(date.getTime()) && date.getFullYear() === target.getFullYear() &&
+      date.getMonth() === target.getMonth() && date.getDate() === target.getDate();
+  }).length;
+  const received = document.getElementById('metric-received');
+  if (received) received.textContent = applicationsOnDate.toLocaleString('en-US');
+  updateAdminAuditActivityKPIs(target);
 }
 
 function renderAuditSummaryFromLiveData() {
@@ -2029,18 +2026,8 @@ function renderUserMgmtTable() {
     ).toLowerCase();
 
 
-  const roleF =
-    document.getElementById(
-      'user-role-filter'
-    )?.value ||
-    '';
-
-
-  const statusF =
-    document.getElementById(
-      'user-status-filter'
-    )?.value ||
-    '';
+  const roleF = Array.from(document.getElementById('user-role-filter')?.selectedOptions || []).map(option => option.value);
+  const statusF = Array.from(document.getElementById('user-status-filter')?.selectedOptions || []).map(option => option.value);
 
 
   const normalizeAccountRole = value => {
@@ -2062,8 +2049,8 @@ function renderUserMgmtTable() {
     ].join(' ').toLowerCase();
 
     const matchQ = !q || searchable.includes(q);
-    const matchRole = !roleF || normalizeAccountRole(u.role) === normalizeAccountRole(roleF);
-    const matchStatus = !statusF || normalizeAccountStatus(u.status) === normalizeAccountStatus(statusF);
+    const matchRole = !roleF.length || roleF.some(role => normalizeAccountRole(u.role) === normalizeAccountRole(role));
+    const matchStatus = !statusF.length || statusF.some(status => normalizeAccountStatus(u.status) === normalizeAccountStatus(status));
 
     return matchQ && matchRole && matchStatus;
   });
@@ -3684,7 +3671,7 @@ function renderAuditUserFilter() {
 
 
   const current =
-    sel.value;
+    Array.from(sel.selectedOptions).map(option => option.value);
 
 
   const names = [];
@@ -3730,22 +3717,8 @@ function renderAuditUserFilter() {
   );
 
 
-  sel.innerHTML =
-    '<option value="">All Users</option>' +
-    names
-      .map(
-        n =>
-          `<option value="${escHtml(n)}">${escHtml(n)}</option>`
-      )
-      .join('');
-
-
-  sel.value =
-    names.includes(
-      current
-    )
-      ? current
-      : '';
+  sel.innerHTML = names.map(n => `<option value="${escHtml(n)}">${escHtml(n)}</option>`).join('');
+  Array.from(sel.options).forEach(option => { option.selected = current.includes(option.value); });
 
 }
 
@@ -4114,8 +4087,8 @@ function filterAuditLogs() {
 function readAuditFilterInputs() {
   return {
     q: (document.getElementById('audit-search')?.value || '').trim().toLocaleLowerCase(),
-    userF: document.getElementById('audit-user-filter')?.value || '',
-    actionF: document.getElementById('audit-action-filter')?.value || '',
+    userF: Array.from(document.getElementById('audit-user-filter')?.selectedOptions || []).map(option => option.value).filter(Boolean),
+    actionF: Array.from(document.getElementById('audit-action-filter')?.selectedOptions || []).map(option => option.value).filter(Boolean),
     from: document.getElementById('audit-date-from')?.value || '',
     to: document.getElementById('audit-date-to')?.value || ''
   };
@@ -4168,8 +4141,8 @@ function auditEventMatches(e, f) {
     .toLocaleLowerCase();
 
   const matchQ = !searchTerm || searchableText.includes(searchTerm);
-  const matchUser = !f.userF || e.user === f.userF;
-  const matchAction = !f.actionF || determineAuditActionType(e.action) === f.actionF;
+  const matchUser = !f.userF.length || f.userF.includes(e.user);
+  const matchAction = !f.actionF.length || f.actionF.includes(determineAuditActionType(e.action));
 
   let matchDate = true;
   const ts = auditEventTime(e);
@@ -4612,7 +4585,10 @@ function clearAuditDateRange() {
 function resetAuditFilters() {
   ['audit-search', 'audit-user-filter', 'audit-action-filter'].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.value = '';
+    if (el) {
+      if (el.multiple) Array.from(el.options).forEach(option => { option.selected = false; });
+      else el.value = '';
+    }
   });
   clearAuditDateRange();
 }
