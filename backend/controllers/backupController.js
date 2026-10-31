@@ -392,7 +392,6 @@ async function createSystemBackup(req, res) {
 async function runSystemBackupJob(req) {
   let archiveParts = [];
   try {
-    backupCancelRequested = false;
     setBackupProgress(1, "Preparing secure backup storage", { active: true, status: "running", error: null });
     encryptionKey();
     await ensureBucket(BACKUP_BUCKET, false);
