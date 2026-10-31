@@ -1,2 +1,10 @@
+# Dependencies
 node_modules/
+
+# Environment variables
 .env
+.env.*
+!.env.example
+
+# Local Supabase CLI state
+supabase/.temp/
