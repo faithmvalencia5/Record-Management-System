@@ -3567,13 +3567,20 @@ function renderLiveApplicants(applications) {
 
 function applyApplicantsFilters() {
   const rows = document.querySelectorAll('#applicants-tbody tr[data-profile-index]');
-  const search = APPLICANTS_FILTER_STATE.search.trim().toLowerCase();
-  const barangay = APPLICANTS_FILTER_STATE.barangay.trim().toLowerCase();
-  const status = APPLICANTS_FILTER_STATE.status.trim().toLowerCase();
+  const search = String(APPLICANTS_FILTER_STATE.search || '').trim().toLowerCase();
+  const barangays = Array.isArray(APPLICANTS_FILTER_STATE.barangay)
+    ? APPLICANTS_FILTER_STATE.barangay.map(value => String(value).trim().toLowerCase())
+    : [];
+  const statuses = Array.isArray(APPLICANTS_FILTER_STATE.status)
+    ? APPLICANTS_FILTER_STATE.status.map(value => String(value).trim().toLowerCase())
+    : [];
   let visible = 0;
   rows.forEach(row => {
+    const rowBarangay = String(row.dataset.barangay || '').trim().toLowerCase();
+    const rowStatus = String(row.dataset.status || '').trim().toLowerCase();
     const matches = (!search || (row.dataset.search || row.textContent).toLowerCase().includes(search)) &&
-      (!barangay || row.dataset.barangay === barangay) && (!status || row.dataset.status === status);
+      (!barangays.length || barangays.includes(rowBarangay)) &&
+      (!statuses.length || statuses.includes(rowStatus));
     row.style.display = matches ? '' : 'none';
     if (matches) visible++;
   });
