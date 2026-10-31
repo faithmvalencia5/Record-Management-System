@@ -651,9 +651,9 @@
           <div class="stat-card__meta"><span class="stat-card__trend trend-good"></span></div>
         </div>
         <div class="stat-card__body">
-          <span class="stat-card__label">Backup Health</span>
+          <span class="stat-card__label">Saved Backups</span>
           <span class="stat-card__value" id="bk-health">0</span>
-          <span class="stat-card__sub">Last 7 snapshots succeeded</span>
+          <span class="stat-card__sub">Encrypted recovery archives</span>
         </div>
       </article>
       <article class="stat-card stat-card--warn">
@@ -662,9 +662,9 @@
           <div class="stat-card__meta"><span class="stat-card__period"></span></div>
         </div>
         <div class="stat-card__body">
-          <span class="stat-card__label">Cloud Storage Used</span>
+          <span class="stat-card__label">Database Rows in Latest Backup</span>
           <span class="stat-card__value" id="bk-storage">0</span>
-          <span class="stat-card__sub">Government cloud (72%)</span>
+          <span class="stat-card__sub">Records exported from system tables</span>
         </div>
       </article>
       <article class="stat-card">
@@ -673,9 +673,9 @@
           <div class="stat-card__meta"><span class="stat-card__period"></span></div>
         </div>
         <div class="stat-card__body">
-          <span class="stat-card__label">Next Scheduled Backup</span>
+          <span class="stat-card__label">Uploaded Files in Latest Backup</span>
           <span class="stat-card__value" id="bk-next">0</span>
-          <span class="stat-card__sub">Automatic daily snapshot</span>
+          <span class="stat-card__sub">Photos, signatures and supporting documents</span>
         </div>
       </article>
       <article class="stat-card stat-card--danger">
@@ -684,9 +684,9 @@
           <div class="stat-card__meta"><span class="stat-card__period"></span></div>
         </div>
         <div class="stat-card__body">
-          <span class="stat-card__label">Restore Point Ready</span>
+          <span class="stat-card__label">Latest Restore Point</span>
           <span class="stat-card__value" id="bk-restore">0</span>
-          <span class="stat-card__sub">Most recent verified snapshot</span>
+          <span class="stat-card__sub">Encrypted archive available for recovery</span>
         </div>
       </article>
     </div>
@@ -706,8 +706,8 @@
                 d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zM7.25 4.75a.75.75 0 1 1 1.5 0v4.25a.75.75 0 1 1-1.5 0V4.75zm.75 7a1 1 0 1 1 0-2 1 1 0 0 1 0 2z" />
             </svg>
             <div class="alert-content">
-              <div class="alert-title" id="bk-last-title">Last backup: Today at 2:00 AM</div>
-              <div class="alert-desc">All data is backed up successfully. Next automatic backup in 22 hours.</div>
+              <div class="alert-title" id="bk-last-title">No successful backup has been created yet.</div>
+              <div class="alert-desc">Backups include supported database records and uploaded files from the private documents bucket. Recovery adds missing items and preserves existing data.</div>
             </div>
           </div>
           <button class="btn btn--primary" onclick="executeBackup()" id="btn-execute-backup" style="width:100%;justify-content:center">
@@ -722,35 +722,37 @@
       <div class="content-card">
         <div class="content-card__header">
           <div>
-            <div class="content-card__title">Automated Schedule Settings</div>
-            <div class="content-card__desc">Toggle automated backups</div>
+            <div class="content-card__title">Backup Security &amp; Coverage</div>
+            <div class="content-card__desc">What is included in each saved recovery archive</div>
           </div>
         </div>
         <div class="content-card__body">
           <div class="toggle-row">
             <div class="toggle-info">
-              <div class="toggle-info__label">Daily Automated Backup</div>
-              <div class="toggle-info__desc">Snapshot every day at scheduled time</div>
-            </div><label class="switch"><input type="checkbox" id="bk-auto-daily" checked /><span
-                class="switch__track"></span></label>
+              <div class="toggle-info__label">Encrypted Backup Archive</div>
+              <div class="toggle-info__desc">AES-256-GCM encryption before storage</div>
+            </div>
+            <span class="badge badge-approved">Enabled</span>
           </div>
           <div class="toggle-row">
             <div class="toggle-info">
-              <div class="toggle-info__label">Weekly Automated Backup</div>
-              <div class="toggle-info__desc">Full weekly archive snapshot</div>
-            </div><label class="switch"><input type="checkbox" id="bk-auto-weekly" /><span
-                class="switch__track"></span></label>
+              <div class="toggle-info__label">Database Records</div>
+              <div class="toggle-info__desc">Applications, profiles, membership, status, users and audit records</div>
+            </div>
+            <span class="badge badge-approved">Included</span>
           </div>
           <div class="toggle-row">
             <div class="toggle-info">
-              <div class="toggle-info__label">Cloud Sync</div>
-              <div class="toggle-info__desc">Sync snapshots to government cloud storage</div>
-            </div><label class="switch"><input type="checkbox" id="bk-cloud-sync" checked /><span
-                class="switch__track"></span></label>
+              <div class="toggle-info__label">Uploaded Applicant Files</div>
+              <div class="toggle-info__desc">Photos, signatures, IDs and supporting documents in Supabase Storage</div>
+            </div>
+            <span class="badge badge-approved">Included</span>
           </div>
-          <div class="form-group" style="margin-top:14px">
-            <label class="form-label">Backup Time (24h)</label>
-            <input class="form-input" type="time" id="bk-time" value="02:00" />
+          <div class="alert alert-info" style="margin-top:14px">
+            <div class="alert-content">
+              <div class="alert-title">Non-destructive recovery</div>
+              <div class="alert-desc">Existing database rows and uploaded files are preserved. Recovery only adds items that are missing.</div>
+            </div>
           </div>
         </div>
       </div>
@@ -760,7 +762,7 @@
       <div class="table-header">
         <div>
           <div class="table-header__title">Backup History Log</div>
-          <div class="table-header__desc">Historical backup files with cloud storage location</div>
+          <div class="table-header__desc">Encrypted database archives with uploaded-file manifests</div>
         </div>
       </div>
       <table class="data-table">
@@ -793,8 +795,8 @@
               d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z" />
           </svg>
           <div class="alert-content">
-            <div class="alert-title">Caution: Restore will overwrite current database</div>
-            <div class="alert-desc">This operation is irreversible. A verification snapshot is taken before restoring.
+            <div class="alert-title">Non-destructive recovery</div>
+            <div class="alert-desc">Only missing records and uploaded files are restored. Existing data is preserved.
             </div>
           </div>
         </div>
@@ -803,7 +805,7 @@
             <!-- Options bound to BACKUP_HISTORY by renderRestorePoints() (admin.js) -->
           </select>
           <button class="btn btn--danger" onclick="initiateRestore()">Initiate Database Restoration</button>
-          <button class="btn btn--ghost" onclick="verifyRestorePoint()">Verify Restore Point</button>
+          <button class="btn btn--ghost" onclick="verifyRestorePoint()">Refresh Backup History</button>
         </div>
       </div>
     </div>
@@ -984,7 +986,7 @@
 
   <script src="theme.js?v=1"></script>
   <script src="app.js?v=34"></script>
-  <script src="admin.js?v=28"></script>
+  <script src="admin.js?v=29"></script>
 </body>
 
 </html>
