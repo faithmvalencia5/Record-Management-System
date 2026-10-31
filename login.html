@@ -46,6 +46,20 @@
     .auth-modal-hint{color:#64748b;font:12px 'DM Sans',sans-serif;margin-top:-8px}
     .auth-modal-status{min-height:0;margin:0;text-align:center;color:#475569;font:13px 'DM Sans',sans-serif;line-height:1.5}
     .auth-modal-status.error{color:#dc2626}.auth-modal-status.success{color:#047857}
+    #login-page input.auth-input,
+    #login-page input.auth-input[type="text"],
+    #login-page input.auth-input[type="password"] {
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: none !important;
+      background-color: #fff;
+    }
+    #login-page input.auth-input::-webkit-calendar-picker-indicator,
+    #login-page input.auth-input::-webkit-inner-spin-button,
+    #login-page input.auth-input::-webkit-outer-spin-button {
+      display: none;
+      -webkit-appearance: none;
+    }
     @media(max-width:520px){.auth-modal-card{padding:22px 18px;border-radius:18px}}
   </style>
 
