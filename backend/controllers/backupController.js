@@ -212,6 +212,101 @@ async function mapWithConcurrency(items, concurrency, worker) {
   return results;
 }
 
+const BACKUP_STATE_PATH = "_backup-state.json";
+const FULL_BACKUP_INTERVAL_MS = 30 * 24 * 60 * 60 * 1000;
+const APPLICATION_FILE_COLUMNS = [
+  "valid_id_url",
+  "valid_id_back_url",
+  "latest_photo_url",
+  "birth_certificate_url",
+  "community_tax_certificate_url",
+  "signature_url",
+];
+
+function normalizeDocumentStoragePath(value) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  let candidate = value.trim();
+  try {
+    if (/^https?:\/\//i.test(candidate)) {
+      const url = new URL(candidate);
+      const marker = "/documents/";
+      const markerIndex = url.pathname.indexOf(marker);
+      if (markerIndex >= 0) candidate = url.pathname.slice(markerIndex + marker.length);
+      else return null;
+    }
+  } catch (_) {
+    return null;
+  }
+  candidate = candidate.replace(/^\/+/, "").split("?")[0];
+  if (!candidate || candidate.split("/").includes("..")) return null;
+  return candidate;
+}
+
+function getReferencedDocumentPaths(applicationFileRows) {
+  const paths = new Set();
+  for (const row of applicationFileRows || []) {
+    for (const column of APPLICATION_FILE_COLUMNS) {
+      const path = normalizeDocumentStoragePath(row?.[column]);
+      if (path) paths.add(path);
+    }
+  }
+  return Array.from(paths).sort();
+}
+
+async function readBackupState(storage) {
+  const { data, error } = await storage.download(BACKUP_STATE_PATH);
+  if (error || !data) return null;
+  try {
+    const state = JSON.parse(await data.text());
+    if (!state || typeof state.latestBackupId !== "string" || !Array.isArray(state.trackedFilePaths)) return null;
+    return state;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function downloadAndOpenBackupArchive(storage, backupId, metadata) {
+  let encryptedArchive;
+  if (Array.isArray(metadata.archiveParts) && metadata.archiveParts.length > 0) {
+    const parts = [];
+    for (const partPath of metadata.archiveParts) {
+      if (typeof partPath !== "string" || !partPath.startsWith(backupId + ".part-")) {
+        throw new Error("Backup archive contains an invalid part reference.");
+      }
+      const { data: partBlob, error: partError } = await storage.download(partPath);
+      if (partError || !partBlob) throw new Error("Backup archive part is missing: " + partPath);
+      parts.push(Buffer.from(await partBlob.arrayBuffer()));
+    }
+    encryptedArchive = Buffer.concat(parts);
+  } else if (typeof metadata.archivePath === "string") {
+    const { data: archiveBlob, error: archiveError } = await storage.download(metadata.archivePath);
+    if (archiveError || !archiveBlob) throw new Error("Backup archive was not found: " + metadata.archivePath);
+    encryptedArchive = Buffer.from(await archiveBlob.arrayBuffer());
+  } else {
+    throw new Error("Backup archive information is missing from its metadata.");
+  }
+
+  if (metadata.archiveBytes && encryptedArchive.length !== Number(metadata.archiveBytes)) {
+    throw new Error("Backup archive is incomplete. The downloaded size does not match its metadata.");
+  }
+  const zip = new AdmZip(decryptArchive(encryptedArchive));
+  const manifestEntry = zip.getEntry("manifest.json");
+  if (!manifestEntry) throw new Error("Backup manifest is missing.");
+  const manifest = JSON.parse(manifestEntry.getData().toString("utf8"));
+  if (manifest.version !== BACKUP_VERSION || manifest.backupId !== backupId) {
+    throw new Error("Backup manifest is invalid or uses an unsupported version.");
+  }
+  return { zip, manifest };
+}
+
+async function loadBackupMetadata(storage, backupId) {
+  const { data, error } = await storage.download(backupId + ".json");
+  if (error || !data) throw new Error("A required backup in the recovery chain is missing: " + backupId);
+  const metadata = JSON.parse(await data.text());
+  if (!metadata || metadata.backupId !== backupId) throw new Error("Backup metadata is invalid: " + backupId);
+  return metadata;
+}
+
 async function createSystemBackup(req, res) {
   let archiveParts = [];
   try {
@@ -227,12 +322,14 @@ async function createSystemBackup(req, res) {
     const backupId = "backup-" + createdAt.replace(/[:.]/g, "-");
     const tableCounts = {};
     let totalRows = 0;
+    let applicationFileRows = [];
 
     for (let index = 0; index < TABLES.length; index++) {
       checkBackupCancelled();
       const table = TABLES[index];
       const rows = await fetchAllTableRows(table.name);
       checkBackupCancelled();
+      if (table.name === "application_files") applicationFileRows = rows;
       tableCounts[table.name] = rows.length;
       totalRows += rows.length;
       zip.addFile("database/" + table.name + ".json", Buffer.from(JSON.stringify(rows), "utf8"));
@@ -242,17 +339,51 @@ async function createSystemBackup(req, res) {
       });
     }
 
-    listingFoldersScanned = 0;
-    listingFilesFound = 0;
-    setBackupProgress(43, "Scanning uploaded applicant file folders", { discoveredFiles: 0, scannedFolders: 0 });
-    checkBackupCancelled();
-    const sourceFiles = await listStorageFiles(SOURCE_BUCKET);
+    const backupStorage = supabase.storage.from(BACKUP_BUCKET);
+    const previousState = await readBackupState(backupStorage);
+    let backupType = "full";
+    let parentBackupId = null;
+    let baseBackupId = backupId;
+    let sourceFiles = [];
+    let trackedFilePaths = [];
+    const nowMs = Date.now();
+    if (previousState?.latestBackupId && previousState?.latestFullCreatedAt &&
+        nowMs - new Date(previousState.latestFullCreatedAt).getTime() < FULL_BACKUP_INTERVAL_MS) {
+      try {
+        await loadBackupMetadata(backupStorage, previousState.latestBackupId);
+        backupType = "incremental";
+        parentBackupId = previousState.latestBackupId;
+        baseBackupId = previousState.baseBackupId || previousState.latestBackupId;
+      } catch (stateError) {
+        console.warn("[Backups] Previous backup state is incomplete; creating a new full backup:", stateError.message);
+      }
+    }
+
+    if (backupType === "full") {
+      listingFoldersScanned = 0;
+      listingFilesFound = 0;
+      setBackupProgress(43, "Scanning uploaded applicant file folders for initial full backup", { discoveredFiles: 0, scannedFolders: 0 });
+      checkBackupCancelled();
+      sourceFiles = await listStorageFiles(SOURCE_BUCKET);
+      trackedFilePaths = sourceFiles.map(file => file.path);
+    } else {
+      setBackupProgress(43, "Checking applicant document references for changes");
+      trackedFilePaths = getReferencedDocumentPaths(applicationFileRows);
+      const previousPaths = new Set(previousState.trackedFilePaths);
+      const changedPaths = trackedFilePaths.filter(path => !previousPaths.has(path));
+      sourceFiles = changedPaths.map(path => ({ path, name: path.split("/").pop(), metadata: {} }));
+      setBackupProgress(47, "Preparing incremental file backup (" + sourceFiles.length + " new files)", {
+        discoveredFiles: sourceFiles.length,
+        scannedFolders: 0,
+        totalTrackedFiles: trackedFilePaths.length,
+      });
+    }
     checkBackupCancelled();
     const fileManifest = [];
     let fileBytes = 0;
     setBackupProgress(47, sourceFiles.length
       ? "Collecting uploaded applicant files (0 of " + sourceFiles.length + ")"
-      : "No uploaded applicant files found", { completedFiles: 0, totalFiles: sourceFiles.length });
+      : "No new uploaded applicant files to collect", { completedFiles: 0, totalFiles: sourceFiles.length });
 
     let nextFileIndex = 0;
     let completedFiles = 0;
@@ -300,8 +431,17 @@ async function createSystemBackup(req, res) {
       backupId,
       createdAt,
       createdBy: req.user?.username || req.user?.email || "Administrator",
+      backupType,
+      parentBackupId,
+      baseBackupId,
       database: { tables: tableCounts, totalRows },
-      storage: { bucket: SOURCE_BUCKET, fileCount: fileManifest.length, totalBytes: fileBytes, files: fileManifest },
+      storage: {
+        bucket: SOURCE_BUCKET,
+        fileCount: trackedFilePaths.length,
+        includedFileCount: fileManifest.length,
+        totalBytes: fileBytes,
+        files: fileManifest,
+      },
     };
     zip.addFile("manifest.json", Buffer.from(JSON.stringify(manifest, null, 2), "utf8"));
 
@@ -343,11 +483,15 @@ async function createSystemBackup(req, res) {
       backupId,
       createdAt,
       createdBy: manifest.createdBy,
+      backupType,
+      parentBackupId,
+      baseBackupId,
       archiveParts,
       archiveBytes: encrypted.length,
       totalRows,
       tableCounts,
       fileCount: fileManifest.length,
+      totalTrackedFileCount: trackedFilePaths.length,
       fileBytes,
       status: "Verified",
     };
@@ -361,6 +505,27 @@ async function createSystemBackup(req, res) {
       throw metadataError;
     }
 
+    const nextState = {
+      version: 1,
+      latestBackupId: backupId,
+      latestFullCreatedAt: backupType === "full"
+        ? createdAt
+        : previousState.latestFullCreatedAt,
+      baseBackupId,
+      trackedFilePaths,
+      updatedAt: createdAt,
+    };
+    const { error: stateError } = await storage.upload(
+      BACKUP_STATE_PATH,
+      Buffer.from(JSON.stringify(nextState), "utf8"),
+      { contentType: "application/json", upsert: true }
+    );
+    if (stateError) {
+      // The archive itself is valid. If the index cannot be updated, the next
+      // run will safely fall back to a full backup rather than miss changes.
+      console.error("[Backups] Could not update incremental backup index:", stateError.message);
+    }
+
     setBackupProgress(100, "Backup completed successfully", {
       active: false, status: "completed", backupId, totalRows, fileCount: fileManifest.length
     });
@@ -369,10 +534,14 @@ async function createSystemBackup(req, res) {
       action: "SYSTEM_BACKUP_CREATED",
       entityType: "SYSTEM_BACKUP",
       entityId: backupId,
-      details: "Encrypted backup created with " + totalRows + " database rows and " + fileManifest.length + " uploaded files.",
+      details: "Encrypted " + backupType + " backup created with " + totalRows + " database rows and " + fileManifest.length + " newly included files.",
     });
 
-    return res.status(201).json({ success: true, message: "Encrypted system backup created and verified.", backup: metadata });
+    return res.status(201).json({
+      success: true,
+      message: "Encrypted " + backupType + " system backup created and verified.",
+      backup: metadata,
+    });
   } catch (error) {
     console.error("Create system backup error:", error);
     if (archiveParts.length) {
@@ -468,42 +637,24 @@ async function restoreSystemBackup(req, res) {
     }
 
     const metadata = JSON.parse(await metadataBlob.text());
-    let encryptedArchive;
+    const { zip, manifest } = await downloadAndOpenBackupArchive(storage, backupId, metadata);
+    const recoveryChain = [{ metadata, zip, manifest }];
+    let chainMetadata = metadata;
+    const seenBackupIds = new Set([backupId]);
 
-    if (Array.isArray(metadata.archiveParts) && metadata.archiveParts.length > 0) {
-      const parts = [];
-      for (const partPath of metadata.archiveParts) {
-        if (typeof partPath !== "string" || !partPath.startsWith(backupId + ".part-")) {
-          throw new Error("Backup archive contains an invalid part reference.");
-        }
-        const { data: partBlob, error: partError } = await storage.download(partPath);
-        if (partError || !partBlob) {
-          throw new Error("Backup archive part is missing: " + partPath);
-        }
-        parts.push(Buffer.from(await partBlob.arrayBuffer()));
-      }
-      encryptedArchive = Buffer.concat(parts);
-    } else if (typeof metadata.archivePath === "string") {
-      // Backward compatibility for backups created before archive chunking.
-      const { data: archiveBlob, error: archiveError } = await storage.download(metadata.archivePath);
-      if (archiveError || !archiveBlob) {
-        return res.status(404).json({ success: false, message: "Backup archive was not found." });
-      }
-      encryptedArchive = Buffer.from(await archiveBlob.arrayBuffer());
-    } else {
-      throw new Error("Backup archive information is missing from its metadata.");
+    while (chainMetadata.backupType === "incremental" && chainMetadata.parentBackupId) {
+      const parentId = chainMetadata.parentBackupId;
+      if (seenBackupIds.has(parentId)) throw new Error("The backup recovery chain contains a circular reference.");
+      seenBackupIds.add(parentId);
+      const parentMetadata = await loadBackupMetadata(storage, parentId);
+      const parentArchive = await downloadAndOpenBackupArchive(storage, parentId, parentMetadata);
+      recoveryChain.push({ metadata: parentMetadata, ...parentArchive });
+      chainMetadata = parentMetadata;
     }
 
-    if (metadata.archiveBytes && encryptedArchive.length !== Number(metadata.archiveBytes)) {
-      throw new Error("Backup archive is incomplete. The downloaded size does not match its metadata.");
+    if (chainMetadata.backupType === "incremental") {
+      throw new Error("The full backup required by this incremental recovery chain is missing.");
     }
-
-    const archiveBuffer = decryptArchive(encryptedArchive);
-    const zip = new AdmZip(archiveBuffer);
-    const manifestEntry = zip.getEntry("manifest.json");
-    if (!manifestEntry) throw new Error("Backup manifest is missing.");
-    const manifest = JSON.parse(manifestEntry.getData().toString("utf8"));
-    if (manifest.version !== BACKUP_VERSION || manifest.backupId !== backupId) throw new Error("Backup manifest is invalid or uses an unsupported version.");
 
     const restored = {};
     const skipped = {};
@@ -539,12 +690,18 @@ async function restoreSystemBackup(req, res) {
 
     let filesRestored = 0;
     let filesSkipped = 0;
-    for (const file of manifest.storage?.files || []) {
+    const filesToRestore = new Map();
+    for (const archive of recoveryChain.slice().reverse()) {
+      for (const file of archive.manifest.storage?.files || []) {
+        if (file?.path) filesToRestore.set(file.path, { file, zip: archive.zip });
+      }
+    }
+    for (const { file, zip: fileZip } of filesToRestore.values()) {
       if (file.bucket !== SOURCE_BUCKET || !file.path || file.path.startsWith("/") || file.path.split("/").includes("..")) {
         failed.push({ item: file.path || "unknown file", reason: "Unsafe or unsupported file path." });
         continue;
       }
-      const archiveEntry = zip.getEntry("storage/" + SOURCE_BUCKET + "/" + file.path);
+      const archiveEntry = fileZip.getEntry("storage/" + SOURCE_BUCKET + "/" + file.path);
       if (!archiveEntry) {
         failed.push({ item: file.path, reason: "Uploaded file is missing from the archive." });
         continue;
