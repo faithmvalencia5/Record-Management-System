@@ -89,6 +89,10 @@
           </span>
           <span class="nav-link__label">Backup &amp; Recovery</span>
         </button>
+        <button class="nav-link admin-only" data-module="system-config" style="display:none">
+          <span class="nav-link__icon-wrap"><i class="fi fi-rr-settings"></i></span>
+          <span class="nav-link__label">System Settings</span>
+        </button>
 
         </nav>
 
@@ -633,6 +637,49 @@
     </div>
   </div>
 
+  <!-- MODULE: SYSTEM SETTINGS -->
+  <div class="module" id="mod-system-config">
+    <header class="page-header">
+      <div class="page-header__left">
+        <div class="page-header__eyebrow"><h1 class="page-header__title">System Settings</h1><span class="page-header__badge slate">ADMIN ONLY</span></div>
+        <p class="page-header__sub">Manage organization information and public registration access</p>
+      </div>
+      <div class="page-header__controls"><button class="btn btn--ghost" type="button" onclick="loadSystemSettings()"><i class="fi fi-rr-refresh"></i> Refresh</button></div>
+    </header>
+    <div class="system-settings-grid">
+      <section class="content-card">
+        <div class="content-card__header"><div><div class="content-card__title"><i class="fi fi-rr-building"></i> General Information</div><div class="content-card__desc">Organization details displayed in the Admin workspace</div></div></div>
+        <div class="content-card__body"><form id="system-general-form" class="system-settings-form">
+          <label class="system-setting-field"><span>System name</span><input id="setting-system-name" type="text" maxlength="100" required placeholder="Record Management System"><small>Name of the application.</small></label>
+          <label class="system-setting-field"><span>Organization / office name</span><input id="setting-organization-name" type="text" maxlength="150" required placeholder="Office of the Senior Citizens Affairs"><small>Office name displayed in the admin sidebar.</small></label>
+          <button class="btn btn--primary" type="submit"><i class="fi fi-rr-disk"></i> Save General Settings</button>
+        </form></div>
+      </section>
+      <section class="content-card">
+        <div class="content-card__header"><div><div class="content-card__title"><i class="fi fi-rr-user-shield"></i> Registration Access</div><div class="content-card__desc">Control whether visitors can request a new Staff account</div></div></div>
+        <div class="content-card__body">
+          <div class="system-setting-toggle-row"><div><strong>Allow public account registration</strong><p>When disabled, visitors cannot submit new registrations. Existing accounts are unaffected.</p></div><label class="system-switch" for="setting-registration-enabled"><input id="setting-registration-enabled" type="checkbox"><span class="system-switch-slider"></span></label></div>
+          <div class="system-settings-note"><i class="fi fi-rr-shield-check"></i><span>Administrator approval remains mandatory. Public registration can only create Staff accounts.</span></div>
+          <button class="btn btn--primary" type="button" onclick="saveRegistrationSetting()"><i class="fi fi-rr-disk"></i> Save Registration Setting</button>
+        </div>
+      </section>
+      <section class="content-card system-security-card">
+        <div class="content-card__header"><div><div class="content-card__title"><i class="fi fi-rr-lock"></i> Security Policies</div><div class="content-card__desc">Authentication safeguards currently enforced by the backend</div></div><span class="badge badge-approved">Enforced</span></div>
+        <div class="content-card__body">
+          <div class="system-security-list">
+            <div><span>Password length</span><strong>At least 8 characters</strong></div>
+            <div><span>Password composition</span><strong>Uppercase, number, and special character</strong></div>
+            <div><span>Session expiration</span><strong>8 hours</strong></div>
+            <div><span>Account access</span><strong>Active and approved accounts only</strong></div>
+            <div><span>Administrative access</span><strong>Role-restricted API endpoints</strong></div>
+          </div>
+          <div class="system-settings-note"><i class="fi fi-rr-info"></i><span>These safeguards are enforced application policies. They are displayed for reference and cannot be weakened from this page.</span></div>
+        </div>
+      </section>
+    </div>
+    <p class="system-settings-updated" id="system-settings-updated" aria-live="polite"></p>
+  </div>
+
   <!-- MODULE D: DATABASE BACKUP & RECOVERY -->
   <div class="module" id="mod-backup">
     <header class="page-header">
@@ -1037,7 +1084,7 @@
 
   <script src="theme.js?v=1"></script>
   <script src="app.js?v=37"></script>
-  <script src="admin.js?v=35"></script>
+  <script src="admin.js?v=36"></script>
 </body>
 
 </html>
