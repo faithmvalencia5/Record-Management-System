@@ -61,15 +61,32 @@ function decryptArchive(buffer) {
 async function ensureBucket(name, isPublic = false) {
   const { data: buckets, error: listError } = await supabase.storage.listBuckets();
   if (listError) throw listError;
+
   const existing = (buckets || []).find(bucket => bucket.name === name);
+
   if (existing) {
-    if (name === BACKUP_BUCKET && existing.public) {
-      const { error: privacyError } = await supabase.storage.updateBucket(name, { public: false });
-      if (privacyError) throw privacyError;
+    // Existing buckets retain their old restrictions. Explicitly configure
+    // the backup bucket so the small archive chunks can be uploaded.
+    if (name === BACKUP_BUCKET) {
+      const { error: updateError } = await supabase.storage.updateBucket(name, {
+        public: false,
+        fileSizeLimit: "4MB",
+      });
+      if (updateError) {
+        throw new Error(
+          "Unable to configure the private system-backups bucket. Check the Supabase global file-size limit and bucket settings: " +
+          updateError.message
+        );
+      }
     }
     return;
   }
-  const { error } = await supabase.storage.createBucket(name, { public: isPublic, fileSizeLimit: "2GB" });
+
+  const { error } = await supabase.storage.createBucket(name, {
+    public: isPublic,
+    fileSizeLimit: name === BACKUP_BUCKET ? "4MB" : "2GB",
+  });
+
   if (error && !/already exists|duplicate/i.test(error.message || "")) throw error;
 }
 
@@ -160,7 +177,7 @@ async function createSystemBackup(req, res) {
     // Keep each Storage object comfortably below the common 50 MB object
     // limit on Supabase plans. The encrypted archive is reconstructed during
     // restore, so this does not change the backup's contents or encryption.
-    const ARCHIVE_PART_SIZE = 20 * 1024 * 1024;
+    const ARCHIVE_PART_SIZE = 3 * 1024 * 1024;
     const archiveParts = [];
     const storage = supabase.storage.from(BACKUP_BUCKET);
 
