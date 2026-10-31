@@ -5,6 +5,21 @@ const { createAuditLog } = require("../controllers/auditLogController");
 const router = express.Router();
 const DEFAULT_SETTINGS = { system_name: "Record Management System", organization_name: "Office of the Senior Citizens Affairs", allow_public_registration: true };
 
+router.get("/public", async (req, res) => {
+  try {
+    const { data, error } = await supabase.from("system_settings")
+      .select("allow_public_registration").eq("id", 1).maybeSingle();
+    if (error) {
+      console.error("[System Settings] Public read error:", error);
+      return res.status(503).json({ success: false, message: "Registration settings are temporarily unavailable." });
+    }
+    return res.json({ success: true, allow_public_registration: data ? data.allow_public_registration !== false : true });
+  } catch (error) {
+    console.error("[System Settings] Public read failed:", error);
+    return res.status(503).json({ success: false, message: "Registration settings are temporarily unavailable." });
+  }
+});
+
 router.get("/", authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { data, error } = await supabase.from("system_settings").select("system_name, organization_name, allow_public_registration, updated_at").eq("id", 1).maybeSingle();
