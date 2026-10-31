@@ -856,11 +856,13 @@ document.addEventListener('click', (e) => {
    Search + Barangay + Status work together.
 ========================================================= */
 
-const APPLICANTS_FILTER_STATE = {
-  search: '',
-  barangay: '',
-  status: ''
-};
+const APPLICANTS_FILTER_STATE = { search: '', barangay: [], status: [] };
+function selectedFilterValues(control) {
+  if (!control) return [];
+  if (control instanceof HTMLSelectElement && control.multiple) return Array.from(control.selectedOptions).map(option => String(option.value || '').trim().toLowerCase()).filter(Boolean);
+  const value = String(control.value || '').trim().toLowerCase();
+  return value ? [value] : [];
+}
 
 function applyApplicantsFilters() {
   const rows = document.querySelectorAll(
@@ -872,15 +874,8 @@ function applyApplicantsFilters() {
       .trim()
       .toLowerCase();
 
-  const barangay =
-    APPLICANTS_FILTER_STATE.barangay
-      .trim()
-      .toLowerCase();
-
-  const status =
-    APPLICANTS_FILTER_STATE.status
-      .trim()
-      .toLowerCase();
+  const barangays = Array.isArray(APPLICANTS_FILTER_STATE.barangay) ? APPLICANTS_FILTER_STATE.barangay : [];
+  const statuses = Array.isArray(APPLICANTS_FILTER_STATE.status) ? APPLICANTS_FILTER_STATE.status : [];
 
   let visible = 0;
 
@@ -911,13 +906,8 @@ function applyApplicantsFilters() {
       !search ||
       rowText.includes(search);
 
-    const matchesBarangay =
-      !barangay ||
-      rowBarangay === barangay;
-
-    const matchesStatus =
-      !status ||
-      rowStatus === status;
+    const matchesBarangay = !barangays.length || barangays.includes(rowBarangay);
+    const matchesStatus = !statuses.length || statuses.includes(rowStatus);
 
     const show =
       matchesSearch &&
@@ -950,17 +940,12 @@ function filterApplicants(query) {
   applyApplicantsFilters();
 }
 
-function filterApplicantsByBarangay(barangay) {
-  APPLICANTS_FILTER_STATE.barangay =
-    barangay || '';
-
+function filterApplicantsByBarangay(control) {
+  APPLICANTS_FILTER_STATE.barangay = selectedFilterValues(control);
   applyApplicantsFilters();
 }
-
-function filterApplicantsByStatus(status) {
-  APPLICANTS_FILTER_STATE.status =
-    status || '';
-
+function filterApplicantsByStatus(control) {
+  APPLICANTS_FILTER_STATE.status = selectedFilterValues(control);
   applyApplicantsFilters();
 }
 
@@ -1766,7 +1751,14 @@ function applyDashboardMetrics() {
   if (metricReceived) metricReceived.textContent = fmt(SUBMITTED[SUBMITTED.length - 1] || data.totalApplications);
 
   const applicantsBadge = document.querySelector('[data-module="applicants"] .nav-link__badge');
-  if (applicantsBadge) applicantsBadge.textContent = fmt(data.pendingReview);
+  if (applicantsBadge) {
+    const ongoingCount = (Array.isArray(FULL_APPLICANTS) ? FULL_APPLICANTS : []).filter(application => {
+      const status = String(application.status || '').trim().toLowerCase();
+      return status !== 'completed' && status !== 'rejected';
+    }).length;
+    applicantsBadge.textContent = fmt(ongoingCount);
+    applicantsBadge.title = 'Ongoing applications: all statuses except Completed and Rejected';
+  }
 
   document.querySelectorAll('.data-table-card').forEach(card => {
     const title = card.querySelector('.table-header__title')?.textContent?.trim();
