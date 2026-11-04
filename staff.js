@@ -3076,10 +3076,7 @@ async function loadApplicationsFromDatabase() {
         {
           method: "GET",
 
-          headers: {
-            "Accept":
-              "application/json"
-          }
+          headers: getAuthHeaders()
         }
       );
 
@@ -3354,7 +3351,8 @@ async function loadApplicationDetails(
       await fetch(
         `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(
           applicationId
-        )}`
+        )}`,
+        { headers: getAuthHeaders() }
       );
 
 
@@ -4172,7 +4170,7 @@ async function approveSelectedApplications() {
     const id = app.application_id || app.id;
     const response = await fetch(`https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(id)}/status`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      headers: getAuthHeaders(),
       body: JSON.stringify({ status: 'Ready for Release' })
     });
     const result = await response.json().catch(() => ({}));
@@ -4551,7 +4549,7 @@ async function requestStaffAnalyticsInsights(applications) {
     try {
       response = await fetch(STAFF_ANALYTICS_INSIGHTS_API, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         cache: "no-store",
         body: JSON.stringify({ metrics }),
         signal: controller.signal
@@ -4595,6 +4593,7 @@ async function loadReplacementRequests() {
 
   try {
     const response = await fetch(REPLACEMENTS_API, {
+      headers: getAuthHeaders(),
       cache: 'no-store',
       signal: controller.signal
     });
@@ -4848,6 +4847,52 @@ function filterReplacementRequests() {
   renderReplacementRequests();
 }
 
+async function exportReplacementRequests(format) {
+  if (!['pdf', 'csv'].includes(format)) return;
+  const search = (document.getElementById('replacement-search')?.value || '').trim().toLowerCase();
+  const statusFilters = Array.from(
+    document.getElementById('replacement-status-filter')?.selectedOptions || []
+  ).map(option => String(option.value || '').trim().toLowerCase()).filter(Boolean);
+  const filtered = (Array.isArray(replacementRequests) ? replacementRequests : []).filter(request => {
+    const searchable = [request.applicant_name, request.application_id, request.reason, request.other_reason, request.request_status]
+      .join(' ').toLowerCase();
+    const status = String(request.request_status || '').trim().toLowerCase();
+    return searchable.includes(search) && (!statusFilters.length || statusFilters.includes(status));
+  });
+
+  if (!filtered.length) {
+    showToast('There are no replacement requests matching the current filters.', 'warning');
+    return;
+  }
+
+  const headers = ['Applicant', 'Application ID', 'Reason', 'Other Reason', 'Request Date', 'Status'];
+  const rows = filtered.map(request => [
+    request.applicant_name || 'Applicant record not found',
+    request.application_id || '',
+    request.reason || '',
+    request.other_reason || '',
+    formatReplacementDate(request.requested_at),
+    request.request_status || 'Pending'
+  ]);
+
+  try {
+    if (typeof recordStaffDataActivity === 'function') {
+      await recordStaffDataActivity('DATA_EXPORTED', 'Staff replacement requests', format.toUpperCase(), rows.length);
+    }
+    if (typeof downloadReportFile !== 'function') {
+      throw new Error('The export service is unavailable. Refresh the page and try again.');
+    }
+    downloadReportFile(format, 'OSCA Replacement Requests', headers, rows, 'osca-replacement-requests');
+    if (typeof appendAudit === 'function') {
+      appendAudit(CURRENT_USER?.displayName || 'Staff', 'Exported replacement requests (' + format.toUpperCase() + ')', 'System');
+    }
+    showToast(format.toUpperCase() + ' replacement report exported (' + rows.length + ' requests).', 'success');
+  } catch (error) {
+    console.error('[Replacement Export]', error);
+    showToast(error.message || 'Unable to export replacement requests.', 'error');
+  }
+}
+
 
 let activeReplacementRequestId = null;
 
@@ -4979,7 +5024,7 @@ async function submitReplacementDecision() {
       encodeURIComponent(requestId) + '/decision',
       {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ status: decision })
       }
     );

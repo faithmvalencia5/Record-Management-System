@@ -2987,7 +2987,8 @@ async function openApplicationDetail(appId) {
   // Get the complete application information from the database
   try {
     const response = await fetch(
-      `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(appId)}`
+      `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(appId)}`,
+      { headers: getAuthHeaders(), cache: 'no-store' }
     );
 
     if (response.ok) {
@@ -3955,16 +3956,21 @@ async function _populateDigitalIssuance(appId) {
   // ==================================================
 
   try {
+    const issuanceDetailsPath = DI_MODE === 'idmaker' ? '/issuance-details' : '';
     const response = await fetch(
       'https://management-backend-3cij.onrender.com/api/applications/' +
-      encodeURIComponent(appId),
+      encodeURIComponent(appId) + issuanceDetailsPath,
       {
         method: 'GET',
+        headers: getAuthHeaders(),
         cache: 'no-store'
       }
     );
 
     const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || 'Unable to load the applicant details needed for ID issuance.');
+    }
 
     if (response.ok && result.success) {
       const liveApplication =
@@ -4608,7 +4614,7 @@ async function sendToIdMaker() {
     // Update the linked ID request status in the database too.
     const requestsResponse = await fetch(
       'https://management-backend-3cij.onrender.com/api/replacements',
-      { cache: 'no-store' }
+      { headers: getAuthHeaders(), cache: 'no-store' }
     );
 
     const requestsResult = await requestsResponse.json();
@@ -4798,19 +4804,8 @@ async function downloadDigitalIssuanceDocs() {
         {
           method: 'POST',
 
-          headers: {
-            'Content-Type':
-              'application/json'
-          },
-
-          body: JSON.stringify({
-            name,
-            address,
-            dob,
-            sex,
-            dateIssued,
-            controlNo
-          })
+          headers: getAuthHeaders(),
+          body: JSON.stringify({ name, address, dob, sex, dateIssued, controlNo })
         }
       );
 
@@ -6435,7 +6430,28 @@ function sendBulkReminder() {
   addNotifyLog('—', 'Bulk Missing Document Reminder', 'SMS', 'Queued');
 }
 
-/* Analytics export is currently provided as a real, spreadsheet-compatible CSV. */
+/* Report export helpers: real CSV and PDF downloads. */
+function downloadReportFile(format, title, headers, rows, filenameBase) {
+  const safeBase = String(filenameBase || 'osca-report').replace(/[^a-z0-9-_]+/gi, '-').toLowerCase();
+  const dateStamp = new Date().toISOString().slice(0, 10);
+  if (format === 'pdf') {
+    const JsPDF = window.jspdf?.jsPDF;
+    if (!JsPDF) throw new Error('PDF export library did not load. Refresh the page and try again.');
+    const doc = new JsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.text(String(title || 'OSCA Report'), 14, 15);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.text('Generated: ' + new Date().toLocaleString('en-PH'), 14, 21);
+    if (typeof doc.autoTable !== 'function') throw new Error('PDF table support did not load. Refresh the page and try again.');
+    doc.autoTable({ head: [headers], body: rows, startY: 26, theme: 'grid', styles: { font: 'helvetica', fontSize: 8, cellPadding: 2, overflow: 'linebreak' }, headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' }, margin: { left: 14, right: 14 }, didDrawPage: function () { const page = doc.internal.getNumberOfPages(); doc.setFontSize(8); doc.text('OSCA Bauan · Page ' + page, doc.internal.pageSize.getWidth() - 14, doc.internal.pageSize.getHeight() - 7, { align: 'right' }); } });
+    doc.save(safeBase + '-' + dateStamp + '.pdf'); return;
+  }
+  if (format !== 'csv') throw new Error('Choose PDF or CSV as the export format.');
+  const csv = '\uFEFF' + [headers, ...rows].map(row => row.map(staffExportCsvCell).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob);
+  const link = document.createElement('a'); link.href = url; link.download = safeBase + '-' + dateStamp + '.csv';
+  document.body.appendChild(link); link.click(); link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+function exportPDF() { return exportData('pdf'); }
+function exportExcel() { return exportData('excel'); }
 const STAFF_EXPORT_FIELDS = {
   barangay: [
     { key: 'barangay', label: 'Barangay', checked: true, locked: true },
@@ -6497,14 +6513,20 @@ function openStaffExport() {
 
   const typeSelect = document.getElementById('staff-export-type');
   if (typeSelect) typeSelect.value = 'barangay';
-  const downloadButton = document.getElementById('staff-export-download');
-  if (downloadButton) downloadButton.textContent = 'Export CSV';
+  const formatSelect = document.getElementById('staff-export-format');
+  if (formatSelect) formatSelect.value = 'csv';
+  updateStaffExportFormatLabel();
   updateStaffExportFields();
   const error = document.getElementById('staff-export-error');
   if (error) error.style.display = 'none';
   modal.classList.add('show');
 }
 
+function updateStaffExportFormatLabel() {
+  const format = document.getElementById('staff-export-format')?.value || 'csv';
+  const label = document.querySelector('#staff-export-download span');
+  if (label) label.textContent = 'Export ' + format.toUpperCase();
+}
 function closeStaffExport() {
   document.getElementById('staff-export-modal')?.classList.remove('show');
 }
@@ -7106,6 +7128,7 @@ async function recordStaffDataActivity(action, report, format, recordCount) {
 }
 
 async function downloadStaffExport() {
+  const format = document.getElementById('staff-export-format')?.value || 'csv';
   const type = document.getElementById('staff-export-type')?.value || 'barangay';
   const barangayFilter = document.getElementById('staff-export-barangay')?.value || '';
   const statusFilter = document.getElementById('staff-export-status')?.value || '';
@@ -7180,7 +7203,7 @@ async function downloadStaffExport() {
     await recordStaffDataActivity(
       'DATA_EXPORTED',
       type === 'barangay' ? 'Staff barangay summary' : 'Staff applicant records',
-      'CSV',
+      format.toUpperCase(),
       type === 'barangay' ? rows.length - 1 : filtered.length
     );
   } catch (auditError) {
@@ -7193,14 +7216,18 @@ async function downloadStaffExport() {
     return;
   }
 
+  const reportTitle = type === 'barangay' ? 'OSCA Barangay Summary' : 'OSCA Applicant Records';
   const reportSlug = type === 'barangay' ? 'barangay-summary' : 'applicant-records';
   const dateSlug = new Date().toISOString().slice(0, 10);
-  const csv = '\uFEFF' + [header, ...rows].map(row => row.map(staffExportCsvCell).join(',')).join('\r\n');
-  saveStaffExport(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `osca-${reportSlug}-${dateSlug}.csv`);
-
-  appendAudit(CURRENT_USER?.displayName || 'Staff', `Exported ${type === 'barangay' ? 'barangay summary' : 'applicant records'} (CSV)`, 'System');
+  if (format === 'pdf') {
+    downloadReportFile(format, reportTitle, header, rows, `osca-${reportSlug}`);
+  } else {
+    const csv = '\uFEFF' + [header, ...rows].map(row => row.map(staffExportCsvCell).join(',')).join('\r\n');
+    saveStaffExport(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `osca-${reportSlug}-${dateSlug}.csv`);
+  }
+  appendAudit(CURRENT_USER?.displayName || 'Staff', `Exported ${type === 'barangay' ? 'barangay summary' : 'applicant records'} (${format.toUpperCase()})`, 'System');
   closeStaffExport();
-  showToast(`CSV exported: ${filtered.length} application records included in the selected report.`, 'success');
+  showToast(`${format.toUpperCase()} exported: ${filtered.length} application records included in the selected report.`, 'success');
 }
 
 function exportCSV() {
@@ -7482,17 +7509,17 @@ async function refreshIdMakerQueueApplicationIds() {
 
   ID_MAKER_QUEUE_APPLICATION_IDS_PROMISE = (async () => {
     const response = await fetch(
-      'https://management-backend-3cij.onrender.com/api/id-maker-queue',
-      { cache: 'no-store' }
+      'https://management-backend-3cij.onrender.com/api/id-maker-queue/application-ids',
+      { headers: getAuthHeaders(), cache: 'no-store' }
     );
     const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.success || !Array.isArray(result.queue)) {
+    if (!response.ok || !result.success || !Array.isArray(result.application_ids)) {
       throw new Error(result.message || 'Could not verify previous ID Maker submissions.');
     }
 
     ID_MAKER_QUEUE_APPLICATION_IDS = new Set(
-      result.queue
-        .map(item => String(item.application_id || item.id || '').trim())
+      result.application_ids
+        .map(id => String(id || '').trim())
         .filter(Boolean)
     );
     return ID_MAKER_QUEUE_APPLICATION_IDS;
@@ -7600,12 +7627,28 @@ async function initSmallFormIssuance() {
 
   // Autofill the form whenever the selected applicant changes
   select.onchange = async function () {
-    updatePreview();
     const app = getCurrentApplicant();
-    if (!app) return;
+    if (!app) {
+      updatePreview();
+      return;
+    }
+
+    // The application list may contain legacy bucket-relative paths.
+    // Never assign those directly to <img src>; they are not browser URLs.
+    // Clear them until the authenticated API returns short-lived signed URLs.
+    app.photo = '';
+    app.signature = '';
+    app.documents = {
+      ...(app.documents || {}),
+      photo: '',
+      signature: ''
+    };
+    updatePreview();
+
     try {
       const response = await fetch(
-        `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(app.id)}`
+        `https://management-backend-3cij.onrender.com/api/applications/${encodeURIComponent(app.id)}`,
+        { headers: getAuthHeaders(), cache: 'no-store' }
       );
       if (!response.ok) return;
       const result = await response.json();
@@ -7757,7 +7800,10 @@ async function sendFromIssuanceToIdMaker() {
   };
   try {
     // Pull this applicant's current photo and signature URLs from the database.
-    const detailResponse = await fetchWithTimeout(`${apiBase}/applications/${encodeURIComponent(appId)}`);
+    const detailResponse = await fetchWithTimeout(`${apiBase}/applications/${encodeURIComponent(appId)}`, {
+      headers: getAuthHeaders(),
+      cache: 'no-store'
+    });
     if (!detailResponse.ok) {
       throw new Error(`Unable to load this applicant's database images (${detailResponse.status}).`);
     }

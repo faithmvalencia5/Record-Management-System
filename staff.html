@@ -14,8 +14,11 @@
     href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap"
     rel="stylesheet" />
 
-  <!-- Chart.js (unchanged) -->
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <!-- PDF export support -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 
   <!-- Flaticon Uicons -->
   <link rel="stylesheet" href="https://cdn-uicons.flaticon.com/uicons-regular-rounded/css/uicons-regular-rounded.css" />
@@ -986,6 +989,13 @@
             <p class="page-header__sub">
               Review and process existing senior citizens' ID requests.
             </p>
+          </div>
+          <div class="page-header__controls">
+            <select class="filter-select" style="height:40px" aria-label="Export replacement requests" onchange="if(this.value){exportReplacementRequests(this.value);this.value='';}">
+              <option value="">Export As...</option>
+              <option value="pdf">Export PDF</option>
+              <option value="csv">Export CSV</option>
+            </select>
           </div>
         </header>
 
@@ -2389,6 +2399,13 @@
           <div class="staff-export__fields" id="staff-export-fields"></div>
           <p class="staff-export__help">For barangay summaries, choose the count columns to include. The overall total row is always included.</p>
         </div>
+        <div class="staff-export__control">
+          <label class="staff-export__label" for="staff-export-format">Export format</label>
+          <select class="staff-export__select" id="staff-export-format" onchange="updateStaffExportFormatLabel()">
+            <option value="csv">CSV</option>
+            <option value="pdf">PDF</option>
+          </select>
+        </div>
         <div class="staff-export__error" id="staff-export-error" role="alert" aria-live="polite" style="display:none"></div>
       </div>
       <div class="confirm-actions staff-export__actions">
@@ -2407,7 +2424,7 @@
   <!-- SCRIPTS -->
   <script src="theme.js?v=1"></script>
   <script src="app.js?v=48"></script>
-  <script src="staff.js?v=multi-provider-ai-5"></script>
+  <script src="staff.js?v=multi-provider-ai-6"></script>
 </body>
 
 </html>
