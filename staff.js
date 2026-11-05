@@ -5467,3 +5467,464 @@ async function submitReplacementDecision() {
 window.viewReplacementRequest = viewReplacementRequest;
 window.closeReplacementRequest = closeReplacementRequest;
 window.submitReplacementDecision = submitReplacementDecision;
+
+
+// ============================================================
+// HISTORICAL APPLICANT IMPORT (CSV + SEARCHABLE PDF)
+// ============================================================
+
+const LEGACY_IMPORT_FIELDS = [
+  { key: "application_id", label: "Existing OSCA / Application ID", aliases: ["application id", "applicant id", "senior id", "senior citizen id", "osca id", "id number", "control number", "control no"] },
+  { key: "first_name", label: "First name", required: true, aliases: ["first name", "firstname", "given name", "given names", "forename", "fname"] },
+  { key: "middle_name", label: "Middle name", aliases: ["middle name", "middlename", "middle initial", "mi"] },
+  { key: "surname", label: "Surname / Last name", required: true, aliases: ["surname", "last name", "lastname", "family name", "apelyido", "family name surname"] },
+  { key: "full_name", label: "Full name (when name is in one column)", aliases: ["full name", "complete name", "name of senior", "senior citizen name", "name", "pangalan"] },
+  { key: "date_of_birth", label: "Date of birth", aliases: ["date of birth", "birth date", "birthdate", "dob", "birthday", "petsa ng kapanganakan"] },
+  { key: "sex", label: "Sex", aliases: ["sex", "gender"] },
+  { key: "barangay_district", label: "Barangay", aliases: ["barangay", "brgy", "barangay district", "district", "address barangay", "barangay address"] },
+  { key: "house_street", label: "House / Street / Address", aliases: ["address", "complete address", "house street", "street", "house no", "residence", "residential address", "sitio purok"] },
+  { key: "age", label: "Age", aliases: ["age", "edad"] },
+  { key: "registration_date", label: "Original registration date", aliases: ["registration date", "date registered", "date of registration", "date issued", "registered date"] }
+];
+
+let LEGACY_IMPORT_MATRIX = [];
+let LEGACY_IMPORT_FILE_NAME = "";
+let LEGACY_IMPORT_HEADER_INDEX = 0;
+let LEGACY_IMPORT_PARSED_RECORDS = [];
+
+function openLegacyApplicantImport() {
+  const modal = document.getElementById("legacy-import-modal");
+  if (!modal) return;
+  modal.classList.add("show");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+  document.getElementById("legacy-import-error").hidden = true;
+}
+
+function closeLegacyApplicantImport() {
+  const modal = document.getElementById("legacy-import-modal");
+  if (!modal) return;
+  modal.classList.remove("show");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
+}
+
+function showLegacyImportError(message) {
+  const box = document.getElementById("legacy-import-error");
+  if (!box) return;
+  box.textContent = message;
+  box.hidden = false;
+}
+
+function parseLegacyCsv(text) {
+  const sample = String(text || "").slice(0, 12000);
+  const delimiters = [",", ";", "\t", "|"];
+  const delimiter = delimiters
+    .map(char => ({ char, count: (sample.match(new RegExp(char === "\t" ? "\\t" : "\\" + char, "g")) || []).length }))
+    .sort((a, b) => b.count - a.count)[0].char;
+
+  const rows = [];
+  let row = [];
+  let value = "";
+  let quoted = false;
+  const input = String(text || "").replace(/^\uFEFF/, "");
+
+  for (let i = 0; i < input.length; i++) {
+    const char = input[i];
+    if (char === '"') {
+      if (quoted && input[i + 1] === '"') {
+        value += '"';
+        i++;
+      } else {
+        quoted = !quoted;
+      }
+    } else if (!quoted && char === delimiter) {
+      row.push(value.trim());
+      value = "";
+    } else if (!quoted && (char === "\n" || char === "\r")) {
+      if (char === "\r" && input[i + 1] === "\n") i++;
+      row.push(value.trim());
+      if (row.some(cell => cell !== "")) rows.push(row);
+      row = [];
+      value = "";
+    } else {
+      value += char;
+    }
+  }
+  row.push(value.trim());
+  if (row.some(cell => cell !== "")) rows.push(row);
+  return rows;
+}
+
+async function parseLegacyPdf(file) {
+  if (!window.pdfjsLib) {
+    throw new Error("The PDF reader could not be loaded. Refresh the page and try again, or export the PDF to CSV.");
+  }
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+  const buffer = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data: buffer }).promise;
+  if (pdf.numPages > 40) {
+    throw new Error("This PDF has more than 40 pages. Split it into smaller files before importing.");
+  }
+
+  const rows = [];
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    const lines = new Map();
+
+    (content.items || []).forEach(item => {
+      const text = String(item.str || "").trim();
+      if (!text) return;
+      const x = Number(item.transform?.[4] || 0);
+      const y = Number(item.transform?.[5] || 0);
+      const key = Math.round(y / 3) * 3;
+      if (!lines.has(key)) lines.set(key, []);
+      lines.get(key).push({ x, width: Number(item.width || 0), text });
+    });
+
+    [...lines.entries()]
+      .sort((a, b) => b[0] - a[0])
+      .forEach(([, items]) => {
+        items.sort((a, b) => a.x - b.x);
+        const cells = [];
+        let current = "";
+        let lastRight = null;
+        items.forEach(item => {
+          const gap = lastRight === null ? 0 : item.x - lastRight;
+          if (lastRight !== null && gap > 24) {
+            cells.push(current.trim());
+            current = "";
+          }
+          current += (current ? " " : "") + item.text;
+          lastRight = item.x + item.width;
+        });
+        if (current.trim()) cells.push(current.trim());
+        if (cells.some(cell => cell)) rows.push(cells);
+      });
+  }
+
+  if (!rows.length) {
+    throw new Error("This PDF appears to be scanned or image-only, so no selectable text could be extracted. Please OCR the PDF first or use the original CSV/Excel record list.");
+  }
+  return rows;
+}
+
+function normalizeLegacyHeader(value) {
+  return String(value || "").normalize("NFKC").toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ").trim().replace(/\s+/g, " ");
+}
+
+function findLegacyHeaderIndex(rows) {
+  let bestIndex = 0;
+  let bestScore = -1;
+  rows.slice(0, Math.min(rows.length, 25)).forEach((row, index) => {
+    const normalized = row.map(normalizeLegacyHeader);
+    const score = LEGACY_IMPORT_FIELDS.reduce((total, field) => {
+      return total + (field.aliases.some(alias => normalized.includes(normalizeLegacyHeader(alias))) ? 1 : 0);
+    }, 0);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = index;
+    }
+  });
+  return bestIndex;
+}
+
+function inferLegacyColumnMapping(headers) {
+  const normalized = headers.map(normalizeLegacyHeader);
+  const result = {};
+  LEGACY_IMPORT_FIELDS.forEach(field => {
+    let bestIndex = -1;
+    let bestScore = 0;
+    normalized.forEach((header, index) => {
+      if (!header) return;
+      field.aliases.forEach(alias => {
+        const target = normalizeLegacyHeader(alias);
+        let score = 0;
+        if (header === target) score = 100;
+        else if (header.includes(target) || target.includes(header)) score = Math.min(header.length, target.length) >= 4 ? 60 : 0;
+        if (score > bestScore) {
+          bestScore = score;
+          bestIndex = index;
+        }
+      });
+    });
+    if (bestIndex >= 0 && bestScore >= 60) result[field.key] = String(bestIndex);
+  });
+  return result;
+}
+
+function buildLegacyImportMapping() {
+  const headerSelect = document.getElementById("legacy-import-header-row");
+  const mappingRoot = document.getElementById("legacy-import-mapping");
+  if (!headerSelect || !mappingRoot || !LEGACY_IMPORT_MATRIX.length) return;
+
+  LEGACY_IMPORT_HEADER_INDEX = Number(headerSelect.value || 0);
+  const headers = (LEGACY_IMPORT_MATRIX[LEGACY_IMPORT_HEADER_INDEX] || [])
+    .map((value, index) => String(value || "").trim() || "Column " + (index + 1));
+  const inferred = inferLegacyColumnMapping(headers);
+  const fieldsWithMapping = LEGACY_IMPORT_FIELDS;
+  mappingRoot.innerHTML = fieldsWithMapping.map(field => {
+    const selectedIndex = inferred[field.key] ?? "";
+    const options = ['<option value="">Not provided</option>'].concat(
+      headers.map((header, index) =>
+        '<option value="' + index + '">' + escapeApplicationHtml(header) + '</option>')
+    ).join("");
+    return '<label class="legacy-import-map-field"><span>' + escapeApplicationHtml(field.label) +
+      (field.required ? ' <b>Required</b>' : '') +
+      '</span><select data-legacy-field="' + field.key + '">' + options + '</select></label>';
+  }).join("");
+
+  // Use the strongest inferred mapping; preserve no assumptions where headings are unclear.
+  mappingRoot.querySelectorAll("select[data-legacy-field]").forEach(select => {
+    const guessed = inferred[select.dataset.legacyField];
+    if (guessed !== undefined) select.value = guessed;
+    select.addEventListener("change", renderLegacyImportPreview);
+  });
+  renderLegacyImportPreview();
+}
+
+function getLegacyImportMapping() {
+  const mapping = {};
+  document.querySelectorAll("#legacy-import-mapping select[data-legacy-field]").forEach(select => {
+    if (select.value !== "") mapping[select.dataset.legacyField] = Number(select.value);
+  });
+  return mapping;
+}
+
+function parseLegacyDate(value, format) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+
+  // Excel serial date (1900 date system).
+  if (/^\d{4,5}(?:\.0+)?$/.test(raw)) {
+    const serial = Number(raw);
+    if (serial >= 20000 && serial <= 80000) {
+      const date = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
+      return date.toISOString().slice(0, 10);
+    }
+  }
+
+  const numeric = raw.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+  if (numeric) {
+    let a = Number(numeric[1]);
+    let b = Number(numeric[2]);
+    let year = Number(numeric[3]);
+    if (year < 100) year += year >= 50 ? 1900 : 2000;
+    let month;
+    let day;
+    if (format === "mdy") {
+      month = a; day = b;
+    } else if (format === "ymd") {
+      year = Number(numeric[1]); month = Number(numeric[2]); day = Number(numeric[3]);
+    } else if (format === "dmy") {
+      day = a; month = b;
+    } else if (a > 12) {
+      day = a; month = b;
+    } else if (b > 12) {
+      month = a; day = b;
+    } else {
+      // Philippine records commonly use DD/MM/YYYY; this can be changed above.
+      day = a; month = b;
+    }
+    const date = new Date(Date.UTC(year, month - 1, day));
+    if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return "";
+    return date.toISOString().slice(0, 10);
+  }
+
+  const monthName = new Date(raw);
+  if (!Number.isNaN(monthName.getTime())) return monthName.toISOString().slice(0, 10);
+  return "";
+}
+
+function getLegacyImportRows() {
+  const mapping = getLegacyImportMapping();
+  const header = LEGACY_IMPORT_MATRIX[LEGACY_IMPORT_HEADER_INDEX] || [];
+  const dataRows = LEGACY_IMPORT_MATRIX.slice(LEGACY_IMPORT_HEADER_INDEX + 1);
+  const dateFormat = document.getElementById("legacy-import-date-format")?.value || "auto";
+
+  return dataRows.map((cells, index) => {
+    const get = key => {
+      const col = mapping[key];
+      return col === undefined ? "" : String(cells[col] ?? "").trim();
+    };
+    let first = get("first_name");
+    let middle = get("middle_name");
+    let surname = get("surname");
+    const fullName = get("full_name");
+    if ((!first || !surname) && fullName) {
+      const parts = fullName.split(/\s+/).filter(Boolean);
+      if (!first && parts.length) first = parts[0];
+      if (!surname && parts.length > 1) surname = parts[parts.length - 1];
+      if (!middle && parts.length > 2) middle = parts.slice(1, -1).join(" ");
+    }
+
+    const ageText = get("age").replace(/[^0-9.]/g, "");
+    const ageValue = ageText ? Number(ageText) : null;
+    const sexRaw = get("sex");
+    const sexLower = sexRaw.toLowerCase();
+    const sex = ["m", "male", "lalaki"].includes(sexLower) ? "Male"
+      : ["f", "female", "babae"].includes(sexLower) ? "Female" : sexRaw;
+
+    return {
+      source_row: LEGACY_IMPORT_HEADER_INDEX + index + 2,
+      application_id: get("application_id"),
+      first_name: first,
+      middle_name: middle,
+      surname,
+      date_of_birth: parseLegacyDate(get("date_of_birth"), dateFormat),
+      sex,
+      barangay_district: get("barangay_district"),
+      house_street: get("house_street"),
+      age: Number.isFinite(ageValue) ? ageValue : null,
+      registration_date: parseLegacyDate(get("registration_date"), dateFormat)
+    };
+  }).filter(row => Object.values(row).some(value => value !== "" && value !== null));
+}
+
+function renderLegacyImportPreview() {
+  const mapping = getLegacyImportMapping();
+  const records = getLegacyImportRows();
+  LEGACY_IMPORT_PARSED_RECORDS = records;
+  const requiredMapped = Boolean(mapping.first_name || mapping.full_name) &&
+    Boolean(mapping.surname || mapping.full_name);
+
+  const summary = document.getElementById("legacy-import-summary");
+  const count = document.getElementById("legacy-import-preview-count");
+  const head = document.getElementById("legacy-import-preview-head");
+  const body = document.getElementById("legacy-import-preview-body");
+  const submit = document.getElementById("legacy-import-submit");
+  const dateIssues = records.filter(row => row.date_of_birth === "" && getLegacyImportMapping().date_of_birth !== undefined).length;
+
+  if (summary) {
+    summary.innerHTML = '<span><strong>' + records.length.toLocaleString() + '</strong> rows detected</span>' +
+      '<span>' + (requiredMapped ? 'Name columns mapped' : 'Map First name and Surname to continue') + '</span>' +
+      (dateIssues ? '<span class="is-warning">' + dateIssues.toLocaleString() + ' date(s) need correction</span>' : '');
+  }
+  if (count) count.textContent = 'Showing ' + Math.min(records.length, 10) + ' of ' + records.length;
+  const columns = ["first_name", "middle_name", "surname", "date_of_birth", "sex", "barangay_district", "house_street"];
+  if (head) head.innerHTML = "<tr>" + columns.map(key => "<th>" + escapeApplicationHtml(LEGACY_IMPORT_FIELDS.find(field => field.key === key).label) + "</th>").join("") + "</tr>";
+  if (body) body.innerHTML = records.slice(0, 10).map(row =>
+    "<tr>" + columns.map(key => "<td>" + escapeApplicationHtml(row[key] || "—") + "</td>").join("") + "</tr>"
+  ).join("") || '<tr><td colspan="7" class="legacy-import-empty">No data rows detected.</td></tr>';
+  if (submit) submit.disabled = !requiredMapped || !records.length;
+}
+
+async function handleLegacyImportFile(file) {
+  if (!file) return;
+  const error = document.getElementById("legacy-import-error");
+  const workspace = document.getElementById("legacy-import-workspace");
+  const name = document.getElementById("legacy-import-file-name");
+  if (error) error.hidden = true;
+  if (workspace) workspace.hidden = true;
+
+  try {
+    if (file.size > 15 * 1024 * 1024) {
+      throw new Error("File is larger than 15 MB. Please split it into smaller files.");
+    }
+    LEGACY_IMPORT_FILE_NAME = file.name;
+    if (name) name.textContent = file.name + " · " + (file.size / 1024).toFixed(0) + " KB";
+    let rows;
+    if (/\.csv$/i.test(file.name) || file.type === "text/csv") {
+      rows = parseLegacyCsv(await file.text());
+    } else if (/\.pdf$/i.test(file.name) || file.type === "application/pdf") {
+      rows = await parseLegacyPdf(file);
+    } else {
+      throw new Error("Please choose a CSV or PDF file.");
+    }
+    if (!rows || rows.length < 2) {
+      throw new Error("The file does not contain a header row and applicant records.");
+    }
+    LEGACY_IMPORT_MATRIX = rows;
+    LEGACY_IMPORT_HEADER_INDEX = findLegacyHeaderIndex(rows);
+    const headerSelect = document.getElementById("legacy-import-header-row");
+    if (headerSelect) {
+      headerSelect.innerHTML = rows.slice(0, Math.min(rows.length, 25)).map((row, index) =>
+        '<option value="' + index + '"' + (index === LEGACY_IMPORT_HEADER_INDEX ? " selected" : "") +
+        '>Row ' + (index + 1) + ' · ' + escapeApplicationHtml(row.slice(0, 4).join(" / ")) + '</option>'
+      ).join("");
+      headerSelect.onchange = () => buildLegacyImportMapping();
+    }
+    const workspaceRoot = document.getElementById("legacy-import-workspace");
+    if (workspaceRoot) workspaceRoot.hidden = false;
+    buildLegacyImportMapping();
+  } catch (error) {
+    showLegacyImportError(error.message || "Unable to read this file.");
+  }
+}
+
+async function submitLegacyApplicantImport() {
+  const button = document.getElementById("legacy-import-submit");
+  const resultBox = document.getElementById("legacy-import-result");
+  const records = LEGACY_IMPORT_PARSED_RECORDS.filter(row => row.first_name && row.surname);
+  if (!records.length || !button) return;
+
+  const invalidDates = LEGACY_IMPORT_PARSED_RECORDS.filter(row =>
+    row.date_of_birth === "" && getLegacyImportMapping().date_of_birth !== undefined
+  );
+  if (invalidDates.length) {
+    showLegacyImportError("Some dates of birth could not be read. Correct the date format or remove the date-of-birth column mapping before importing. You can also change the date format above.");
+    return;
+  }
+
+  const confirmMessage = 'Import ' + records.length + ' historical applicant records? Existing matching records will be skipped. Imported records will be marked Completed and will not be given fabricated document or verification details.';
+  if (!window.confirm(confirmMessage)) return;
+
+  button.disabled = true;
+  const original = button.innerHTML;
+  button.innerHTML = '<i class="fi fi-rr-spinner" aria-hidden="true"></i> Importing…';
+  if (resultBox) { resultBox.hidden = false; resultBox.textContent = "Saving records securely…"; }
+
+  try {
+    const response = await fetch("https://management-backend-3cij.onrender.com/api/applications/import-legacy", {
+      method: "POST",
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ records })
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      throw new Error(payload.message || "The import could not be completed.");
+    }
+
+    const skipped = payload.skippedDuplicates?.length || 0;
+    const rejected = payload.rejectedRows?.length || 0;
+    if (resultBox) {
+      resultBox.innerHTML = '<strong>Import finished</strong><span>' + Number(payload.imported || 0).toLocaleString() +
+        ' record(s) added · ' + skipped.toLocaleString() + ' duplicate(s) skipped · ' +
+        rejected.toLocaleString() + ' row(s) need correction.</span>';
+      if (skipped || rejected) {
+        const details = document.createElement("details");
+        const summary = document.createElement("summary");
+        summary.textContent = "View skipped or rejected rows";
+        const list = document.createElement("ul");
+        [...(payload.skippedDuplicates || []), ...(payload.rejectedRows || [])].slice(0, 50).forEach(item => {
+          const li = document.createElement("li");
+          li.textContent = "Row " + item.row + ": " + item.reason;
+          list.appendChild(li);
+        });
+        details.append(summary, list);
+        resultBox.appendChild(details);
+      }
+    }
+    if (typeof showToast === "function") {
+      showToast(Number(payload.imported || 0).toLocaleString() + " historical applicant record(s) imported.", "success");
+    }
+    if (typeof loadApplicationsFromDatabase === "function") {
+      await loadApplicationsFromDatabase();
+    }
+  } catch (error) {
+    if (resultBox) {
+      resultBox.hidden = false;
+      resultBox.textContent = error.message || "The import failed. No records were confirmed.";
+    }
+    showLegacyImportError(error.message || "The import failed.");
+  } finally {
+    button.disabled = false;
+    button.innerHTML = original;
+  }
+}
+
