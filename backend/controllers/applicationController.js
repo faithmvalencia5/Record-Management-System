@@ -2444,6 +2444,230 @@ const updateMembershipStatus = async (req, res) => {
   }
 };
 
+
+const normalizeLegacyImportValue = (value) =>
+  String(value ?? "").normalize("NFKC").trim().replace(/\\s+/g, " ").toLocaleLowerCase();
+
+const normalizeLegacyImportDate = (value) => {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const iso = raw.match(/^(\\d{4}-\\d{2}-\\d{2})/);
+  if (iso) return iso[1];
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString().slice(0, 10);
+};
+
+const legacyImportIdentityKey = (row) => {
+  const name = [
+    row.first_name,
+    row.middle_name,
+    row.surname
+  ].map(normalizeLegacyImportValue).filter(Boolean).join("|");
+  const dob = normalizeLegacyImportDate(row.date_of_birth);
+  if (name && dob) return name + "|" + dob;
+  if (name && row.barangay_district) {
+    return name + "|barangay|" + normalizeLegacyImportValue(row.barangay_district);
+  }
+  return "";
+};
+
+// Import historical OSCA senior records in the same applications/status-history
+// tables used by the staff registry. No document, family, or verification rows
+// are fabricated for legacy records.
+const importLegacyApplicants = async (req, res) => {
+  const insertedApplicationIds = [];
+  try {
+    const incoming = Array.isArray(req.body?.records) ? req.body.records : [];
+    if (!incoming.length) {
+      return res.status(400).json({ success: false, message: "No applicant records were provided." });
+    }
+    if (incoming.length > 1000) {
+      return res.status(413).json({ success: false, message: "Import up to 1,000 records per batch. Split larger files into smaller batches." });
+    }
+
+    const prepared = [];
+    const rejectedRows = [];
+    const seenIncomingIds = new Set();
+    const seenIncomingIdentities = new Set();
+
+    incoming.forEach((source, index) => {
+      const rowNumber = Number.isInteger(source?.source_row) ? source.source_row : index + 1;
+      const firstName = String(source?.first_name || "").trim();
+      const surname = String(source?.surname || "").trim();
+      if (!firstName || !surname) {
+        rejectedRows.push({ row: rowNumber, reason: "First name and surname are required." });
+        return;
+      }
+
+      const dateOfBirth = normalizeLegacyImportDate(source?.date_of_birth);
+      if (dateOfBirth && !/^\\d{4}-\\d{2}-\\d{2}$/.test(dateOfBirth)) {
+        rejectedRows.push({ row: rowNumber, reason: "Date of birth is not a valid date." });
+        return;
+      }
+
+      const suppliedId = String(source?.application_id || "").trim();
+      if (suppliedId && seenIncomingIds.has(suppliedId.toLocaleLowerCase())) {
+        rejectedRows.push({ row: rowNumber, reason: "The same legacy Application/OSCA ID appears more than once in this file." });
+        return;
+      }
+      if (suppliedId) seenIncomingIds.add(suppliedId.toLocaleLowerCase());
+
+      const normalized = {
+        application_id: suppliedId || null,
+        first_name: firstName,
+        middle_name: String(source?.middle_name || "").trim() || null,
+        surname,
+        date_of_birth: dateOfBirth || null,
+        sex: String(source?.sex || "").trim() || null,
+        house_street: String(source?.house_street || "").trim() || null,
+        barangay_district: String(source?.barangay_district || "").trim() || null,
+      };
+
+      const age = Number(source?.age);
+      if (source?.age !== null && source?.age !== undefined && String(source.age).trim() !== "" && Number.isFinite(age) && age >= 0 && age <= 125) {
+        normalized.age = Math.trunc(age);
+      }
+
+      const registrationDate = normalizeLegacyImportDate(source?.registration_date);
+      if (registrationDate && /^\\d{4}-\\d{2}-\\d{2}$/.test(registrationDate)) {
+        normalized.created_at = registrationDate + "T00:00:00.000Z";
+      }
+
+      const identityKey = legacyImportIdentityKey(normalized);
+      if (identityKey && seenIncomingIdentities.has(identityKey)) {
+        rejectedRows.push({ row: rowNumber, reason: "A matching name and date of birth already appears in this file." });
+        return;
+      }
+      if (identityKey) seenIncomingIdentities.add(identityKey);
+      prepared.push({ sourceRow: rowNumber, identityKey, record: normalized });
+    });
+
+    if (!prepared.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No valid applicant rows were found. Check the required name fields and date formats.",
+        rejectedRows: rejectedRows.slice(0, 100),
+      });
+    }
+
+    // Read current IDs and identity keys in pages so imports are checked against
+    // the live database, not only against other rows in the uploaded file.
+    const existingIds = new Set();
+    const existingIdentityKeys = new Set();
+    let offset = 0;
+    const pageSize = 1000;
+    while (true) {
+      const { data, error } = await supabase
+        .from("applications")
+        .select("application_id, first_name, middle_name, surname, date_of_birth, barangay_district")
+        .range(offset, offset + pageSize - 1);
+      if (error) throw error;
+      (data || []).forEach(row => {
+        if (row.application_id) existingIds.add(String(row.application_id).toLocaleLowerCase());
+        const key = legacyImportIdentityKey(row);
+        if (key) existingIdentityKeys.add(key);
+      });
+      if (!data || data.length < pageSize) break;
+      offset += pageSize;
+    }
+
+    const recordsToInsert = [];
+    const skippedDuplicates = [];
+    const usedIds = new Set(existingIds);
+    const importStamp = Date.now();
+
+    prepared.forEach(item => {
+      const suppliedId = item.record.application_id;
+      if (suppliedId && usedIds.has(suppliedId.toLocaleLowerCase())) {
+        skippedDuplicates.push({ row: item.sourceRow, reason: "Application/OSCA ID already exists in the system." });
+        return;
+      }
+      if (item.identityKey && existingIdentityKeys.has(item.identityKey)) {
+        skippedDuplicates.push({ row: item.sourceRow, reason: "A senior with the same name and date of birth is already in the registry." });
+        return;
+      }
+
+      const applicationId = suppliedId || `OSCA-LEGACY-${importStamp}-${recordsToInsert.length + 1}`;
+      const record = { ...item.record, application_id: applicationId };
+      usedIds.add(applicationId.toLocaleLowerCase());
+      if (item.identityKey) existingIdentityKeys.add(item.identityKey);
+      recordsToInsert.push({ sourceRow: item.sourceRow, record });
+    });
+
+    if (!recordsToInsert.length) {
+      return res.status(200).json({
+        success: true,
+        message: "No new records were imported because all valid rows were already present.",
+        imported: 0,
+        skippedDuplicates,
+        rejectedRows: rejectedRows.slice(0, 100),
+      });
+    }
+
+    const now = new Date().toISOString();
+    try {
+      // Small batches keep the request within PostgREST payload limits.
+      for (let start = 0; start < recordsToInsert.length; start += 100) {
+        const batch = recordsToInsert.slice(start, start + 100).map(item => item.record);
+        const { data, error } = await supabase
+          .from("applications")
+          .insert(batch)
+          .select("application_id");
+        if (error) throw error;
+        (data || []).forEach(row => insertedApplicationIds.push(row.application_id));
+      }
+
+      const historyRows = insertedApplicationIds.map(application_id => ({
+        application_id,
+        status: "Completed",
+        updated_at: now,
+      }));
+
+      for (let start = 0; start < historyRows.length; start += 100) {
+        const { error } = await supabase
+          .from("application_status_history")
+          .insert(historyRows.slice(start, start + 100));
+        if (error) throw error;
+      }
+    } catch (writeError) {
+      // Compensate if a dependent status-history batch fails so the registry
+      // never retains imported records that do not appear as Completed.
+      if (insertedApplicationIds.length) {
+        const { error: rollbackError } = await supabase
+          .from("applications")
+          .delete()
+          .in("application_id", insertedApplicationIds);
+        if (rollbackError) {
+          console.error("[Legacy Import] Rollback failed; inserted Application IDs:", insertedApplicationIds, rollbackError);
+          writeError.message += " Import rollback also failed; contact the system administrator.";
+        }
+      }
+      throw writeError;
+    }
+
+    await createAuditLogFromRequest(req, {
+      action: "LEGACY_APPLICANTS_IMPORTED",
+      entityType: "APPLICATION",
+      details: `Imported ${insertedApplicationIds.length} historical applicant record(s); skipped ${skippedDuplicates.length} duplicate(s) and rejected ${rejectedRows.length} invalid row(s).`,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Historical applicant records imported successfully.",
+      imported: insertedApplicationIds.length,
+      skippedDuplicates,
+      rejectedRows: rejectedRows.slice(0, 100),
+    });
+  } catch (error) {
+    console.error("Legacy applicant import failed:", error);
+    return res.status(500).json({
+      success: false,
+      message: "The applicant import could not be completed. No partial records should remain.",
+      error: error.message,
+    });
+  }
+};
+
 // EXPORT
 module.exports = {
   getApplications,
