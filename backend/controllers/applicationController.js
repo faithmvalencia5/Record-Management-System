@@ -2548,6 +2548,7 @@ const importLegacyApplicants = async (req, res) => {
         success: false,
         message: "No valid applicant rows were found. Check the required name fields and date formats.",
         rejectedRows: rejectedRows.slice(0, 100),
+        rejectedCount: rejectedRows.length,
       });
     }
 
@@ -2601,7 +2602,9 @@ const importLegacyApplicants = async (req, res) => {
         message: "No new records were imported because all valid rows were already present.",
         imported: 0,
         skippedDuplicates,
+        skippedDuplicateCount: skippedDuplicates.length,
         rejectedRows: rejectedRows.slice(0, 100),
+        rejectedCount: rejectedRows.length,
       });
     }
 
@@ -2667,7 +2670,9 @@ const importLegacyApplicants = async (req, res) => {
       message: "Historical applicant records imported successfully.",
       imported: insertedApplicationIds.length,
       skippedDuplicates,
+      skippedDuplicateCount: skippedDuplicates.length,
       rejectedRows: rejectedRows.slice(0, 100),
+      rejectedCount: rejectedRows.length,
     });
   } catch (error) {
     console.error("Legacy applicant import failed:", error);
@@ -2681,6 +2686,7 @@ const importLegacyApplicants = async (req, res) => {
 
 // EXPORT
 module.exports = {
+  importLegacyApplicants,
   getApplications,
   getApplicationById,
   getIssuanceDetails,
