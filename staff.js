@@ -5556,6 +5556,96 @@ function parseLegacyCsv(text) {
   return rows;
 }
 
+
+async function loadLegacyTesseract() {
+  if (window.Tesseract) return window.Tesseract;
+  await new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5.0.4/dist/tesseract.min.js";
+    script.onload = resolve;
+    script.onerror = () => reject(new Error("The browser OCR library could not be loaded. Please try a searchable PDF or CSV file."));
+    document.head.appendChild(script);
+  });
+  if (!window.Tesseract) throw new Error("The browser OCR library did not initialize.");
+  return window.Tesseract;
+}
+
+function parseLegacyTesseractTsv(tsv) {
+  const groups = new Map();
+  String(tsv || "").split(/\r?\n/).slice(1).forEach(line => {
+    const cells = line.split("\t");
+    if (cells.length < 12 || cells[0] !== "5") return;
+    const text = String(cells[11] || "").trim();
+    const confidence = Number(cells[10]);
+    if (!text || (Number.isFinite(confidence) && confidence < 10)) return;
+    const key = [cells[1], cells[2], cells[3], cells[4]].join(":");
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push({
+      left: Number(cells[6]) || 0,
+      top: Number(cells[7]) || 0,
+      width: Number(cells[8]) || 0,
+      text
+    });
+  });
+
+  const rows = [];
+  [...groups.values()].sort((a, b) => (a[0]?.top || 0) - (b[0]?.top || 0)).forEach(words => {
+    words.sort((a, b) => a.left - b.left);
+    const cells = [];
+    let current = "";
+    let right = null;
+    words.forEach(word => {
+      const gap = right === null ? 0 : word.left - right;
+      if (right !== null && gap > 42) {
+        cells.push(current.trim());
+        current = "";
+      }
+      current += (current ? " " : "") + word.text;
+      right = word.left + word.width;
+    });
+    if (current.trim()) cells.push(current.trim());
+    if (cells.length) rows.push(cells);
+  });
+  return rows;
+}
+
+async function ocrLegacyPdfPages(pdf, pageCount) {
+  const tesseract = await loadLegacyTesseract();
+  if (pageCount > 8) {
+    throw new Error("This scanned PDF has more than 8 pages. Split it into smaller files before running browser OCR, or use a searchable PDF/CSV.");
+  }
+  const rows = [];
+  for (let pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
+    const label = document.getElementById("legacy-import-file-name");
+    if (label) label.textContent = LEGACY_IMPORT_FILE_NAME + " · reading scanned page " + pageNumber + " of " + pageCount;
+    const page = await pdf.getPage(pageNumber);
+    const viewport = page.getViewport({ scale: 2.2 });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    const context = canvas.getContext("2d");
+    await page.render({ canvasContext: context, viewport }).promise;
+    const result = await tesseract.recognize(canvas, "eng", {
+      logger: progress => {
+        if (label && progress.status === "recognizing text") {
+          const percent = Math.round((progress.progress || 0) * 100);
+          label.textContent = LEGACY_IMPORT_FILE_NAME + " · OCR page " + pageNumber + "/" + pageCount + " (" + percent + "%)";
+        }
+      }
+    });
+    const pageRows = parseLegacyTesseractTsv(result.data?.tsv);
+    if (pageRows.length) {
+      rows.push(...pageRows);
+    } else {
+      String(result.data?.text || "").split(/\r?\n/).map(line => line.trim()).filter(Boolean)
+        .forEach(line => rows.push([line]));
+    }
+    canvas.width = 1;
+    canvas.height = 1;
+  }
+  return rows;
+}
+
 async function parseLegacyPdf(file) {
   if (!window.pdfjsLib) {
     throw new Error("The PDF reader could not be loaded. Refresh the page and try again, or export the PDF to CSV.");
