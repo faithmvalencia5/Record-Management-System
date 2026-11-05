@@ -5696,8 +5696,19 @@ async function parseLegacyPdf(file) {
       });
   }
 
-  if (!rows.length) {
-    throw new Error("This PDF appears to be scanned or image-only, so no selectable text could be extracted. Please OCR the PDF first or use the original CSV/Excel record list.");
+  const headerScore = rows.slice(0, Math.min(rows.length, 25)).reduce((best, row) => {
+    const normalized = row.map(normalizeLegacyHeader);
+    const score = LEGACY_IMPORT_FIELDS.reduce((total, field) =>
+      total + (field.aliases.some(alias => normalized.includes(normalizeLegacyHeader(alias))) ? 1 : 0), 0);
+    return Math.max(best, score);
+  }, 0);
+
+  if (!rows.length || headerScore < 2) {
+    const ocrRows = await ocrLegacyPdfPages(pdf, pdf.numPages);
+    if (!ocrRows.length) {
+      throw new Error("No readable table rows were found in this PDF. Please use a clearer scan or CSV export.");
+    }
+    return ocrRows;
   }
   return rows;
 }
