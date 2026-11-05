@@ -465,12 +465,11 @@
             <p class="page-header__sub">Manage registered senior citizens and their completed applications</p>
           </div>
           <div class="page-header__controls">
-            <button class="btn btn--primary" onclick="showToast('New applicant form opened','info')">
-              <svg viewBox="0 0 16 16" fill="currentColor">
-                <path
-                  d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z" />
+            <button class="btn btn--primary" type="button" onclick="openLegacyApplicantImport()">
+              <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+                <path d="M8 1.5a.75.75 0 0 1 .75.75v8.69l2.22-2.22a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 0 1 1.06-1.06l2.22 2.22V2.25A.75.75 0 0 1 8 1.5zM2 13.25A.75.75 0 0 1 2.75 12.5h10.5a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1-.75-.75z"/>
               </svg>
-              Add Applicant
+              Import Records
             </button>
             <button class="btn btn--ghost" onclick="exportCSV()">
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
@@ -2412,13 +2411,77 @@
     </div>
   </div>
 
+  <!-- HISTORICAL APPLICANT IMPORT -->
+  <div class="modal-backdrop" id="legacy-import-modal" role="dialog" aria-modal="true" aria-labelledby="legacy-import-title">
+    <div class="modal legacy-import-modal">
+      <div class="applicant-profile-header">
+        <div>
+          <h2 id="legacy-import-title">Import Historical Applicant Records</h2>
+          <p class="legacy-import-subtitle">Bring existing OSCA records into the registered senior directory.</p>
+        </div>
+        <button type="button" class="modal-close" onclick="closeLegacyApplicantImport()" aria-label="Close import">&times;</button>
+      </div>
+      <div class="legacy-import-body">
+        <div class="legacy-import-notice">
+          <strong>Supported formats: CSV and searchable PDF</strong>
+          <span>Column headings do not need to match exactly. The system will suggest matches, and you can correct them before importing. Scanned/image-only PDFs need OCR first so their text can be selected and searched.</span>
+        </div>
+        <label class="legacy-import-file" for="legacy-import-file">
+          <span class="legacy-import-file-icon"><i class="fi fi-rr-cloud-upload" aria-hidden="true"></i></span>
+          <strong>Choose an existing OSCA records file</strong>
+          <span id="legacy-import-file-name">Choose CSV or PDF</span>
+          <input type="file" id="legacy-import-file" accept=".csv,.pdf,text/csv,application/pdf" onchange="handleLegacyImportFile(this.files?.[0])">
+        </label>
+        <div id="legacy-import-error" class="legacy-import-error" role="alert" hidden></div>
+        <div id="legacy-import-workspace" hidden>
+          <div class="legacy-import-summary" id="legacy-import-summary"></div>
+          <div class="legacy-import-options">
+            <label>Date format
+              <select id="legacy-import-date-format">
+                <option value="auto">Auto detect (Philippine format: DD/MM/YYYY)</option>
+                <option value="dmy">Day / Month / Year</option>
+                <option value="mdy">Month / Day / Year</option>
+                <option value="ymd">Year / Month / Day</option>
+              </select>
+            </label>
+            <label>Header row
+              <select id="legacy-import-header-row"></select>
+            </label>
+          </div>
+          <div class="legacy-import-mapping-title">
+            <strong>Match your file columns to applicant information</strong>
+            <span>Required: First name and Surname. Full name can be used when separate name columns are not available.</span>
+          </div>
+          <div class="legacy-import-mapping" id="legacy-import-mapping"></div>
+          <div class="legacy-import-preview-head">
+            <strong>Preview of imported records</strong>
+            <span id="legacy-import-preview-count"></span>
+          </div>
+          <div class="legacy-import-preview-wrap">
+            <table class="legacy-import-preview">
+              <thead id="legacy-import-preview-head"></thead>
+              <tbody id="legacy-import-preview-body"></tbody>
+            </table>
+          </div>
+          <div class="legacy-import-result" id="legacy-import-result" hidden></div>
+        </div>
+      </div>
+      <div class="legacy-import-footer">
+        <button type="button" class="btn btn--ghost" onclick="closeLegacyApplicantImport()">Cancel</button>
+        <button type="button" class="btn btn--primary" id="legacy-import-submit" onclick="submitLegacyApplicantImport()" disabled>
+          <i class="fi fi-rr-database" aria-hidden="true"></i> Import records
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST CONTAINER -->
   <div class="toast-container" id="toast-container"></div>
 
   <!-- SCRIPTS -->
   <script src="theme.js?v=1"></script>
   <script src="app.js?v=52"></script>
-  <script src="staff.js?v=multi-provider-ai-15"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>\n  <script src="staff.js?v=legacy-import-1"></script>
 </body>
 
 </html>
