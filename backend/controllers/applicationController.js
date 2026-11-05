@@ -2458,9 +2458,10 @@ const normalizeLegacyImportDate = (value) => {
 };
 
 const legacyImportIdentityKey = (row) => {
+  // Middle names are often absent or abbreviated in older paper records.
+  // Use first + surname + DOB for conservative duplicate detection.
   const name = [
     row.first_name,
-    row.middle_name,
     row.surname
   ].map(normalizeLegacyImportValue).filter(Boolean).join("|");
   const dob = normalizeLegacyImportDate(row.date_of_birth);
@@ -2587,7 +2588,7 @@ const importLegacyApplicants = async (req, res) => {
         return;
       }
 
-      const applicationId = suppliedId || `OSCA-LEGACY-${importStamp}-${recordsToInsert.length + 1}`;
+      const applicationId = suppliedId || `OSCA-LEGACY-${importStamp}-${Math.random().toString(36).slice(2, 8)}-${recordsToInsert.length + 1}`;
       const record = { ...item.record, application_id: applicationId };
       usedIds.add(applicationId.toLocaleLowerCase());
       if (item.identityKey) existingIdentityKeys.add(item.identityKey);
@@ -2617,10 +2618,13 @@ const importLegacyApplicants = async (req, res) => {
         (data || []).forEach(row => insertedApplicationIds.push(row.application_id));
       }
 
+      const createdAtById = new Map(
+        recordsToInsert.map(item => [item.record.application_id, item.record.created_at || now])
+      );
       const historyRows = insertedApplicationIds.map(application_id => ({
         application_id,
         status: "Completed",
-        updated_at: now,
+        updated_at: createdAtById.get(application_id) || now,
       }));
 
       for (let start = 0; start < historyRows.length; start += 100) {
@@ -2633,12 +2637,19 @@ const importLegacyApplicants = async (req, res) => {
       // Compensate if a dependent status-history batch fails so the registry
       // never retains imported records that do not appear as Completed.
       if (insertedApplicationIds.length) {
-        const { error: rollbackError } = await supabase
+        const { error: historyRollbackError } = await supabase
+          .from("application_status_history")
+          .delete()
+          .in("application_id", insertedApplicationIds);
+        const { error: applicationRollbackError } = await supabase
           .from("applications")
           .delete()
           .in("application_id", insertedApplicationIds);
-        if (rollbackError) {
-          console.error("[Legacy Import] Rollback failed; inserted Application IDs:", insertedApplicationIds, rollbackError);
+        if (historyRollbackError || applicationRollbackError) {
+          console.error("[Legacy Import] Rollback failed; inserted Application IDs:", insertedApplicationIds, {
+            historyRollbackError,
+            applicationRollbackError
+          });
           writeError.message += " Import rollback also failed; contact the system administrator.";
         }
       }
