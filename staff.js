@@ -5770,18 +5770,24 @@ function getLegacyImportRows() {
     const sex = ["m", "male", "lalaki"].includes(sexLower) ? "Male"
       : ["f", "female", "babae"].includes(sexLower) ? "Female" : sexRaw;
 
+    const birthDateRaw = get("date_of_birth");
+    const registrationDateRaw = get("registration_date");
+    const birthDateParsed = parseLegacyDate(birthDateRaw, dateFormat);
+    const registrationDateParsed = parseLegacyDate(registrationDateRaw, dateFormat);
+
     return {
       source_row: LEGACY_IMPORT_HEADER_INDEX + index + 2,
       application_id: get("application_id"),
       first_name: first,
       middle_name: middle,
       surname,
-      date_of_birth: parseLegacyDate(get("date_of_birth"), dateFormat),
+      date_of_birth: birthDateParsed,
+      date_of_birth_invalid: Boolean(birthDateRaw && !birthDateParsed),
       sex,
       barangay_district: get("barangay_district"),
       house_street: get("house_street"),
       age: Number.isFinite(ageValue) ? ageValue : null,
-      registration_date: parseLegacyDate(get("registration_date"), dateFormat)
+      registration_date: registrationDateParsed
     };
   }).filter(row => Object.values(row).some(value => value !== "" && value !== null));
 }
@@ -5798,7 +5804,7 @@ function renderLegacyImportPreview() {
   const head = document.getElementById("legacy-import-preview-head");
   const body = document.getElementById("legacy-import-preview-body");
   const submit = document.getElementById("legacy-import-submit");
-  const dateIssues = records.filter(row => row.date_of_birth === "" && getLegacyImportMapping().date_of_birth !== undefined).length;
+  const dateIssues = records.filter(row => row.date_of_birth_invalid).length;
 
   if (summary) {
     summary.innerHTML = '<span><strong>' + records.length.toLocaleString() + '</strong> rows detected</span>' +
@@ -5864,7 +5870,7 @@ async function submitLegacyApplicantImport() {
   if (!records.length || !button) return;
 
   const invalidDates = LEGACY_IMPORT_PARSED_RECORDS.filter(row =>
-    row.date_of_birth === "" && getLegacyImportMapping().date_of_birth !== undefined
+    row.date_of_birth_invalid
   );
   if (invalidDates.length) {
     showLegacyImportError("Some dates of birth could not be read. Correct the date format or remove the date-of-birth column mapping before importing. You can also change the date format above.");
