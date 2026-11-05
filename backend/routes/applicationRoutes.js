@@ -4,7 +4,8 @@ const router = express.Router();
 const { authenticateToken, requireRoles } = require("../middleware/authMiddleware");
 
 const {
-  importLegacyApplicants,\n  getApplications,
+  importLegacyApplicants,
+  getApplications,
   getApplicationById,
   getIssuanceDetails,
   saveApplicationValidation,
@@ -15,7 +16,9 @@ const {
   downloadIssuanceDocument,
 } = require("../controllers/applicationController");
 
-router.post("/import-legacy", authenticateToken, requireRoles("admin", "staff"), importLegacyApplicants);\n\nrouter.get("/", authenticateToken, requireRoles("admin", "staff"), getApplications);
+router.post("/import-legacy", authenticateToken, requireRoles("admin", "staff"), importLegacyApplicants);
+
+router.get("/", authenticateToken, requireRoles("admin", "staff"), getApplications);
 
 router.get("/:applicationId/issuance-details", authenticateToken, requireRoles("admin", "staff", "idmaker"), getIssuanceDetails);
 
