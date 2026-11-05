@@ -2446,12 +2446,12 @@ const updateMembershipStatus = async (req, res) => {
 
 
 const normalizeLegacyImportValue = (value) =>
-  String(value ?? "").normalize("NFKC").trim().replace(/\\s+/g, " ").toLocaleLowerCase();
+  String(value ?? "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase();
 
 const normalizeLegacyImportDate = (value) => {
   const raw = String(value ?? "").trim();
   if (!raw) return "";
-  const iso = raw.match(/^(\\d{4}-\\d{2}-\\d{2})/);
+  const iso = raw.match(/^(\d{4}-\d{2}-\d{2})/);
   if (iso) return iso[1];
   const parsed = new Date(raw);
   return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString().slice(0, 10);
@@ -2500,7 +2500,7 @@ const importLegacyApplicants = async (req, res) => {
       }
 
       const dateOfBirth = normalizeLegacyImportDate(source?.date_of_birth);
-      if (dateOfBirth && !/^\\d{4}-\\d{2}-\\d{2}$/.test(dateOfBirth)) {
+      if (dateOfBirth && !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
         rejectedRows.push({ row: rowNumber, reason: "Date of birth is not a valid date." });
         return;
       }
@@ -2529,7 +2529,7 @@ const importLegacyApplicants = async (req, res) => {
       }
 
       const registrationDate = normalizeLegacyImportDate(source?.registration_date);
-      if (registrationDate && /^\\d{4}-\\d{2}-\\d{2}$/.test(registrationDate)) {
+      if (registrationDate && /^\d{4}-\d{2}-\d{2}$/.test(registrationDate)) {
         normalized.created_at = registrationDate + "T00:00:00.000Z";
       }
 
