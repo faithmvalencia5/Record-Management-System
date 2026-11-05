@@ -5906,10 +5906,14 @@ function renderLegacyImportPreview() {
   const body = document.getElementById("legacy-import-preview-body");
   const submit = document.getElementById("legacy-import-submit");
   const dateIssues = records.filter(row => row.date_of_birth_invalid).length;
+  const nameIssues = records.filter(row => !row.first_name || !row.surname).length;
+  const dateFormatSelect = document.getElementById("legacy-import-date-format");
+  if (dateFormatSelect) dateFormatSelect.onchange = renderLegacyImportPreview;
 
   if (summary) {
     summary.innerHTML = '<span><strong>' + records.length.toLocaleString() + '</strong> rows detected</span>' +
       '<span>' + (requiredMapped ? 'Name columns mapped' : 'Map First name and Surname to continue') + '</span>' +
+      (nameIssues ? '<span class="is-warning">' + nameIssues.toLocaleString() + ' row(s) missing a complete name will be skipped</span>' : '') +
       (dateIssues ? '<span class="is-warning">' + dateIssues.toLocaleString() + ' date(s) need correction</span>' : '');
   }
   if (count) count.textContent = 'Showing ' + Math.min(records.length, 10) + ' of ' + records.length;
@@ -5968,6 +5972,7 @@ async function submitLegacyApplicantImport() {
   const button = document.getElementById("legacy-import-submit");
   const resultBox = document.getElementById("legacy-import-result");
   const records = LEGACY_IMPORT_PARSED_RECORDS.filter(row => row.first_name && row.surname);
+  const missingNameCount = LEGACY_IMPORT_PARSED_RECORDS.length - records.length;
   if (!records.length || !button) return;
 
   const invalidDates = LEGACY_IMPORT_PARSED_RECORDS.filter(row =>
@@ -6002,12 +6007,17 @@ async function submitLegacyApplicantImport() {
     if (resultBox) {
       resultBox.innerHTML = '<strong>Import finished</strong><span>' + Number(payload.imported || 0).toLocaleString() +
         ' record(s) added · ' + skipped.toLocaleString() + ' duplicate(s) skipped · ' +
-        rejected.toLocaleString() + ' row(s) need correction.</span>';
-      if (skipped || rejected) {
+        (rejected + missingNameCount).toLocaleString() + ' row(s) not imported.</span>';
+      if (skipped || rejected || missingNameCount) {
         const details = document.createElement("details");
         const summary = document.createElement("summary");
         summary.textContent = "View skipped or rejected rows";
         const list = document.createElement("ul");
+        if (missingNameCount) {
+          const li = document.createElement("li");
+          li.textContent = missingNameCount + " row(s): first name or surname missing in the source data.";
+          list.appendChild(li);
+        }
         [...(payload.skippedDuplicates || []), ...(payload.rejectedRows || [])].slice(0, 50).forEach(item => {
           const li = document.createElement("li");
           li.textContent = "Row " + item.row + ": " + item.reason;
