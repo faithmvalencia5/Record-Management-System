@@ -2,6 +2,13 @@ Senior Citizens Bureau - ID Management System
 
 A web-based management portal for the Office of the Senior Citizens Affairs (OSCA), Municipality of Bauan. It supports application processing and ID issuance through Admin, Staff, and ID Maker portals.
 
+## Features
+
+- Role-based portals and access
+- Application review, status updates, and ID issuance
+- Application document retrieval through Supabase Storage
+- AI-assisted analytics and Bauan residency validation
+
 ## Local Setup
 
 Requires Node.js 22 or later and a configured Supabase project.
@@ -49,6 +56,7 @@ Do not commit API keys.
 
 - `login.html`, `admin.html`, `staff.html`, `idmaker.html`: Portal pages
 - `app.js`, `admin.js`, `staff.js`, `idmaker.js`: Portal behavior
+- `base.css`, `admin.css`, `staff.css`, `idmaker.css`: Portal styles
 - `backend/`: Express API, routes, Supabase configuration, and controllers
 - `api/index.js`: Vercel serverless entry point
 - `local-server.js`: Local frontend server and same-origin API proxy
